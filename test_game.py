@@ -314,6 +314,22 @@ class GameTests(unittest.TestCase):
             for target in location.exits.values():
                 self.assertIn(target, game_map.locations)
 
+    def test_mist_marsh_expansion_is_connected_and_reward_registered(self):
+        game_map = build_world()
+        self.assertEqual(len(game_map.locations), 22)
+        self.assertEqual(
+            game_map.locations["deep_forest"].exits["안개 습지로 들어간다"],
+            "mist_marsh",
+        )
+        self.assertEqual(
+            game_map.locations["forgotten_shrine"].exits["달빛 샘으로 들어간다"],
+            "moonlit_spring",
+        )
+        boss = game_map.locations["forgotten_shrine"].boss()[0]
+        self.assertEqual(boss.name, "안개의 여왕")
+        self.assertEqual(boss.weakness, "thunder")
+        self.assertIs(data.EQUIPMENT_BY_NAME["안개의 망토"], data.MIST_CLOAK)
+
     def test_tower_summit_returns_directly_to_village(self):
         game_map = build_world()
         summit = game_map.locations["tower_summit"]

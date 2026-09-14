@@ -449,6 +449,48 @@ def create_mine_drake() -> Enemy:
     )
 
 
+def create_marsh_slime() -> Enemy:
+    """안개 습지의 독성 점액 생물. 불에 약하고 냉기에 강하다."""
+    return Enemy(
+        name="늪지 슬라임", job="몬스터", level=3,
+        max_hp=34, max_mp=0, attack=8, defense=5, speed=3,
+        skills=[POISON_FANG], exp_reward=19, gold_reward=10,
+        smart_ai=False, weakness="fire", resistance="ice",
+        loot_pool=[(ANTIDOTE, 0.25)],
+    )
+
+
+def create_marsh_hunter() -> Enemy:
+    """습지의 빠른 포식자. 마비 공격으로 약한 대상을 노린다."""
+    return Enemy(
+        name="습지 사냥꾼", job="몬스터", level=4,
+        max_hp=38, max_mp=10, attack=12, defense=4, speed=9,
+        skills=[PARALYZE_STRIKE], exp_reward=24, gold_reward=14,
+        loot_pool=[(POTION, 0.15), (ANTIDOTE, 0.1)],
+    )
+
+
+def create_will_o_wisp() -> Enemy:
+    """침수된 길을 떠도는 불빛. 저주와 냉기 마법을 사용한다."""
+    return Enemy(
+        name="도깨비불", job="몬스터", level=4,
+        max_hp=28, max_mp=18, attack=8, defense=3, speed=8,
+        skills=[CURSE_WHISPER, BLIZZARD], exp_reward=23, gold_reward=13,
+        resistance="fire", loot_pool=[(ETHER, 0.2)],
+    )
+
+
+def create_mist_queen() -> Enemy:
+    """잊힌 사당을 지배하는 습지 보스. 약화와 광역 공격을 교차 사용한다."""
+    return Enemy(
+        name="안개의 여왕", job="보스", level=7,
+        max_hp=125, max_mp=44, attack=15, defense=8, speed=8,
+        skills=[WEAKEN, CHAOS_WAVE, PARALYZE_STRIKE], exp_reward=95, gold_reward=65,
+        smart_ai=True, weakness="thunder", resistance="ice",
+        action_pattern=[WEAKEN, CHAOS_WAVE, PARALYZE_STRIKE, None],
+    )
+
+
 def create_sealed_demon_lord() -> Enemy:
     """메인 스토리의 진짜 최종 보스. 폐허 지하에 봉인되어 있던 존재.
     강력한 단일 공격과 전체 공격, 마비를 섞어 쓰는 진짜 최종전다운 복합형"""
@@ -521,6 +563,13 @@ LUCKY_RING = Equipment(
     description="동굴 비밀 금고에서 발견한 반지. 공격력 +2, 속도 +2",
     price=45, rarity="rare", critical_rate_bonus=0.05, evasion_rate_bonus=0.05,
     special_effect="치명타율·회피율 +5%",
+)
+
+
+MIST_CLOAK = Equipment(
+    name="안개의 망토", slot="armor", defense_bonus=5, speed_bonus=2, max_hp_bonus=8,
+    description="안개의 여왕이 두르던 망토. 방어력 +5, 속도 +2, 최대 HP +8",
+    price=95, rarity="rare", evasion_rate_bonus=0.05, special_effect="회피율 +5%",
 )
 
 
@@ -617,5 +666,6 @@ EQUIPMENT_BY_NAME = {
     e.name: e for e in [
         IRON_SWORD, OAK_STAFF, LEATHER_ARMOR, SWIFT_CHARM,
         MITHRIL_DAGGER, LEGENDARY_ARMOR, DRAKE_SCALE_ARMOR, SEALBREAKER_BLADE, LUCKY_RING,
+        MIST_CLOAK,
     ]
 }

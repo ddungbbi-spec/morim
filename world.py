@@ -113,6 +113,7 @@ def build_world() -> GameMap:
         description="빛이 거의 들지 않는다. 짐승의 울음소리가 들려온다.",
         exits={
             "그림자 골짜기로 향한다": "shadow_valley",
+            "안개 습지로 들어간다": "mist_marsh",
             "숲 입구로 돌아간다": "forest_entrance",
         },
         encounter_chance=0.5,
@@ -125,6 +126,58 @@ def build_world() -> GameMap:
             lambda: [data.create_slime(), data.create_slime()],
             lambda: [data.create_goblin(), data.create_poison_spider()],
         ],
+    )
+
+    mist_marsh = Location(
+        loc_id="mist_marsh",
+        name="안개 습지",
+        description="발목까지 차오른 물 위로 짙은 안개가 흐른다. 썩은 나무 사이에서 무언가 꿈틀거린다.",
+        exits={
+            "침수된 나무길로 향한다": "sunken_boardwalk",
+            "깊은 숲으로 돌아간다": "deep_forest",
+        },
+        encounter_chance=0.5,
+        encounter_pool=[
+            lambda: [data.create_marsh_slime()],
+            lambda: [data.create_marsh_hunter()],
+            lambda: [data.create_poison_spider(), data.create_marsh_slime()],
+        ],
+    )
+
+    sunken_boardwalk = Location(
+        loc_id="sunken_boardwalk",
+        name="침수된 나무길",
+        description="반쯤 잠긴 널빤지 길 끝으로 오래된 석등이 희미하게 빛난다.",
+        exits={
+            "잊힌 사당으로 향한다": "forgotten_shrine",
+            "안개 습지로 돌아간다": "mist_marsh",
+        },
+        encounter_chance=0.6,
+        encounter_pool=[
+            lambda: [data.create_will_o_wisp()],
+            lambda: [data.create_marsh_hunter(), data.create_marsh_slime()],
+            lambda: [data.create_will_o_wisp(), data.create_poison_spider()],
+        ],
+    )
+
+    forgotten_shrine = Location(
+        loc_id="forgotten_shrine",
+        name="잊힌 사당",
+        description="물에 잠긴 사당 중앙에서 안개의 여왕이 잠든 제단을 지키고 있다.",
+        exits={
+            "달빛 샘으로 들어간다": "moonlit_spring",
+            "침수된 나무길로 돌아간다": "sunken_boardwalk",
+        },
+        boss=lambda: [data.create_mist_queen()],
+        loot_equipment=data.MIST_CLOAK,
+    )
+
+    moonlit_spring = Location(
+        loc_id="moonlit_spring",
+        name="달빛 샘",
+        description="안개가 걷힌 샘 위로 달빛이 쏟아진다. 고요한 물결이 긴 여정의 끝을 알린다.",
+        exits={"잊힌 사당으로 돌아간다": "forgotten_shrine"},
+        loot_item=data.ETHER,
     )
 
     shadow_valley = Location(
@@ -320,7 +373,9 @@ def build_world() -> GameMap:
 
     return GameMap(
         locations=[
-            village, forest_entrance, deep_forest, shadow_valley, ruins, seal_gate, final_chamber,
+            village, forest_entrance, deep_forest,
+            mist_marsh, sunken_boardwalk, forgotten_shrine, moonlit_spring,
+            shadow_valley, ruins, seal_gate, final_chamber,
             cave, cave_treasure, cave_vault, ending,
             tower_floor_1, tower_floor_2, tower_floor_3, tower_summit,
             mine_entrance, mine_deep, mine_depths,
