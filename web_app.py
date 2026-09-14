@@ -269,11 +269,11 @@ class WebGame:
             return self._error("퀘스트 게시판은 시작 마을에서 이용할 수 있습니다.")
         if quest_id not in QUESTS:
             return self._error("존재하지 않는 퀘스트입니다.")
-        self.quest_log.refresh_from_world(self.game_map)
+        self.quest_log.refresh_from_world(self.game_map, self.flags)
         if operation == "accept":
             if not self.quest_log.accept(quest_id):
                 return self._error("지금은 이 퀘스트를 수락할 수 없습니다.")
-            self.quest_log.refresh_from_world(self.game_map)
+            self.quest_log.refresh_from_world(self.game_map, self.flags)
             self._log(f"퀘스트 [{QUESTS[quest_id].title}]을(를) 수락했습니다.")
         elif operation == "claim":
             if not self.quest_log.claim(
@@ -365,7 +365,7 @@ class WebGame:
     def _enter_current_location(self) -> None:
         location = self.game_map.current
         self.quest_log.sync_story_flags(self.flags)
-        self.quest_log.refresh_from_world(self.game_map)
+        self.quest_log.refresh_from_world(self.game_map, self.flags)
         if location.dialogue and not location.dialogue_played:
             self.dialogue = location.dialogue
             self.dialogue_node_id = self.dialogue.start_id
@@ -579,7 +579,7 @@ class WebGame:
                         f"{bonus_gold}G, {equipment.display_name}"
                     )
             location.boss_defeated = True
-            self.quest_log.refresh_from_world(self.game_map)
+            self.quest_log.refresh_from_world(self.game_map, self.flags)
             self._log(f"{location.name}의 위험이 사라졌습니다.")
             self._after_location_dialogue()
         elif context == "random":

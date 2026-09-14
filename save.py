@@ -288,7 +288,7 @@ def load_game(path: str = DEFAULT_SAVE_PATH):
     from quests import QuestLog
     quest_log = QuestLog(payload.get("quest_states", {}))
     quest_log.sync_story_flags(flags)
-    quest_log.refresh_from_world(game_map)
+    quest_log.refresh_from_world(game_map, flags)
     return party, inventory, game_map, flags, equipment_inventory, quest_log
 
 

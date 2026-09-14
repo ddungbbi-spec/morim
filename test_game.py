@@ -133,7 +133,7 @@ class GameTests(unittest.TestCase):
         self.assertTrue(quest_log.accept("lost_herbalist"))
         game_map.locations["forgotten_shrine"].boss_defeated = True
         quest_log.refresh_from_world(game_map)
-        self.assertEqual(quest_log.status("lost_herbalist"), "ready")
+        self.assertEqual(quest_log.status("lost_herbalist"), "active")
         self.assertIsNotNone(game_map.locations["moonlit_spring"].dialogue)
 
         flags = {}
@@ -141,6 +141,8 @@ class GameTests(unittest.TestCase):
             dialogues.moonlit_spring_dialogue().run(flags)
         self.assertTrue(flags["found_herbalist"])
         self.assertTrue(flags["escorted_herbalist"])
+        quest_log.refresh_from_world(game_map, flags)
+        self.assertEqual(quest_log.status("lost_herbalist"), "ready")
 
         party = Party([data.create_healer("구조대")], gold=0)
         inventory = []

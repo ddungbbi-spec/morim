@@ -23,6 +23,7 @@ class QuestDefinition:
     main_quest: bool = False
     bonus_flag: str = ""
     bonus_gold_reward: int = 0
+    completion_flag: str = ""
 
 
 QUESTS: Dict[str, QuestDefinition] = {
@@ -55,6 +56,7 @@ QUESTS: Dict[str, QuestDefinition] = {
         item_rewards=(("해독제", 2), ("에테르", 1)),
         bonus_flag="escorted_herbalist",
         bonus_gold_reward=20,
+        completion_flag="found_herbalist",
     ),
 }
 
@@ -82,13 +84,17 @@ class QuestLog:
         if flags.get("promised_elder") is True:
             self.accept("ruins_darkness")
 
-    def refresh_from_world(self, game_map) -> None:
-        """활성 퀘스트의 목표 보스가 쓰러졌는지 확인한다."""
+    def refresh_from_world(self, game_map, flags: dict | None = None) -> None:
+        """활성 퀘스트의 보스와 대화 플래그 완료 조건을 확인한다."""
         for quest_id, definition in QUESTS.items():
             if self.states[quest_id] != "active":
                 continue
             location = game_map.locations.get(definition.target_location_id)
-            if location and location.boss_defeated:
+            flag_ready = (
+                not definition.completion_flag
+                or bool((flags or {}).get(definition.completion_flag))
+            )
+            if location and location.boss_defeated and flag_ready:
                 self.states[quest_id] = "ready"
 
     def claim(
@@ -132,7 +138,7 @@ def run_quest_board(
     quest_log: QuestLog, party, inventory: list, game_map, flags: dict | None = None,
 ) -> None:
     """마을 의뢰 게시판에서 수락과 보상 수령을 처리한다."""
-    quest_log.refresh_from_world(game_map)
+    quest_log.refresh_from_world(game_map, flags)
     status_labels = {
         "available": "수락 가능",
         "active": "진행 중",
@@ -162,7 +168,7 @@ def run_quest_board(
         if status == "available":
             if prompt_yes_no("이 의뢰를 수락할까요? (y/n)> "):
                 quest_log.accept(quest_id)
-                quest_log.refresh_from_world(game_map)
+                quest_log.refresh_from_world(game_map, flags)
                 print("의뢰를 수락했습니다.")
         elif status == "ready":
             quest_log.claim(quest_id, party, inventory, flags)

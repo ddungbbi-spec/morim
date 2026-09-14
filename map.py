@@ -117,7 +117,7 @@ def explore(
     while True:
         loc = game_map.current
         quest_log.sync_story_flags(flags)
-        quest_log.refresh_from_world(game_map)
+        quest_log.refresh_from_world(game_map, flags)
         print(f"\n=== {loc.name} ===")
         print(loc.description)
 
