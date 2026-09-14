@@ -18,6 +18,10 @@ from typing import Callable, Dict, List, Optional
 
 import data
 import save as game_save
+from blacksmith import (
+    MAX_ENHANCEMENT, can_upgrade, enhance_equipment,
+    matching_material_indices, upgrade_cost,
+)
 from combat import _describe_skill_result
 from equipment import SLOT_NAMES_KR
 from models import Enemy, Item, Party, PlayerCharacter, Skill
@@ -215,6 +219,21 @@ class WebGame:
             f"도전의 탑 {tower_challenge_tier(self.flags)}단계가 열렸습니다. "
             "탑의 수호자가 더욱 강해졌습니다."
         )
+        return {"ok": True, "state": self.state()}
+
+    def blacksmith_action(self, equipment_index) -> dict:
+        if self.phase != "explore" or self.game_map.current_id != "village":
+            return self._error("대장간은 시작 마을에서 이용할 수 있습니다.")
+        try:
+            index = self._index(
+                equipment_index, len(self.equipment_inventory), "강화 장비"
+            )
+            upgraded, cost = enhance_equipment(
+                self.party, self.equipment_inventory, index
+            )
+        except (IndexError, TypeError, ValueError) as error:
+            return self._error(str(error))
+        self._log(f"대장간 강화 성공! {upgraded.display_name} ({cost}G 사용)")
         return {"ok": True, "state": self.state()}
 
     def equipment_action(self, operation: str, member_index, equipment_index=None, slot=None) -> dict:
@@ -708,6 +727,7 @@ class WebGame:
             "special_effect": item.special_effect,
             "price": item.price,
             "rarity": item.rarity,
+            "enhancement_level": item.enhancement_level,
         }
 
     def state(self) -> dict:
@@ -776,6 +796,30 @@ class WebGame:
                     for index, item in enumerate(self.equipment_inventory)
                 ],
             }
+        blacksmith_state = None
+        if location.id == "village":
+            blacksmith_equipment = []
+            for index, item in enumerate(self.equipment_inventory):
+                allowed, reason = can_upgrade(
+                    self.party, self.equipment_inventory, index
+                )
+                blacksmith_equipment.append({
+                    "index": index,
+                    **self._equipment_state(item),
+                    "cost": (
+                        None if item.enhancement_level >= MAX_ENHANCEMENT
+                        else upgrade_cost(item)
+                    ),
+                    "materials": len(matching_material_indices(
+                        self.equipment_inventory, index
+                    )),
+                    "can_upgrade": allowed,
+                    "reason": reason,
+                })
+            blacksmith_state = {
+                "max_level": MAX_ENHANCEMENT,
+                "equipment": blacksmith_equipment,
+            }
         slots = [
             {"slot": number, "exists": exists, "summary": summary}
             for number, exists, summary in game_save.list_slots(save_dir=self.save_dir)
@@ -827,6 +871,7 @@ class WebGame:
                 for quest_id, definition in QUESTS.items()
             ],
             "shop": shop_state,
+            "blacksmith": blacksmith_state,
             "inn": location.has_inn,
             "tower": {
                 "clear_count": tower_clear_count(self.flags),
@@ -977,6 +1022,8 @@ class GameHandler(BaseHTTPRequestHandler):
                 result = game.shop_action(payload.get("operation", ""), payload.get("index"))
             elif self.path == "/api/inn":
                 result = game.inn_action()
+            elif self.path == "/api/blacksmith":
+                result = game.blacksmith_action(payload.get("equipment"))
             elif self.path == "/api/tower":
                 result = game.tower_action(payload.get("operation", ""))
             elif self.path == "/api/equipment":

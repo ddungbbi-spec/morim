@@ -13,6 +13,7 @@ import data
 import save
 import balance_simulator
 import equipment_simulator
+from blacksmith import MAX_ENHANCEMENT, enhance_equipment, upgrade_cost
 from quests import QuestLog
 from combat import Battle
 from input_utils import prompt_index
@@ -308,6 +309,38 @@ class GameTests(unittest.TestCase):
         self.assertIn("에어로라", names)
         self.assertIn("파이가", names)
 
+    def test_blacksmith_enhances_clone_and_preserves_original(self):
+        party = Party([data.create_warrior("대장장이 손님")], gold=500)
+        equipment_inventory = [data.IRON_SWORD, data.IRON_SWORD]
+        original_attack = data.IRON_SWORD.attack_bonus
+        cost = upgrade_cost(data.IRON_SWORD)
+
+        upgraded, paid = enhance_equipment(party, equipment_inventory, 0)
+
+        self.assertEqual(paid, cost)
+        self.assertEqual(party.gold, 500 - cost)
+        self.assertEqual(len(equipment_inventory), 1)
+        self.assertEqual(upgraded.enhancement_level, 1)
+        self.assertEqual(upgraded.attack_bonus, original_attack + 2)
+        self.assertIn("+1", upgraded.display_name)
+        self.assertEqual(data.IRON_SWORD.enhancement_level, 0)
+        self.assertEqual(data.IRON_SWORD.attack_bonus, original_attack)
+
+    def test_blacksmith_max_level_and_save_round_trip(self):
+        party = Party([data.create_warrior("강화 장인")], gold=9999)
+        equipment = data.IRON_SWORD
+        for level in range(1, MAX_ENHANCEMENT + 1):
+            equipment_inventory = [equipment, data.IRON_SWORD]
+            equipment, _ = enhance_equipment(party, equipment_inventory, 0)
+            self.assertEqual(equipment.enhancement_level, level)
+
+        with self.assertRaisesRegex(ValueError, "최대 강화"):
+            enhance_equipment(party, [equipment, data.IRON_SWORD], 0)
+
+        restored = save._equipment_from_data(save._equipment_to_dict(equipment))
+        self.assertEqual(restored.enhancement_level, MAX_ENHANCEMENT)
+        self.assertEqual(restored.attack_bonus, equipment.attack_bonus)
+
     def test_world_links_are_valid(self):
         game_map = build_world()
         for location in game_map.locations.values():
@@ -435,7 +468,7 @@ class GameTests(unittest.TestCase):
                 with open(path, "r", encoding="utf-8") as stream:
                     payload = json.load(stream)
                 metadata = payload["metadata"]
-                self.assertEqual(payload["save_version"], 7)
+                self.assertEqual(payload["save_version"], 8)
                 self.assertEqual(metadata["play_time_seconds"], 3661)
                 self.assertEqual(metadata["location_name"], "시작 마을")
                 self.assertEqual(metadata["party_jobs"], ["전사", "마법사"])

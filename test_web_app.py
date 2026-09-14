@@ -301,6 +301,23 @@ class WebGameTests(unittest.TestCase):
         self.assertTrue(sold["ok"])
         self.assertIn(data.RUSTY_KEY, self.game.inventory)
 
+    def test_web_blacksmith_upgrades_only_in_village(self):
+        self.finish_intro()
+        self.game.party.gold = 500
+        self.game.equipment_inventory.extend([data.IRON_SWORD, data.IRON_SWORD])
+        state = self.game.state()
+        self.assertTrue(state["blacksmith"]["equipment"][0]["can_upgrade"])
+
+        result = self.game.blacksmith_action(0)
+        self.assertTrue(result["ok"])
+        self.assertEqual(len(self.game.equipment_inventory), 1)
+        self.assertEqual(self.game.equipment_inventory[0].enhancement_level, 1)
+        self.assertIn("+1", result["state"]["equipment_inventory"][0]["display_name"])
+
+        self.game.game_map.current_id = "forest_entrance"
+        blocked = self.game.blacksmith_action(0)
+        self.assertFalse(blocked["ok"])
+
     def test_web_equipment_equip_swap_and_unequip(self):
         self.finish_intro()
         self.game.equipment_inventory.extend([data.IRON_SWORD, data.OAK_STAFF])

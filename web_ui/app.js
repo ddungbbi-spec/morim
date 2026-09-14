@@ -189,6 +189,7 @@ function renderCommands() {
     }).join("");
     const utilities = `${gameState.shop ? `<button class="command-button utility" onclick="openUtility('shop')">상점</button>` : ""}
       ${gameState.inn ? `<button class="command-button utility" onclick="innRequest()">여관 · 전원 회복</button>` : ""}
+      ${gameState.blacksmith ? `<button class="command-button utility" onclick="openUtility('blacksmith')">대장간 · 장비 강화</button>` : ""}
       ${gameState.tower?.can_retry ? `<button class="command-button utility" onclick="towerRetry()">도전의 탑 ${gameState.tower.next_tier}단계 개방</button>` : ""}
       <button class="command-button utility" onclick="openUtility('equipment')">장비</button>
       ${gameState.location.id === "village" ? `<button class="command-button utility" onclick="openUtility('quest')">의뢰 게시판</button>` : ""}
@@ -232,6 +233,20 @@ function renderUtilityPanel() {
       ${utilitySection("아이템 구매", buyItems)}
       ${utilitySection("장비 구매", buyEquipment)}
       ${utilitySection("판매", sellItems + sellEquipment)}`);
+  } else if (utilityMode === "blacksmith") {
+    if (!gameState.blacksmith) return clearUtility();
+    const equipment = gameState.blacksmith.equipment.map((item) => {
+      const detail = item.enhancement_level >= gameState.blacksmith.max_level
+        ? "최대 강화 단계"
+        : `${item.cost}G · 동일 장비 ${item.materials}개 보유${item.reason ? ` · ${item.reason}` : ""}`;
+      const action = item.can_upgrade ? `blacksmithRequest(${item.index})` : "";
+      return action
+        ? utilityButton(`${item.display_name} 강화`, detail, action)
+        : `<div class="utility-card disabled"><strong>${escapeHtml(item.display_name)}</strong><span>${escapeHtml(detail)}</span></div>`;
+    }).join("");
+    panel.innerHTML = utilityShell("마을 대장간", `
+      <p class="stat-line">동일한 이름의 장비 1개와 골드를 사용해 최대 +${gameState.blacksmith.max_level}까지 확정 강화합니다.</p>
+      ${utilitySection("강화할 장비", equipment)}`);
   } else if (utilityMode === "equipment") {
     equipmentMember = Math.max(0, Math.min(equipmentMember, gameState.party.length - 1));
     const member = gameState.party[equipmentMember];
@@ -285,6 +300,11 @@ function openUtility(mode) { utilityMode = mode; renderUtilityPanel(); }
 function clearUtility() { utilityMode = null; $("#choicePanel").classList.add("hidden"); }
 function selectEquipmentMember(index) { equipmentMember = index; renderUtilityPanel(); }
 function shopRequest(operation, index) { request("/api/shop", {operation, index}); }
+function blacksmithRequest(equipment) {
+  if (confirm("같은 장비 하나와 골드를 사용해 강화할까요?")) {
+    request("/api/blacksmith", {equipment});
+  }
+}
 function innRequest() { request("/api/inn", {}); }
 function towerRetry() {
   if (confirm(`도전의 탑 ${gameState.tower.next_tier}단계를 개방할까요?`)) {
@@ -381,7 +401,7 @@ function playResponseTone(path, before, after) {
   if (after === "battle" && before !== "battle") return playTone("battle");
   if (after === "victory" || after === "ending") return playTone("victory");
   if (after === "dialogue" && before !== "dialogue") return playTone("dialogue");
-  if (["/api/action", "/api/shop", "/api/inn", "/api/tower", "/api/equipment", "/api/quest", "/api/save"].includes(path)) return playTone("confirm");
+  if (["/api/action", "/api/shop", "/api/inn", "/api/blacksmith", "/api/tower", "/api/equipment", "/api/quest", "/api/save"].includes(path)) return playTone("confirm");
   if (path === "/api/move") return playTone("move");
 }
 

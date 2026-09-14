@@ -195,6 +195,7 @@ def explore(
         options.append(("퀘스트 일지", "quests", None))
         if loc.id == "village":
             options.append(("의뢰 게시판", "quest_board", None))
+            options.append(("대장간에서 장비 강화", "blacksmith", None))
             tower_summit = game_map.locations.get("tower_summit")
             if tower_summit and tower_summit.boss_defeated:
                 from world import tower_challenge_tier
@@ -242,6 +243,11 @@ def explore(
         if action == "quest_board":
             from quests import run_quest_board
             run_quest_board(quest_log, party, inventory, game_map)
+            continue
+
+        if action == "blacksmith":
+            from blacksmith import run_blacksmith
+            run_blacksmith(party, equipment_inventory)
             continue
 
         if action == "inn":

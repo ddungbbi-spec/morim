@@ -106,10 +106,12 @@ class Equipment:
     damage_reduction_bonus: float = 0.0
     special_effect: str = ""
     generated: bool = False
+    enhancement_level: int = 0
 
     @property
     def display_name(self) -> str:
-        return f"[{RARITY_NAMES_KR.get(self.rarity, self.rarity)}] {self.name}"
+        enhancement = f" +{self.enhancement_level}" if self.enhancement_level else ""
+        return f"[{RARITY_NAMES_KR.get(self.rarity, self.rarity)}] {self.name}{enhancement}"
 
 
 class Character:

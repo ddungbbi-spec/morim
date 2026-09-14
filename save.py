@@ -28,7 +28,7 @@ SAVE_DIR = os.path.abspath(
     )
 )
 MAX_SLOTS = 3
-SAVE_VERSION = 7
+SAVE_VERSION = 8
 
 
 class SaveGameError(ValueError):
@@ -62,6 +62,7 @@ def _equipment_to_dict(eq: Equipment) -> dict:
         "damage_reduction_bonus": eq.damage_reduction_bonus,
         "special_effect": eq.special_effect,
         "generated": eq.generated,
+        "enhancement_level": eq.enhancement_level,
     }
 
 
@@ -100,6 +101,7 @@ def _equipment_from_data(record):
         damage_reduction_bonus=record.get("damage_reduction_bonus", 0.0),
         special_effect=record.get("special_effect", ""),
         generated=record.get("generated", False),
+        enhancement_level=record.get("enhancement_level", 0),
     )
 
 
