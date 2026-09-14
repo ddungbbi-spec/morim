@@ -19,7 +19,10 @@ from input_utils import prompt_index
 from map import explore
 from models import Party, StatusEffect
 from shop import _sell_menu
-from world import build_world
+from world import (
+    build_world, complete_tower_challenge, create_scaled_tower_guardian,
+    reset_tower_challenge,
+)
 
 
 class GameTests(unittest.TestCase):
@@ -317,6 +320,47 @@ class GameTests(unittest.TestCase):
         self.assertEqual(
             summit.exits["탑의 마법진으로 마을에 귀환한다"], "village"
         )
+
+    def test_repeat_tower_scales_and_grants_distinct_rewards(self):
+        first_party = Party([data.create_warrior("첫 정복자")], gold=0)
+        first_rewards = []
+        first_count, first_gold, first_item = complete_tower_challenge(
+            {}, first_party, first_rewards
+        )
+        self.assertEqual((first_count, first_gold, first_item), (1, 0, None))
+        self.assertEqual(first_party.gold, 0)
+        self.assertFalse(first_rewards)
+
+        base = data.create_tower_guardian()
+        flags = {"tower_clear_count": 1, "tower_challenge_active": True}
+        scaled = create_scaled_tower_guardian(flags)
+        self.assertIn("2단계", scaled.name)
+        self.assertGreater(scaled.max_hp, base.max_hp)
+        self.assertGreater(scaled.attack, base.attack)
+        self.assertGreater(scaled.defense, base.defense)
+
+        party = Party([data.create_warrior("도전자")], gold=0)
+        equipment_inventory = []
+        with patch("world.data.generate_random_equipment", return_value=data.IRON_SWORD):
+            count, bonus_gold, reward = complete_tower_challenge(
+                flags, party, equipment_inventory
+            )
+        self.assertEqual(count, 2)
+        self.assertEqual(bonus_gold, 55)
+        self.assertEqual(party.gold, 55)
+        self.assertIs(reward, data.IRON_SWORD)
+        self.assertEqual(equipment_inventory, [data.IRON_SWORD])
+        self.assertFalse(flags["tower_challenge_active"])
+
+    def test_tower_reset_supports_legacy_first_clear(self):
+        game_map = build_world()
+        game_map.locations["tower_summit"].boss_defeated = True
+        flags = {}
+        self.assertTrue(reset_tower_challenge(game_map, flags))
+        self.assertFalse(game_map.locations["tower_summit"].boss_defeated)
+        self.assertEqual(flags["tower_clear_count"], 1)
+        self.assertTrue(flags["tower_challenge_active"])
+        self.assertFalse(reset_tower_challenge(game_map, flags))
 
     def test_party_full_restore_recovers_every_status(self):
         party = Party([data.create_warrior("휴식자"), data.create_mage("마도사")])

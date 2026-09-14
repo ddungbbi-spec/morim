@@ -189,6 +189,7 @@ function renderCommands() {
     }).join("");
     const utilities = `${gameState.shop ? `<button class="command-button utility" onclick="openUtility('shop')">상점</button>` : ""}
       ${gameState.inn ? `<button class="command-button utility" onclick="innRequest()">여관 · 전원 회복</button>` : ""}
+      ${gameState.tower?.can_retry ? `<button class="command-button utility" onclick="towerRetry()">도전의 탑 ${gameState.tower.next_tier}단계 개방</button>` : ""}
       <button class="command-button utility" onclick="openUtility('equipment')">장비</button>
       ${gameState.location.id === "village" ? `<button class="command-button utility" onclick="openUtility('quest')">의뢰 게시판</button>` : ""}
       <button class="command-button utility" onclick="openUtility('save')">저장·불러오기</button>`;
@@ -285,6 +286,11 @@ function clearUtility() { utilityMode = null; $("#choicePanel").classList.add("h
 function selectEquipmentMember(index) { equipmentMember = index; renderUtilityPanel(); }
 function shopRequest(operation, index) { request("/api/shop", {operation, index}); }
 function innRequest() { request("/api/inn", {}); }
+function towerRetry() {
+  if (confirm(`도전의 탑 ${gameState.tower.next_tier}단계를 개방할까요?`)) {
+    request("/api/tower", {operation: "reset"});
+  }
+}
 function equipmentRequest(operation, member, equipment, slot) { request("/api/equipment", {operation, member, equipment, slot}); }
 function questRequest(operation, quest) { request("/api/quest", {operation, quest}); }
 function saveSlot(slot, exists) {
@@ -375,7 +381,7 @@ function playResponseTone(path, before, after) {
   if (after === "battle" && before !== "battle") return playTone("battle");
   if (after === "victory" || after === "ending") return playTone("victory");
   if (after === "dialogue" && before !== "dialogue") return playTone("dialogue");
-  if (["/api/action", "/api/shop", "/api/inn", "/api/equipment", "/api/quest", "/api/save"].includes(path)) return playTone("confirm");
+  if (["/api/action", "/api/shop", "/api/inn", "/api/tower", "/api/equipment", "/api/quest", "/api/save"].includes(path)) return playTone("confirm");
   if (path === "/api/move") return playTone("move");
 }
 

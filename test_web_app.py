@@ -222,6 +222,23 @@ class WebGameTests(unittest.TestCase):
         result = self.game.inn_action()
         self.assertFalse(result["ok"])
 
+    def test_village_opens_repeat_tower_and_scales_guardian(self):
+        self.finish_intro()
+        self.game.game_map.locations["tower_summit"].boss_defeated = True
+        self.game.flags["tower_clear_count"] = 1
+        result = self.game.tower_action("reset")
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["state"]["tower"]["next_tier"], 2)
+        self.assertTrue(result["state"]["tower"]["active"])
+        self.assertFalse(result["state"]["tower"]["can_retry"])
+
+        self.game.game_map.current_id = "tower_summit"
+        self.game.game_map.current.dialogue_played = True
+        self.game._enter_current_location()
+        self.assertEqual(self.game.phase, "battle")
+        self.assertIn("2단계", self.game.enemies[0].name)
+        self.assertGreater(self.game.enemies[0].max_hp, data.create_tower_guardian().max_hp)
+
     def test_random_encounter_starts_on_world_move(self):
         self.game.advance_dialogue(1)
         self.game.advance_dialogue()

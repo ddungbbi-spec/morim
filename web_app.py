@@ -23,7 +23,10 @@ from equipment import SLOT_NAMES_KR
 from models import Enemy, Item, Party, PlayerCharacter, Skill
 from quests import QuestLog, QUESTS
 from shop import SELL_RATIO
-from world import build_world
+from world import (
+    build_world, complete_tower_challenge, create_scaled_tower_guardian,
+    reset_tower_challenge, tower_challenge_tier, tower_clear_count,
+)
 
 
 WEB_ROOT = Path(__file__).with_name("web_ui")
@@ -201,6 +204,19 @@ class WebGame:
         self._log("여관에서 쉬었습니다. 파티 전원의 HP·MP와 상태이상이 모두 회복되었습니다.")
         return {"ok": True, "state": self.state()}
 
+    def tower_action(self, operation: str) -> dict:
+        if self.phase != "explore" or self.game_map.current_id != "village":
+            return self._error("탑 재도전은 시작 마을에서 준비할 수 있습니다.")
+        if operation != "reset":
+            return self._error("지원하지 않는 탑 행동입니다.")
+        if not reset_tower_challenge(self.game_map, self.flags):
+            return self._error("현재 진행 중인 탑 도전을 먼저 완료하세요.")
+        self._log(
+            f"도전의 탑 {tower_challenge_tier(self.flags)}단계가 열렸습니다. "
+            "탑의 수호자가 더욱 강해졌습니다."
+        )
+        return {"ok": True, "state": self.state()}
+
     def equipment_action(self, operation: str, member_index, equipment_index=None, slot=None) -> dict:
         if self.phase != "explore":
             return self._error("탐험 중에만 장비를 변경할 수 있습니다.")
@@ -359,7 +375,12 @@ class WebGame:
             self._log("봉인의 힘이 파티에 깃들었습니다. 최대 HP +6, 공격력 +2, 방어력 +1")
 
         if location.boss and not location.boss_defeated:
-            self._begin_battle(location.boss(), "boss", f"{location.name}의 보스")
+            enemies = (
+                [create_scaled_tower_guardian(self.flags)]
+                if location.id == "tower_summit" else location.boss()
+            )
+            title = f"{location.name} · {tower_challenge_tier(self.flags)}단계" if location.id == "tower_summit" else f"{location.name}의 보스"
+            self._begin_battle(enemies, "boss", title)
             return
 
         self._claim_location_loot()
@@ -525,6 +546,17 @@ class WebGame:
         self.battle_context = ""
         if context == "boss":
             location = self.game_map.current
+            if location.id == "tower_summit":
+                clear_count, bonus_gold, equipment = complete_tower_challenge(
+                    self.flags, self.party, self.equipment_inventory
+                )
+                if clear_count == 1:
+                    self._log("도전의 탑을 최초로 정복했습니다!")
+                else:
+                    self._log(
+                        f"도전의 탑 {clear_count}회 클리어 보상: "
+                        f"{bonus_gold}G, {equipment.display_name}"
+                    )
             location.boss_defeated = True
             self.quest_log.refresh_from_world(self.game_map)
             self._log(f"{location.name}의 위험이 사라졌습니다.")
@@ -796,6 +828,15 @@ class WebGame:
             ],
             "shop": shop_state,
             "inn": location.has_inn,
+            "tower": {
+                "clear_count": tower_clear_count(self.flags),
+                "next_tier": tower_challenge_tier(self.flags),
+                "can_retry": (
+                    location.id == "village"
+                    and self.game_map.locations["tower_summit"].boss_defeated
+                ),
+                "active": bool(self.flags.get("tower_challenge_active")),
+            },
             "equipment_inventory": [
                 {"index": index, **self._equipment_state(item)}
                 for index, item in enumerate(self.equipment_inventory)
@@ -936,6 +977,8 @@ class GameHandler(BaseHTTPRequestHandler):
                 result = game.shop_action(payload.get("operation", ""), payload.get("index"))
             elif self.path == "/api/inn":
                 result = game.inn_action()
+            elif self.path == "/api/tower":
+                result = game.tower_action(payload.get("operation", ""))
             elif self.path == "/api/equipment":
                 result = game.equipment_action(
                     payload.get("operation", ""), payload.get("member"),

@@ -144,10 +144,27 @@ def explore(
         # 보스가 있는 장소면 진입 시 자동으로 전투 발생 (1회만)
         if loc.boss and not loc.boss_defeated:
             print("\n강력한 기운이 느껴진다...!")
-            enemies = loc.boss()
+            if loc.id == "tower_summit":
+                from world import create_scaled_tower_guardian, tower_challenge_tier
+                enemies = [create_scaled_tower_guardian(flags)]
+                print(f"도전 단계: {tower_challenge_tier(flags)}")
+            else:
+                enemies = loc.boss()
             won = Battle(party, enemies, inventory, equipment_inventory).run()
             if not won:
                 return False
+            if loc.id == "tower_summit":
+                from world import complete_tower_challenge
+                clear_count, bonus_gold, equipment = complete_tower_challenge(
+                    flags, party, equipment_inventory
+                )
+                if clear_count == 1:
+                    print("\n도전의 탑을 최초로 정복했다!")
+                else:
+                    print(
+                        f"\n도전의 탑 {clear_count}회 클리어! "
+                        f"추가 보상 {bonus_gold}G와 {equipment.display_name}을(를) 획득했다."
+                    )
             loc.boss_defeated = True
             print(f"\n{loc.name}의 위험이 사라졌다. 계속 진행할 수 있다.")
             continue  # 보스 처치 후 같은 장소를 다시 보여주고 이동 선택으로 넘어감
@@ -178,6 +195,11 @@ def explore(
         options.append(("퀘스트 일지", "quests", None))
         if loc.id == "village":
             options.append(("의뢰 게시판", "quest_board", None))
+            tower_summit = game_map.locations.get("tower_summit")
+            if tower_summit and tower_summit.boss_defeated:
+                from world import tower_challenge_tier
+                next_tier = max(2, tower_challenge_tier(flags))
+                options.append((f"도전의 탑 {next_tier}단계 개방", "tower_retry", None))
         if loc.has_inn:
             options.append(("여관에서 쉬기 (전원 완전 회복)", "inn", None))
         if loc.has_shop:
@@ -225,6 +247,14 @@ def explore(
         if action == "inn":
             party.full_restore()
             print("\n여관에서 충분히 쉬었다. 파티 전원의 HP·MP와 상태이상이 모두 회복되었다!")
+            continue
+
+        if action == "tower_retry":
+            from world import reset_tower_challenge
+            if reset_tower_challenge(game_map, flags):
+                print("\n탑의 수호자가 더 강한 모습으로 부활했다. 마을 입구에서 다시 도전할 수 있다!")
+            else:
+                print("\n현재 진행 중인 탑 도전을 먼저 완료해야 한다.")
             continue
 
         if action == "shop":

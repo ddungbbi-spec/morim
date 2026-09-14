@@ -10,6 +10,70 @@ import data
 import dialogues
 
 
+TOWER_SUMMIT_ID = "tower_summit"
+
+
+def tower_clear_count(flags: dict) -> int:
+    try:
+        return max(0, int(flags.get("tower_clear_count", 0)))
+    except (TypeError, ValueError):
+        return 0
+
+
+def tower_challenge_tier(flags: dict) -> int:
+    """다음 탑 도전 단계. 최초 도전은 1단계다."""
+    return tower_clear_count(flags) + 1
+
+
+def create_scaled_tower_guardian(flags: dict):
+    """클리어 횟수에 따라 탑의 수호자를 점차 강화한다."""
+    guardian = data.create_tower_guardian()
+    tier = tower_challenge_tier(flags)
+    step = tier - 1
+    if step:
+        guardian.name = f"탑의 수호자 · {tier}단계"
+        guardian.level += step
+        guardian.max_hp = round(guardian.max_hp * (1 + 0.35 * step))
+        guardian.hp = guardian.max_hp
+        guardian.max_mp += 5 * step
+        guardian.mp = guardian.max_mp
+        guardian.attack += 3 * step
+        guardian.defense += 2 * step
+        guardian.speed += min(step, 8)
+        guardian.exp_reward += 20 * step
+        guardian.gold_reward += 12 * step
+    return guardian
+
+
+def reset_tower_challenge(game_map: GameMap, flags: dict) -> bool:
+    """클리어한 탑 보스를 다음 단계로 초기화한다."""
+    summit = game_map.locations[TOWER_SUMMIT_ID]
+    if not summit.boss_defeated:
+        return False
+    # tower_clear_count 도입 전 저장 파일도 최초 클리어로 인정한다.
+    if tower_clear_count(flags) == 0:
+        flags["tower_clear_count"] = 1
+    summit.boss_defeated = False
+    flags["tower_challenge_active"] = True
+    return True
+
+
+def complete_tower_challenge(flags: dict, party, equipment_inventory: list):
+    """클리어 횟수를 기록하고 반복 도전 보상을 지급한다."""
+    clear_count = tower_clear_count(flags) + 1
+    flags["tower_clear_count"] = clear_count
+    flags["tower_challenge_active"] = False
+    if clear_count == 1:
+        return clear_count, 0, None
+
+    bonus_gold = 25 + 15 * clear_count
+    party.gold += bonus_gold
+    party_level = max((member.level for member in party.members), default=1)
+    equipment = data.generate_random_equipment(max(party_level, clear_count + 2))
+    equipment_inventory.append(equipment)
+    return clear_count, bonus_gold, equipment
+
+
 def build_world() -> GameMap:
     village = Location(
         loc_id="village",
