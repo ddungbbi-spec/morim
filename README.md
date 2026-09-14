@@ -30,7 +30,7 @@ docker compose up --build
 
 `Dockerfile`과 `render.yaml`이 포함되어 있어 Git 저장소에 올린 뒤 Render Blueprint 등 Docker를 지원하는 호스팅 서비스에 연결할 수 있습니다. 호스팅 서비스가 외부 HTTPS를 처리하고 컨테이너는 `PORT` 환경 변수로 지정된 포트에서 실행됩니다. 상태 확인 경로는 `/api/health`입니다.
 
-무료 인스턴스의 로컬 파일은 재배포·재시작 과정에서 초기화될 수 있습니다. 저장 슬롯을 계속 보존하려면 유료 영구 디스크를 `/app/saves`에 연결하거나, 다른 영구 저장소를 사용하세요. Docker·Render 설정은 `RPG_MULTI_SESSION=1`을 적용하여 브라우저마다 게임 상태와 저장 슬롯을 분리합니다. 일반 `python3 web_app.py` 실행은 콘솔판과 동일한 로컬 저장 슬롯을 공유하는 단일 세션 모드입니다.
+무료 인스턴스의 로컬 파일은 재배포·재시작 과정에서 초기화될 수 있습니다. 웹판은 저장 슬롯을 브라우저에도 함께 백업하고 서버 슬롯이 사라지면 다음 접속 때 자동 복원합니다. 다만 브라우저 사이트 데이터를 삭제하거나 다른 기기를 사용하면 이 백업에 접근할 수 없으므로, 여러 기기 공유나 장기 운영에는 유료 영구 디스크 또는 외부 저장소가 필요합니다. Docker·Render 설정은 `RPG_MULTI_SESSION=1`을 적용하여 브라우저마다 게임 상태와 저장 슬롯을 분리합니다. 일반 `python3 web_app.py` 실행은 콘솔판과 동일한 로컬 저장 슬롯을 공유하는 단일 세션 모드입니다.
 
 ## 파일 구조
 - `models.py` — 캐릭터, 스킬, 아이템, 장비, 상태이상, 파티의 기본 뼈대(클래스). 게임 규칙(공격력 계산, 레벨업 공식 등)을 바꾸고 싶을 때 여기를 수정하세요.
@@ -146,6 +146,7 @@ python3 balance_simulator.py --trials 300 --seed 20260913
 - 파티원별 무기·방어구·장신구 착용, 교체, 해제와 적용 능력치 확인
 - 마을 의뢰 게시판의 퀘스트 수락과 완료 보상 수령
 - 상세 정보가 표시되는 저장 슬롯 3개와 저장·불러오기
+- 서버 재시작 뒤 같은 브라우저에서 저장 슬롯을 자동 복원하는 로컬 백업
 - 웹판과 콘솔판이 동일한 `saves/slot{번호}.json`을 사용하여 진행 데이터 공유
 - 배포 모드에서는 안전한 쿠키를 이용해 브라우저별 게임 상태·저장 슬롯 분리
 - 데스크톱 3열 화면과 스마트폰 1열 반응형 화면
@@ -158,7 +159,7 @@ python3 balance_simulator.py --trials 300 --seed 20260913
 
 `localhost`에서는 지원 브라우저의 설치 버튼으로 앱처럼 설치할 수 있습니다. 같은 와이파이의 스마트폰에서 일반 HTTP 주소로 접속하면 브라우저 보안 정책상 PWA 설치와 서비스 워커가 제한될 수 있으므로, 실제 휴대전화 설치 배포에는 HTTPS가 필요합니다. 앱 셸은 오프라인 캐시되지만 게임 API는 파이썬 서버가 실행 중이어야 합니다.
 
-다중 세션은 브라우저 쿠키로 같은 사용자를 식별합니다. 브라우저 데이터나 쿠키를 삭제하면 기존 세션 저장 슬롯에 다시 접근할 수 없으므로, 중요한 진행 데이터가 있다면 서버의 `saves` 폴더도 함께 백업하세요.
+다중 세션은 브라우저 쿠키로 같은 사용자를 식별하며 저장 슬롯은 브라우저에도 자동 백업됩니다. 브라우저 사이트 데이터나 쿠키를 삭제하면 세션 식별자와 로컬 백업이 함께 사라질 수 있으므로 중요한 진행 데이터는 사이트 데이터를 지우기 전에 유지해야 합니다.
 
 전체 테스트:
 
@@ -258,3 +259,155 @@ MITHRIL_SHIELD = Equipment(
 3. 마비처럼 "행동 자체를 막는" 효과라면 `Character.is_paralyzed()`와 비슷한 판정 메서드를 추가하고 `combat.py`의 턴 처리부에서 확인
 4. `data.py`에서 스킬을 만들 때 `inflict_status`, `status_name`, `status_power`, `status_duration`, `status_chance`를 지정
 ```python
+SLEEP_DUST = Skill(
+    name="수면 가루", mp_cost=5, power=2, kind="attack",
+    description="가루를 뿌려 상대를 잠재운다.",
+    inflict_status="sleep", status_name="수면", status_duration=2, status_chance=0.6,
+)
+```
+5. 치료 아이템이 필요하면 `Item(cures_status="sleep", ...)`으로 정의하고 `ITEMS_BY_NAME`에 등록
+
+## 새 버프/디버프 스킬을 추가하는 방법 (data.py)
+```python
+HASTE = Skill(
+    name="가속", mp_cost=4, power=0, kind="buff",
+    description="스스로의 속도를 높인다.",
+    buff_stat="speed", buff_amount=5, buff_duration=3, buff_name="속도 강화",
+)
+SLOW = Skill(
+    name="둔화", mp_cost=4, power=0, kind="debuff",
+    description="적의 속도를 낮춘다.",
+    buff_stat="speed", buff_amount=4, buff_duration=3, buff_name="속도 약화",
+)
+```
+`buff_stat`은 `"attack"`, `"defense"`, `"speed"` 중 하나여야 합니다. `kind="buff"`는 자동으로 자기 자신(또는 파티원 중 선택한 대상)에게,
+`kind="debuff"`는 상대에게 적용됩니다. 지속시간이 끝나면 자동으로 사라지고 화면에 알려줍니다.
+캐릭터의 실제 전투 스탯(`effective_attack` 등)은 항상 "기본 스탯 + 장비 보너스 + 버프/디버프 보정치"로 계산되며, 0 밑으로는 내려가지 않게 되어 있습니다.
+
+## 전체공격(광역) 스킬을 만드는 방법 (data.py)
+```python
+BLIZZAGA = Skill(
+    name="블리자가", mp_cost=14, power=8, kind="attack", aoe=True,
+    description="얼음 폭풍으로 모든 적에게 피해를 입힌다.",
+)
+```
+`aoe=True`만 추가하면 됩니다. `kind`가 `"attack"`/`"debuff"`/`"steal"`이면 살아있는 적 전체, `"heal"`/`"buff"`면 파티원 전체에게 적용됩니다.
+MP는 대상 수와 관계없이 스킬 1회 사용분만 소모됩니다 (`Character.use_skill_on_targets` 참고).
+
+## 속성 마법과 몬스터 약점/저항을 추가하는 방법 (data.py)
+```python
+AERO = Skill(
+    name="에어로라", mp_cost=6, power=9, kind="attack",
+    description="바람의 칼날로 적을 벤다. (풍 속성)",
+    element="wind",  # 자유롭게 새 속성 이름을 만들면 됨
+)
+```
+그리고 몬스터를 만들 때 `weakness="wind"`(약점, 1.5배 피해) 또는 `resistance="wind"`(저항, 0.5배 피해)를 지정하면 됩니다.
+```python
+def create_flying_eye() -> Enemy:
+    return Enemy(name="비행하는 눈", ..., weakness="wind")
+```
+속성이 없는 스킬(`element=None`, 기본값)은 지금까지처럼 약점/저항과 무관하게 그대로 데미지가 들어갑니다.
+
+## 새 직업을 추가하는 방법 (data.py)
+```python
+# 새 스킬이 필요하면 먼저 정의
+GUARD_BREAK = Skill(name="가드 브레이크", mp_cost=4, power=8, kind="attack", description="방어를 무시하고 공격한다.")
+
+def create_knight(name: str) -> PlayerCharacter:
+    return PlayerCharacter(
+        name=name, job="기사", level=1,
+        max_hp=50, max_mp=6, attack=10, defense=10, speed=4,
+        skills=[GUARD_BREAK],
+    )
+
+# 직업 선택 메뉴와 저장/불러오기가 인식할 수 있도록 등록
+JOB_CREATORS["knight"] = create_knight
+JOB_LABELS["knight"] = "기사 - 매우 단단한 탱커 (가드 브레이크)"
+SKILLS_BY_NAME[GUARD_BREAK.name] = GUARD_BREAK
+```
+`Skill.kind`는 `"attack"`(공격) / `"heal"`(회복, 적이면 자동으로 자기 자신에게 사용) / `"steal"`(도적처럼 적에게서 골드 훔치기) / `"buff"`(자신·아군 강화) / `"debuff"`(상대 약화) 다섯 가지를 지원합니다.
+새 종류를 만들고 싶다면 `models.py`의 `Character.use_skill()`에 분기를 추가하세요.
+
+## 새 몬스터를 추가하는 방법 (data.py + world.py)
+```python
+# data.py
+def create_giant_bee() -> Enemy:
+    return Enemy(
+        name="거대 벌", job="몬스터", level=2,
+        max_hp=16, max_mp=0, attack=9, defense=1, speed=9,  # 빠르고 공격적, 방어는 약함
+        skills=[], exp_reward=11, gold_reward=6,
+    )
+```
+스탯을 조합해서 역할을 정하면 됩니다 (예: speed 높음+defense 낮음 = 빠른 딜러, hp/defense 높음+speed 낮음 = 탱커).
+회복형 스킬(`kind="heal"`)을 스킬 목록에 넣으면 자동으로 자기 자신에게 사용합니다 (숲의 정령 참고).
+그리고 `world.py`의 원하는 `Location`의 `encounter_pool`에 `lambda: [data.create_giant_bee()]`를 추가하면 등장합니다.
+여러 마리를 한 번에 등장시키려면 `lambda: [data.create_giant_bee(), data.create_giant_bee()]`처럼 리스트에 여러 개를 넣으면 됩니다.
+
+## 더 똑똑한 적을 만드는 방법 (data.py)
+`Enemy`를 만들 때 `smart_ai=True`를 주면, 회복/버프는 자기 자신에게 쓰고(기존과 동일),
+디버프는 파티에서 공격력이 가장 높은(가장 위협적인) 대상에게, 공격/기본 공격은 HP가 가장 낮은(먼저 쓰러뜨릴 수 있는)
+대상에게 집중하도록 판단합니다. 지금은 모든 보스/미니보스(`smart_ai=True`)가 이렇게 행동하고,
+일반 몬스터는 기존처럼 무작위 대상을 고릅니다 (연산량도 적고, 쉬운 잡몹 특유의 예측 불가능함도 살아있음).
+```python
+def create_new_boss(name: str) -> Enemy:
+    return Enemy(
+        name="새 보스", job="보스", level=6, ...,
+        smart_ai=True,  # 이것만 추가하면 자동으로 위 판단 로직을 사용
+    )
+```
+더 정교한 패턴(예: 특정 HP 이하가 되면 방어 태세, 마비된 적 우선 공격 등)이 필요하면
+`models.py`의 `Enemy.choose_action`/`Enemy._pick_target`을 확장하거나, 보스 전용 서브클래스를 만들어 오버라이드하세요.
+
+## 잠긴 문(열쇠 아이템)을 추가하는 방법 (data.py + world.py)
+```python
+# data.py - 열쇠는 그냥 평범한 Item. 회복 효과 없이 이름만 있으면 됨
+GOLDEN_KEY = Item(name="황금 열쇠", description="화려하게 장식된 열쇠.")
+# ITEMS_BY_NAME에도 등록하는 걸 잊지 마세요
+
+# world.py - 열쇠를 얻는 장소
+some_room = Location(..., loot_item=data.GOLDEN_KEY)
+
+# world.py - 열쇠로 열리는 문이 있는 장소
+locked_room = Location(
+    ...,
+    exits={"화려한 문 안으로": "treasure_room", "...": "..."},
+    locked_exits={"화려한 문 안으로": "황금 열쇠"},  # 문구 -> 필요한 아이템 이름
+)
+```
+`locked_exits`에 없는 문구는 평소처럼 자유롭게 지나다닐 수 있습니다. 잠긴 문은 선택지에 자동으로
+🔒 표시와 필요한 아이템 이름이 붙고, 열쇠가 없으면 이동이 막힙니다. 열쇠가 있으면 이동하면서 자동으로
+소모되고, 그 장소의 그 문은 이후 영구적으로 열려 있습니다 (저장/불러오기에도 반영됨).
+꼭 "열쇠"일 필요는 없습니다 — 아무 `Item`이나 조건으로 쓸 수 있어서, 특정 포션이나 재료 아이템을
+가지고 있어야만 지나갈 수 있는 문도 같은 방식으로 만들 수 있습니다.
+
+## 일반 몬스터에 랜덤 드랍을 추가하는 방법 (data.py)
+```python
+def create_new_monster() -> Enemy:
+    return Enemy(
+        name="새 몬스터", ...,
+        loot_pool=[(data.ETHER, 0.2), (data.ANTIDOTE, 0.1)],  # [(아이템, 확률), ...]
+    )
+```
+`loot_pool`의 각 항목은 서로 독립적으로 판정되므로, 여러 개를 넣으면 한 번에 여러 아이템이 나올 수도 있습니다.
+지금은 장비(`Equipment`)는 넣지 않고 아이템(`Item`)만 드랍하도록 되어 있는데(전투가 자주 일어나는 일반 몹에서
+장비까지 나오면 던전 전용 장비의 희소성이 옅어지기 때문), 장비도 드랍시키고 싶다면 `combat.py`의
+`Battle._victory()`에서 드랍된 게 `Equipment`인지 확인해서 `equipment_inventory`에 넣도록 확장하면 됩니다
+(현재 `Battle`은 `equipment_inventory`를 직접 참조하지 않으므로, 생성자에 인자를 추가로 받아야 합니다).
+
+## 다음에 확장하면 좋을 것들 (우선순위 추천)
+1. **장비 등급/희귀도**: `Equipment`에 `rarity` 필드를 추가하고 상점/드랍 확률에 반영
+2. **여러 상점 특화**: 무기점/방어구점처럼 장소별로 다른 재고를 가진 상점을 여러 개 배치
+3. **보스 전용 AI 패턴**: 지금의 `smart_ai`는 규칙 하나로 모든 보스가 공유하는데, HP 구간별 행동 변화(예: 50% 이하일 때 방어 태세) 같은 걸 보스마다 다르게 주고 싶다면 `Enemy`를 상속한 서브클래스로 확장 가능
+4. **flag 기반 조건부 이동**: 지금은 아이템 소지 여부로만 문이 열리는데, `locked_exits`를 아이템 이름 대신 `flags` 검사로 확장하면 "그 대화에서 특정 선택을 했을 때만 열리는 문" 같은 것도 가능
+5. **저장 슬롯 개수 조정**: `save.py`의 `MAX_SLOTS` 값만 바꾸면 슬롯 개수를 늘리거나 줄일 수 있음 (UI 함수들이 전부 이 값을 기준으로 동작)
+6. **몬스터 드랍에 장비 포함**: 위 "랜덤 드랍" 섹션 참고
+
+## 새 콘텐츠를 추가할 때 주의할 점
+`data.py`에 새 `Skill`, `Item`, `Equipment`를 추가하면, 저장/불러오기가 이름으로 원본을 찾을 수 있도록
+`data.py` 맨 아래의 `SKILLS_BY_NAME` / `ITEMS_BY_NAME` / `EQUIPMENT_BY_NAME` 딕셔너리에도 반드시 함께 등록하세요.
+새 직업은 `JOB_CREATORS` / `JOB_LABELS`에 등록해야 시작 화면의 직업 선택 메뉴에 나타납니다
+(단, 저장된 캐릭터를 불러올 때는 스탯을 그대로 복원하므로 `JOB_CREATORS`가 없어도 문제없습니다).
+상태이상은 캐릭터에 직접 저장되는 값(종류/이름/남은 턴/피해량)이라 별도 조회 테이블이 필요 없습니다.
+
+각 항목은 기존 구조를 크게 바꾸지 않고 하나씩 얹을 수 있게 설계했습니다.

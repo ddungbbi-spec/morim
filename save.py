@@ -221,6 +221,16 @@ def save_game(
         },
     }
 
+    write_save_payload(payload, path)
+
+
+def write_save_payload(payload: dict, path: str = DEFAULT_SAVE_PATH) -> None:
+    """검증된 저장 데이터를 원자적으로 기록한다.
+
+    웹판은 이 함수를 이용해 브라우저에 보관한 백업을 서버 저장 슬롯으로
+    복원한다. 검증을 먼저 수행하므로 임의 JSON이 저장 파일이 되지 않는다.
+    """
+    _validate_payload(payload)
     directory = os.path.dirname(os.path.abspath(path))
     os.makedirs(directory, exist_ok=True)
     fd, temp_path = tempfile.mkstemp(prefix=".save-", suffix=".tmp", dir=directory)
@@ -241,13 +251,7 @@ def save_game(
 # 불러오기
 # ---------------------------------------------------------------------------
 def load_game(path: str = DEFAULT_SAVE_PATH):
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            payload = json.load(f)
-    except json.JSONDecodeError as error:
-        raise SaveGameError("JSON 형식이 손상되었습니다.") from error
-
-    _validate_payload(payload)
+    payload = read_save_payload(path)
 
     party = Party(
         [_character_from_dict(d) for d in payload["party"]],
@@ -284,6 +288,18 @@ def load_game(path: str = DEFAULT_SAVE_PATH):
     quest_log.sync_story_flags(flags)
     quest_log.refresh_from_world(game_map)
     return party, inventory, game_map, flags, equipment_inventory, quest_log
+
+
+def read_save_payload(path: str = DEFAULT_SAVE_PATH) -> dict:
+    """저장 파일을 읽고 호환성 검증을 마친 JSON 데이터를 반환한다."""
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            payload = json.load(f)
+    except json.JSONDecodeError as error:
+        raise SaveGameError("JSON 형식이 손상되었습니다.") from error
+
+    _validate_payload(payload)
+    return payload
 
 
 def _validate_payload(payload: dict) -> None:

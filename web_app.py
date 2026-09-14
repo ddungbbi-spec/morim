@@ -241,10 +241,10 @@ class WebGame:
             return self._error("지원하지 않는 퀘스트 행동입니다.")
         return {"ok": True, "state": self.state()}
 
-    def save_action(self, operation: str, slot) -> dict:
+    def save_action(self, operation: str, slot, backup=None) -> dict:
         if operation == "save" and self.phase != "explore":
             return self._error("탐험 화면에서만 저장할 수 있습니다.")
-        if operation == "load" and self.phase not in {"explore", "setup"}:
+        if operation in {"load", "restore"} and self.phase not in {"explore", "setup"}:
             return self._error("현재 화면에서는 저장을 불러올 수 없습니다.")
         try:
             slot_number = int(slot)
@@ -260,6 +260,12 @@ class WebGame:
                     self.equipment_inventory, path=path, quest_log=self.quest_log,
                 )
                 self._log(f"슬롯 {slot_number}에 저장했습니다.")
+                return {
+                    "ok": True,
+                    "state": self.state(),
+                    "slot": slot_number,
+                    "backup": game_save.read_save_payload(path),
+                }
             elif operation == "load":
                 if not game_save.has_save(path):
                     return self._error("선택한 슬롯이 비어 있습니다.")
@@ -276,6 +282,10 @@ class WebGame:
                 self.dialogue_lines = []
                 self.logs = [f"슬롯 {slot_number}의 저장을 불러왔습니다."]
                 self._enter_current_location()
+            elif operation == "restore":
+                if not isinstance(backup, dict):
+                    return self._error("브라우저 백업 형식이 올바르지 않습니다.")
+                game_save.write_save_payload(backup, path)
             else:
                 return self._error("지원하지 않는 저장 행동입니다.")
         except (OSError, ValueError) as error:
@@ -924,7 +934,9 @@ class GameHandler(BaseHTTPRequestHandler):
             elif self.path == "/api/quest":
                 result = game.quest_action(payload.get("operation", ""), payload.get("quest", ""))
             elif self.path == "/api/save":
-                result = game.save_action(payload.get("operation", ""), payload.get("slot"))
+                result = game.save_action(
+                    payload.get("operation", ""), payload.get("slot"), payload.get("backup")
+                )
             elif self.path == "/api/action":
                 result = game.act(payload)
             else:

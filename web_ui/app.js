@@ -4,6 +4,7 @@ let utilityMode = null;
 let equipmentMember = 0;
 let installPrompt = null;
 let soundEnabled = localStorage.getItem("undefined-legend-sound") !== "off";
+const SAVE_BACKUP_KEY = "undefined-legend-save-backups-v1";
 
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({
@@ -20,6 +21,9 @@ async function request(path, body = null) {
   const result = await response.json();
   const previousPhase = gameState?.phase;
   gameState = result.state || gameState;
+  if (result.ok && result.backup && result.slot) {
+    storeBrowserBackup(result.slot, result.backup);
+  }
   if (!result.ok) {
     showError(result.error || "요청을 처리하지 못했습니다.");
     playTone("error");
@@ -28,6 +32,41 @@ async function request(path, body = null) {
     playResponseTone(path, previousPhase, gameState?.phase);
   }
   pending = null;
+  render();
+}
+
+function browserBackups() {
+  try {
+    const value = JSON.parse(localStorage.getItem(SAVE_BACKUP_KEY) || "{}");
+    return value && typeof value === "object" ? value : {};
+  } catch (_error) {
+    return {};
+  }
+}
+
+function storeBrowserBackup(slot, backup) {
+  const saves = browserBackups();
+  saves[String(slot)] = backup;
+  localStorage.setItem(SAVE_BACKUP_KEY, JSON.stringify(saves));
+}
+
+async function restoreBrowserBackups() {
+  const saves = browserBackups();
+  for (const [slot, backup] of Object.entries(saves)) {
+    const serverSlot = gameState?.save_slots?.find((item) => String(item.slot) === slot);
+    if (!serverSlot || serverSlot.exists) continue;
+    try {
+      const response = await fetch("/api/save", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({operation: "restore", slot: Number(slot), backup})
+      });
+      const result = await response.json();
+      if (result.ok && result.state) gameState = result.state;
+    } catch (_error) {
+      // 서버 저장소가 일시적으로 준비되지 않아도 게임 시작은 계속 허용한다.
+    }
+  }
   render();
 }
 
@@ -396,4 +435,6 @@ $("#newGameButton").addEventListener("click", () => {
     request("/api/new", {});
   }
 });
-request("/api/state").catch(() => showError("서버에 연결할 수 없습니다. web_app.py가 실행 중인지 확인하세요."));
+request("/api/state")
+  .then(restoreBrowserBackups)
+  .catch(() => showError("서버에 연결할 수 없습니다. web_app.py가 실행 중인지 확인하세요."));

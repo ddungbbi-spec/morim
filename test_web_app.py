@@ -301,6 +301,30 @@ class WebGameTests(unittest.TestCase):
             self.assertEqual(self.game.party.gold, 73)
             self.assertEqual(self.game.game_map.current_id, "village")
 
+    def test_browser_backup_restores_after_server_storage_reset(self):
+        self.finish_intro()
+        with tempfile.TemporaryDirectory() as first_dir, tempfile.TemporaryDirectory() as second_dir:
+            self.game.save_dir = first_dir
+            saved = self.game.save_action("save", 1)
+            self.assertTrue(saved["ok"])
+            self.assertEqual(saved["slot"], 1)
+            self.assertEqual(saved["backup"]["party"][0]["name"], "레온")
+
+            restarted = WebGame(Path(second_dir))
+            restored = restarted.save_action("restore", 1, saved["backup"])
+            self.assertTrue(restored["ok"])
+            self.assertTrue(restored["state"]["save_slots"][0]["exists"])
+            loaded = restarted.save_action("load", 1)
+            self.assertTrue(loaded["ok"])
+            self.assertEqual(restarted.party.members[0].name, "레온")
+
+    def test_invalid_browser_backup_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fresh = WebGame(Path(directory))
+            result = fresh.save_action("restore", 1, {"save_version": 7})
+            self.assertFalse(result["ok"])
+            self.assertFalse(Path(directory, "slot1.json").exists())
+
     def test_start_battle_advances_to_player_turn(self):
         with patch("models.random.randint", return_value=0):
             result = self.game.start_battle("forest")
