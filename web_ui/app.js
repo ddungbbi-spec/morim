@@ -270,9 +270,11 @@ function renderUtilityPanel() {
       let action = "";
       if (quest.status === "available") action = `questRequest('accept','${quest.id}')`;
       if (quest.status === "ready") action = `questRequest('claim','${quest.id}')`;
+      const bonus = quest.bonus_gold_reward ? ` · 호위 시 +${quest.bonus_gold_reward}G` : "";
+      const detail = `${quest.objective} · 기본 ${quest.gold_reward}G${bonus}`;
       return action
-        ? utilityButton(`${quest.title} · ${statusNames[quest.status]}`, quest.objective, action)
-        : `<div class="utility-card disabled"><strong>${escapeHtml(quest.title)} · ${statusNames[quest.status]}</strong><span>${escapeHtml(quest.objective)}</span></div>`;
+        ? utilityButton(`${quest.title} · ${statusNames[quest.status]}`, detail, action)
+        : `<div class="utility-card disabled"><strong>${escapeHtml(quest.title)} · ${statusNames[quest.status]}</strong><span>${escapeHtml(detail)}</span></div>`;
     }).join("");
     panel.innerHTML = utilityShell("의뢰 게시판", utilitySection("퀘스트", quests));
   } else if (utilityMode === "save") {

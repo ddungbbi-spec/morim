@@ -177,6 +177,7 @@ def build_world() -> GameMap:
         name="달빛 샘",
         description="안개가 걷힌 샘 위로 달빛이 쏟아진다. 고요한 물결이 긴 여정의 끝을 알린다.",
         exits={"잊힌 사당으로 돌아간다": "forgotten_shrine"},
+        dialogue=dialogues.moonlit_spring_dialogue(),
         loot_item=data.ETHER,
     )
 

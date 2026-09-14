@@ -242,7 +242,7 @@ def explore(
 
         if action == "quest_board":
             from quests import run_quest_board
-            run_quest_board(quest_log, party, inventory, game_map)
+            run_quest_board(quest_log, party, inventory, game_map, flags)
             continue
 
         if action == "blacksmith":

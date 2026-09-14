@@ -276,7 +276,9 @@ class WebGame:
             self.quest_log.refresh_from_world(self.game_map)
             self._log(f"퀘스트 [{QUESTS[quest_id].title}]을(를) 수락했습니다.")
         elif operation == "claim":
-            if not self.quest_log.claim(quest_id, self.party, self.inventory):
+            if not self.quest_log.claim(
+                quest_id, self.party, self.inventory, self.flags
+            ):
                 return self._error("아직 퀘스트 보상을 받을 수 없습니다.")
             self._log(f"퀘스트 [{QUESTS[quest_id].title}] 보상을 받았습니다.")
         else:
@@ -867,6 +869,9 @@ class WebGame:
                     "title": definition.title,
                     "status": self.quest_log.status(quest_id),
                     "objective": definition.objective,
+                    "description": definition.description,
+                    "gold_reward": definition.gold_reward,
+                    "bonus_gold_reward": definition.bonus_gold_reward,
                 }
                 for quest_id, definition in QUESTS.items()
             ],

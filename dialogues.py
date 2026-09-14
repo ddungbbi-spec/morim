@@ -53,6 +53,49 @@ def village_intro_dialogue() -> Dialogue:
     return Dialogue(nodes=[ask, end_help, end_refuse], start_id="ask")
 
 
+def moonlit_spring_dialogue() -> Dialogue:
+    """달빛 샘에서 약초꾼 세아를 발견하고 호위 여부를 정한다."""
+
+    def escort_herbalist(flags: dict):
+        flags["found_herbalist"] = True
+        flags["escorted_herbalist"] = True
+
+    def let_her_rest(flags: dict):
+        flags["found_herbalist"] = True
+        flags["escorted_herbalist"] = False
+
+    escort = DialogueNode(
+        "escort",
+        [
+            "세아: \"정말 고마워요. 여러분과 함께라면 마을까지 갈 수 있겠어요.\"",
+            "세아가 약초 바구니를 챙겨 파티에 합류했다.",
+            "마을 의뢰인은 안전한 호위에 보답할 것이다.",
+        ],
+        effect=escort_herbalist,
+    )
+    rest = DialogueNode(
+        "rest",
+        [
+            "세아: \"조금만 더 쉬면 혼자 돌아갈 수 있어요. 먼저 가세요.\"",
+            "파티는 세아에게 귀환 길을 알려주고 샘을 떠날 준비를 했다.",
+        ],
+        effect=let_her_rest,
+    )
+    found = DialogueNode(
+        "found",
+        [
+            "달빛 샘가에서 젖은 망토를 두른 약초꾼이 손을 흔든다.",
+            "약초꾼 세아: \"안개의 여왕 때문에 꼼짝없이 갇혀 있었어요. 구해주셔서 감사합니다.\"",
+            "세아는 지친 기색이지만 크게 다친 곳은 없어 보인다.",
+        ],
+        choices=[
+            ("세아를 마을까지 호위한다", "escort"),
+            ("샘에서 쉬었다가 돌아오게 한다", "rest"),
+        ],
+    )
+    return Dialogue(nodes=[found, escort, rest], start_id="found")
+
+
 def shadow_valley_dialogue() -> Dialogue:
     """그림자 골짜기 진입 시의 짧은 분위기 연출용 대화 (선택지 없음)."""
     node = DialogueNode(

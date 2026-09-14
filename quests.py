@@ -21,6 +21,8 @@ class QuestDefinition:
     gold_reward: int
     item_rewards: Tuple[Tuple[str, int], ...] = ()
     main_quest: bool = False
+    bonus_flag: str = ""
+    bonus_gold_reward: int = 0
 
 
 QUESTS: Dict[str, QuestDefinition] = {
@@ -42,6 +44,17 @@ QUESTS: Dict[str, QuestDefinition] = {
         objective="폐광 가장 깊은 곳의 탄광 드레이크 처치",
         gold_reward=45,
         item_rewards=(("에테르", 1), ("해독제", 1)),
+    ),
+    "lost_herbalist": QuestDefinition(
+        quest_id="lost_herbalist",
+        title="안개 속 약초꾼",
+        description="안개 습지에서 실종된 약초꾼 세아를 찾아 안전을 확인한다.",
+        target_location_id="forgotten_shrine",
+        objective="잊힌 사당의 안개의 여왕을 처치하고 달빛 샘에서 세아 찾기",
+        gold_reward=60,
+        item_rewards=(("해독제", 2), ("에테르", 1)),
+        bonus_flag="escorted_herbalist",
+        bonus_gold_reward=20,
     ),
 }
 
@@ -78,7 +91,9 @@ class QuestLog:
             if location and location.boss_defeated:
                 self.states[quest_id] = "ready"
 
-    def claim(self, quest_id: str, party, inventory: list) -> bool:
+    def claim(
+        self, quest_id: str, party, inventory: list, flags: dict | None = None,
+    ) -> bool:
         """완료 가능 퀘스트의 보상을 한 번만 지급한다."""
         if self.states.get(quest_id) != "ready":
             return False
@@ -86,7 +101,12 @@ class QuestLog:
         import data  # quests.py와 data.py의 불필요한 초기 순환 참조 방지
 
         definition = QUESTS[quest_id]
-        party.gold += definition.gold_reward
+        bonus_gold = (
+            definition.bonus_gold_reward
+            if definition.bonus_flag and (flags or {}).get(definition.bonus_flag)
+            else 0
+        )
+        party.gold += definition.gold_reward + bonus_gold
         for item_name, count in definition.item_rewards:
             inventory.extend([data.ITEMS_BY_NAME[item_name]] * count)
         self.states[quest_id] = "completed"
@@ -108,7 +128,9 @@ class QuestLog:
         return "\n".join(lines)
 
 
-def run_quest_board(quest_log: QuestLog, party, inventory: list, game_map) -> None:
+def run_quest_board(
+    quest_log: QuestLog, party, inventory: list, game_map, flags: dict | None = None,
+) -> None:
     """마을 의뢰 게시판에서 수락과 보상 수령을 처리한다."""
     quest_log.refresh_from_world(game_map)
     status_labels = {
@@ -143,7 +165,9 @@ def run_quest_board(quest_log: QuestLog, party, inventory: list, game_map) -> No
                 quest_log.refresh_from_world(game_map)
                 print("의뢰를 수락했습니다.")
         elif status == "ready":
-            quest_log.claim(quest_id, party, inventory)
+            quest_log.claim(quest_id, party, inventory, flags)
+            if definition.bonus_flag and (flags or {}).get(definition.bonus_flag):
+                rewards.append(f"호위 보너스 {definition.bonus_gold_reward}G")
             print("의뢰를 완료했습니다! " + ", ".join(rewards))
         elif status == "active":
             print("아직 목표를 달성하지 못했습니다.")

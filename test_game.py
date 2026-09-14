@@ -10,6 +10,7 @@ from contextlib import redirect_stdout
 from unittest.mock import patch
 
 import data
+import dialogues
 import save
 import balance_simulator
 import equipment_simulator
@@ -125,6 +126,31 @@ class GameTests(unittest.TestCase):
             save.save_game(party, [], game_map, {}, [], path, quest_log=quest_log)
             *_, loaded_log = save.load_game(path)
         self.assertEqual(loaded_log.status("miners_rest"), "ready")
+
+    def test_marsh_quest_npc_choice_and_bonus_reward(self):
+        quest_log = QuestLog()
+        game_map = build_world()
+        self.assertTrue(quest_log.accept("lost_herbalist"))
+        game_map.locations["forgotten_shrine"].boss_defeated = True
+        quest_log.refresh_from_world(game_map)
+        self.assertEqual(quest_log.status("lost_herbalist"), "ready")
+        self.assertIsNotNone(game_map.locations["moonlit_spring"].dialogue)
+
+        flags = {}
+        with patch.object(builtins, "input", return_value="1"), redirect_stdout(io.StringIO()):
+            dialogues.moonlit_spring_dialogue().run(flags)
+        self.assertTrue(flags["found_herbalist"])
+        self.assertTrue(flags["escorted_herbalist"])
+
+        party = Party([data.create_healer("구조대")], gold=0)
+        inventory = []
+        self.assertTrue(
+            quest_log.claim("lost_herbalist", party, inventory, flags)
+        )
+        self.assertEqual(party.gold, 80)
+        self.assertEqual(
+            [item.name for item in inventory], ["해독제", "해독제", "에테르"]
+        )
 
     def test_menu_rejects_zero_negative_and_text(self):
         with patch.object(builtins, "input", side_effect=["0", "-1", "문자", "2"]):

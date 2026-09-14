@@ -345,6 +345,24 @@ class WebGameTests(unittest.TestCase):
         self.assertEqual(self.game.quest_log.status("miners_rest"), "completed")
         self.assertEqual(self.game.party.gold, before_gold + 45)
 
+    def test_web_marsh_quest_grants_escort_bonus(self):
+        self.finish_intro()
+        accepted = self.game.quest_action("accept", "lost_herbalist")
+        self.assertTrue(accepted["ok"])
+        self.game.game_map.locations["forgotten_shrine"].boss_defeated = True
+        self.game.flags["found_herbalist"] = True
+        self.game.flags["escorted_herbalist"] = True
+        before_gold = self.game.party.gold
+
+        claimed = self.game.quest_action("claim", "lost_herbalist")
+
+        self.assertTrue(claimed["ok"])
+        self.assertEqual(self.game.party.gold, before_gold + 80)
+        self.assertEqual(
+            [item.name for item in self.game.inventory[-3:]],
+            ["해독제", "해독제", "에테르"],
+        )
+
     def test_web_save_and_load_roundtrip(self):
         self.finish_intro()
         with tempfile.TemporaryDirectory() as directory, patch("save.SAVE_DIR", directory):
