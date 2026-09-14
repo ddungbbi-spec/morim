@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111827">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <title>미정의 전설 · 웹 플레이</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="ambient ambient-a"></div>
+  <div class="ambient ambient-b"></div>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">TURN-BASED FANTASY</p>
+      <h1>미정의 전설</h1>
+    </div>
+    <div class="top-actions">
+      <span id="goldBadge" class="badge">0 G</span>
+      <button id="installButton" class="ghost hidden">앱 설치</button>
+      <button id="soundButton" class="ghost" aria-label="효과음 켜기 또는 끄기">음향 켜짐</button>
+      <button id="newGameButton" class="ghost">새 게임</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="panel party-panel">
+      <div class="section-title"><span>원정대</span><small id="turnLabel">대기 중</small></div>
+      <div id="partyCards" class="card-list"></div>
+    </section>
+
+    <section class="battle-column">
+      <section class="stage panel">
+        <div class="stage-heading">
+          <div>
+            <p class="eyebrow">BATTLE FIELD</p>
+            <h2 id="stageTitle">원정 준비</h2>
+          </div>
+          <span id="phaseBadge" class="phase-badge">대기</span>
+        </div>
+        <div id="setupPanel" class="setup-panel hidden"></div>
+        <div id="locationPanel" class="location-panel"></div>
+        <div id="dialoguePanel" class="dialogue-panel hidden"></div>
+        <div id="enemyCards" class="enemy-grid"></div>
+        <div id="encounterPicker" class="encounters"></div>
+      </section>
+
+      <section class="command panel">
+        <div class="section-title"><span id="commandTitle">명령</span><small>선택은 즉시 적용됩니다</small></div>
+        <div id="commandButtons" class="command-grid"></div>
+        <div id="choicePanel" class="choice-panel hidden"></div>
+        <p id="errorMessage" class="error hidden" role="alert"></p>
+      </section>
+    </section>
+
+    <aside class="panel log-panel">
+      <div class="section-title"><span>전투 기록</span><small>최근 기록</small></div>
+      <div id="battleLog" class="log" aria-live="polite"></div>
+    </aside>
+  </main>
+
+  <footer>
+    <span>Python 게임 규칙과 실시간 연동</span>
+    <span id="inventoryLabel">아이템 0 · 장비 0</span>
+  </footer>
+  <script src="/app.js"></script>
+</body>
+</html>

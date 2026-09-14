@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="미정의 전설 검 문장">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#172a46"/>
+      <stop offset="1" stop-color="#080d18"/>
+    </linearGradient>
+    <linearGradient id="blade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff5c9"/>
+      <stop offset=".55" stop-color="#f1c66d"/>
+      <stop offset="1" stop-color="#8b6330"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="171" fill="none" stroke="#66d9d0" stroke-opacity=".32" stroke-width="12"/>
+  <path d="M256 82 294 296 256 342 218 296Z" fill="url(#blade)"/>
+  <path d="M166 302h180l-23 38H189Z" fill="#66d9d0"/>
+  <rect x="239" y="326" width="34" height="93" rx="15" fill="#f1c66d"/>
+  <circle cx="256" cy="425" r="25" fill="#f1c66d"/>
+  <path d="M128 217c47-61 101-92 128-92s81 31 128 92" fill="none" stroke="#f1c66d" stroke-opacity=".45" stroke-width="9" stroke-linecap="round"/>
+</svg>

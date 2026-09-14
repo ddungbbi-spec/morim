@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: undefined-legend-rpg
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: RPG_MULTI_SESSION
+        value: "1"

@@ -1,0 +1,350 @@
+"""웹 전투 시제품의 상태 전환과 기존 게임 규칙 연동 테스트."""
+
+import unittest
+import tempfile
+import json
+import threading
+import http.cookiejar
+import urllib.request
+from pathlib import Path
+from unittest.mock import patch
+
+import data
+from http.server import ThreadingHTTPServer
+from web_app import DEFAULT_PARTY_SETUP, GameHandler, SessionStore, WEB_ROOT, WebGame
+
+
+class WebGameTests(unittest.TestCase):
+    def setUp(self):
+        self.game = WebGame()
+        result = self.game.configure_party(DEFAULT_PARTY_SETUP)
+        self.assertTrue(result["ok"])
+
+    def finish_intro(self, choice=1):
+        self.game.advance_dialogue(choice)
+        self.game.advance_dialogue()
+
+    def test_initial_state_and_static_assets(self):
+        fresh = WebGame()
+        state = fresh.state()
+        self.assertEqual(state["phase"], "setup")
+        self.assertEqual(state["location"]["name"], "시작 마을")
+        self.assertIsNone(state["dialogue"])
+        self.assertEqual(len(state["party"]), 0)
+        self.assertEqual(len(state["setup"]["jobs"]), 6)
+        self.assertEqual(len(state["encounters"]), 3)
+        for filename in (
+            "index.html", "styles.css", "app.js", "manifest.webmanifest", "sw.js",
+            "icon.svg", "icon-192.png", "icon-512.png",
+        ):
+            self.assertTrue((Path(WEB_ROOT) / filename).is_file())
+        with open(Path(WEB_ROOT) / "manifest.webmanifest", encoding="utf-8") as stream:
+            manifest = json.load(stream)
+        self.assertEqual(manifest["display"], "standalone")
+        self.assertEqual(
+            {icon["sizes"] for icon in manifest["icons"]},
+            {"192x192", "512x512", "any"},
+        )
+
+    def test_health_endpoint_and_security_headers(self):
+        server = ThreadingHTTPServer(("127.0.0.1", 0), GameHandler)
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        try:
+            with urllib.request.urlopen(
+                f"http://127.0.0.1:{server.server_port}/api/health", timeout=2
+            ) as response:
+                payload = json.load(response)
+                self.assertTrue(payload["ok"])
+                self.assertEqual(payload["service"], "undefined-legend")
+                self.assertEqual(response.headers["Cache-Control"], "no-store")
+                self.assertEqual(response.headers["X-Content-Type-Options"], "nosniff")
+                self.assertEqual(response.headers["X-Frame-Options"], "DENY")
+                self.assertIn("frame-ancestors 'none'", response.headers["Content-Security-Policy"])
+        finally:
+            server.shutdown()
+            server.server_close()
+            worker.join(timeout=2)
+
+    def test_mobile_touch_and_deployment_files(self):
+        project_root = Path(WEB_ROOT).parent
+        for filename in (
+            "Dockerfile", ".dockerignore", ".gitignore", ".python-version",
+            "compose.yaml", "render.yaml", "DEPLOYMENT.md",
+            ".github/workflows/tests.yml",
+        ):
+            self.assertTrue((project_root / filename).is_file())
+        dockerfile = (project_root / "Dockerfile").read_text(encoding="utf-8")
+        styles = (Path(WEB_ROOT) / "styles.css").read_text(encoding="utf-8")
+        index = (Path(WEB_ROOT) / "index.html").read_text(encoding="utf-8")
+        self.assertIn("USER appuser", dockerfile)
+        self.assertIn("/api/health", dockerfile)
+        self.assertIn("min-height: 44px", styles)
+        self.assertIn("safe-area-inset-bottom", styles)
+        self.assertIn("font-size: 16px", styles)
+        self.assertIn("viewport-fit=cover", index)
+
+    def test_browser_sessions_and_save_slots_are_isolated(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(
+            GameHandler, "multi_session_enabled", True
+        ), patch.object(GameHandler, "session_store", SessionStore(Path(directory))):
+            server = ThreadingHTTPServer(("127.0.0.1", 0), GameHandler)
+            worker = threading.Thread(target=server.serve_forever, daemon=True)
+            worker.start()
+
+            def client():
+                jar = http.cookiejar.CookieJar()
+                return urllib.request.build_opener(
+                    urllib.request.HTTPCookieProcessor(jar)
+                ), jar
+
+            def api(opener, path, body=None):
+                data = None if body is None else json.dumps(body).encode("utf-8")
+                request = urllib.request.Request(
+                    f"http://127.0.0.1:{server.server_port}{path}", data=data,
+                    headers={"Content-Type": "application/json"},
+                )
+                with opener.open(request, timeout=2) as response:
+                    return json.load(response)
+
+            first, first_jar = client()
+            second, second_jar = client()
+            try:
+                secure_request = urllib.request.Request(
+                    f"http://127.0.0.1:{server.server_port}/api/state",
+                    headers={"X-Forwarded-Proto": "https"},
+                )
+                with first.open(secure_request, timeout=2) as response:
+                    self.assertTrue(json.load(response)["ok"])
+                    set_cookie = response.headers["Set-Cookie"]
+                    self.assertIn("HttpOnly", set_cookie)
+                    self.assertIn("SameSite=Lax", set_cookie)
+                    self.assertIn("Secure", set_cookie)
+                api(second, "/api/state")
+                self.assertNotEqual(
+                    next(iter(first_jar)).value, next(iter(second_jar)).value
+                )
+                first_setup = api(first, "/api/setup", {"members": DEFAULT_PARTY_SETUP})
+                second_setup = api(second, "/api/setup", {"members": [
+                    {"name": "청명", "job": "rogue"},
+                    {"name": "설화", "job": "archer"},
+                    {"name": "무진", "job": "summoner"},
+                ]})
+                self.assertEqual(first_setup["state"]["party"][0]["name"], "레온")
+                self.assertEqual(second_setup["state"]["party"][0]["name"], "청명")
+                api(first, "/api/dialogue", {"choice": 1})
+                api(first, "/api/dialogue", {})
+                saved = api(first, "/api/save", {"operation": "save", "slot": 1})
+                self.assertTrue(saved["state"]["save_slots"][0]["exists"])
+                second_state = api(second, "/api/state")["state"]
+                self.assertFalse(second_state["save_slots"][0]["exists"])
+            finally:
+                server.shutdown()
+                server.server_close()
+                worker.join(timeout=2)
+
+    def test_custom_party_setup_supports_all_jobs_and_names(self):
+        game = WebGame()
+        result = game.configure_party([
+            {"name": "청명", "job": "rogue"},
+            {"name": "설화", "job": "archer"},
+            {"name": "무진", "job": "summoner"},
+        ])
+        self.assertTrue(result["ok"])
+        self.assertEqual([member.name for member in game.party.members], ["청명", "설화", "무진"])
+        self.assertEqual([member.job for member in game.party.members], ["도적", "궁수", "소환술사"])
+        self.assertEqual(game.phase, "dialogue")
+
+    def test_party_setup_rejects_duplicate_or_invalid_data(self):
+        game = WebGame()
+        duplicate = game.configure_party([
+            {"name": "가람", "job": "warrior"},
+            {"name": "가람", "job": "mage"},
+            {"name": "다온", "job": "healer"},
+        ])
+        self.assertFalse(duplicate["ok"])
+        invalid = game.configure_party([
+            {"name": "가람", "job": "unknown"},
+            {"name": "나래", "job": "mage"},
+            {"name": "다온", "job": "healer"},
+        ])
+        self.assertFalse(invalid["ok"])
+        non_text = game.configure_party([
+            {"name": None, "job": "warrior"},
+            {"name": "나래", "job": "mage"},
+            {"name": "다온", "job": "healer"},
+        ])
+        self.assertFalse(non_text["ok"])
+
+    def test_dialogue_choice_updates_flags_and_main_quest(self):
+        first = self.game.advance_dialogue(0)
+        self.assertTrue(first["ok"])
+        self.assertTrue(self.game.flags["promised_elder"])
+        self.assertEqual(self.game.phase, "dialogue")
+
+        continued = self.game.advance_dialogue()
+        self.assertTrue(continued["ok"])
+        self.assertEqual(self.game.phase, "explore")
+        self.assertEqual(self.game.quest_log.status("ruins_darkness"), "active")
+
+    def test_world_move_updates_location_and_visited_map(self):
+        self.game.advance_dialogue(1)
+        self.game.advance_dialogue()
+        with patch("web_app.random.random", return_value=0.99):
+            result = self.game.move("숲으로 향한다")
+        self.assertTrue(result["ok"])
+        self.assertEqual(self.game.game_map.current_id, "forest_entrance")
+        self.assertIn("forest_entrance", self.game.game_map.visited)
+        self.assertEqual(self.game.phase, "explore")
+
+    def test_random_encounter_starts_on_world_move(self):
+        self.game.advance_dialogue(1)
+        self.game.advance_dialogue()
+        with patch("web_app.random.random", return_value=0.0), patch(
+            "web_app.random.choice", side_effect=lambda values: values[0]
+        ):
+            self.game.move("숲으로 향한다")
+        self.assertEqual(self.game.phase, "battle")
+        self.assertEqual(self.game.battle_context, "random")
+        self.assertEqual(self.game.enemies[0].name, "슬라임")
+
+    def test_locked_exit_consumes_key_and_claims_vault_loot(self):
+        self.game.game_map.current_id = "cave"
+        self.game.phase = "explore"
+        blocked = self.game.move("굳게 닫힌 문 안으로")
+        self.assertFalse(blocked["ok"])
+        self.game.inventory.append(data.RUSTY_KEY)
+        moved = self.game.move("굳게 닫힌 문 안으로")
+        self.assertTrue(moved["ok"])
+        self.assertEqual(self.game.game_map.current_id, "cave_vault")
+        self.assertTrue(self.game.game_map.current.loot_claimed)
+        self.assertTrue(any(item.name == "행운의 반지" for item in self.game.equipment_inventory))
+
+    def test_world_boss_starts_after_location_dialogue(self):
+        self.game.game_map.current_id = "ruins"
+        self.game.phase = "explore"
+        self.game._enter_current_location()
+        self.assertEqual(self.game.phase, "dialogue")
+        self.game.advance_dialogue()
+        self.assertEqual(self.game.phase, "battle")
+        self.assertEqual(self.game.battle_context, "boss")
+        self.assertEqual(self.game.enemies[0].name, "다크 나이트")
+
+    def test_world_boss_victory_unlocks_location_progress(self):
+        self.game.game_map.current_id = "ruins"
+        self.game.game_map.current.dialogue_played = True
+        self.game.phase = "explore"
+        self.game._enter_current_location()
+        self.game.enemies[0].hp = 1
+        with patch("models.random.randint", return_value=0), patch(
+            "web_app.random.random", return_value=0.99
+        ):
+            while self.game.phase == "battle":
+                self.game.act({"type": "attack", "target": 0})
+        self.assertTrue(self.game.game_map.current.boss_defeated)
+        self.assertEqual(self.game.phase, "explore")
+
+    def test_web_shop_buy_sell_and_key_item_protection(self):
+        self.finish_intro()
+        self.game.party.gold = 100
+        before_count = len(self.game.inventory)
+        bought = self.game.shop_action("buy_item", 0)
+        self.assertTrue(bought["ok"])
+        self.assertEqual(len(self.game.inventory), before_count + 1)
+
+        self.game.inventory.append(data.RUSTY_KEY)
+        sell_names = [item["name"] for item in self.game.state()["shop"]["sell_items"]]
+        self.assertNotIn("녹슨 열쇠", sell_names)
+        sold = self.game.shop_action("sell_item", 0)
+        self.assertTrue(sold["ok"])
+        self.assertIn(data.RUSTY_KEY, self.game.inventory)
+
+    def test_web_equipment_equip_swap_and_unequip(self):
+        self.finish_intro()
+        self.game.equipment_inventory.extend([data.IRON_SWORD, data.OAK_STAFF])
+        equipped = self.game.equipment_action("equip", 0, 0)
+        self.assertTrue(equipped["ok"])
+        self.assertIs(self.game.party.members[0].equipment["weapon"], data.IRON_SWORD)
+
+        swapped = self.game.equipment_action("equip", 0, 0)
+        self.assertTrue(swapped["ok"])
+        self.assertIs(self.game.party.members[0].equipment["weapon"], data.OAK_STAFF)
+        self.assertIn(data.IRON_SWORD, self.game.equipment_inventory)
+
+        removed = self.game.equipment_action("unequip", 0, slot="weapon")
+        self.assertTrue(removed["ok"])
+        self.assertIsNone(self.game.party.members[0].equipment["weapon"])
+
+    def test_web_quest_accept_and_claim(self):
+        self.finish_intro()
+        accepted = self.game.quest_action("accept", "miners_rest")
+        self.assertTrue(accepted["ok"])
+        self.game.game_map.locations["mine_depths"].boss_defeated = True
+        before_gold = self.game.party.gold
+        claimed = self.game.quest_action("claim", "miners_rest")
+        self.assertTrue(claimed["ok"])
+        self.assertEqual(self.game.quest_log.status("miners_rest"), "completed")
+        self.assertEqual(self.game.party.gold, before_gold + 45)
+
+    def test_web_save_and_load_roundtrip(self):
+        self.finish_intro()
+        with tempfile.TemporaryDirectory() as directory, patch("save.SAVE_DIR", directory):
+            self.game.party.gold = 73
+            saved = self.game.save_action("save", 1)
+            self.assertTrue(saved["ok"])
+            self.assertTrue(self.game.state()["save_slots"][0]["exists"])
+            self.game.party.gold = 1
+            self.game.reset()
+            self.assertEqual(self.game.phase, "setup")
+            loaded = self.game.save_action("load", 1)
+            self.assertTrue(loaded["ok"])
+            self.assertEqual(self.game.party.gold, 73)
+            self.assertEqual(self.game.game_map.current_id, "village")
+
+    def test_start_battle_advances_to_player_turn(self):
+        with patch("models.random.randint", return_value=0):
+            result = self.game.start_battle("forest")
+        self.assertTrue(result["ok"])
+        self.assertEqual(self.game.phase, "battle")
+        self.assertIsNotNone(self.game.current_actor)
+        self.assertEqual(len(self.game.enemies), 2)
+
+    def test_attack_uses_shared_character_rules(self):
+        with patch("models.random.randint", return_value=0):
+            self.game.start_battle("forest")
+            before = self.game.enemies[0].hp
+            result = self.game.act({"type": "attack", "target": 0})
+        self.assertTrue(result["ok"])
+        self.assertLess(self.game.enemies[0].hp, before)
+
+    def test_invalid_action_does_not_consume_turn(self):
+        self.game.start_battle("forest")
+        actor = self.game.current_actor
+        result = self.game.act({"type": "attack", "target": 99})
+        self.assertFalse(result["ok"])
+        self.assertIs(self.game.current_actor, actor)
+
+    def test_boss_flee_is_blocked_and_consumes_action(self):
+        self.game.start_battle("dark_knight")
+        actor = self.game.current_actor
+        result = self.game.act({"type": "flee"})
+        self.assertTrue(result["ok"])
+        self.assertEqual(self.game.phase, "battle")
+        self.assertIn("보스 전투에서는 도망칠 수 없습니다.", self.game.logs)
+        self.assertIsNot(self.game.current_actor, actor)
+
+    def test_victory_awards_gold_and_opens_encounter_selection(self):
+        self.game.start_battle("forest")
+        for enemy in self.game.enemies:
+            enemy.hp = 1
+        starting_gold = self.game.party.gold
+        with patch("models.random.randint", return_value=0), patch("web_app.random.random", return_value=0.99):
+            while self.game.phase == "battle":
+                self.game.act({"type": "attack", "target": 0})
+        self.assertEqual(self.game.phase, "victory")
+        self.assertGreater(self.game.party.gold, starting_gold)
+        self.assertTrue(self.game.state()["encounters"])
+
+
+if __name__ == "__main__":
+    unittest.main()

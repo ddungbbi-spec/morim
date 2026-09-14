@@ -1,0 +1,9 @@
+__pycache__/
+*.py[cod]
+*.zip
+*.bak
+.git/
+.DS_Store
+balance_results/
+equipment_results/
+reports/

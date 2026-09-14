@@ -1,0 +1,16 @@
+services:
+  game:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8000
+      RPG_SAVE_DIR: /app/saves
+      RPG_MULTI_SESSION: "1"
+    volumes:
+      - game-saves:/app/saves
+    restart: unless-stopped
+
+volumes:
+  game-saves:
