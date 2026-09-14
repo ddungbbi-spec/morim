@@ -188,6 +188,7 @@ function renderCommands() {
       return `<button class="command-button" onclick="moveTo('${encoded}')">${escapeHtml(exit.label)}${lock}</button>`;
     }).join("");
     const utilities = `${gameState.shop ? `<button class="command-button utility" onclick="openUtility('shop')">상점</button>` : ""}
+      ${gameState.inn ? `<button class="command-button utility" onclick="innRequest()">여관 · 전원 회복</button>` : ""}
       <button class="command-button utility" onclick="openUtility('equipment')">장비</button>
       ${gameState.location.id === "village" ? `<button class="command-button utility" onclick="openUtility('quest')">의뢰 게시판</button>` : ""}
       <button class="command-button utility" onclick="openUtility('save')">저장·불러오기</button>`;
@@ -283,6 +284,7 @@ function openUtility(mode) { utilityMode = mode; renderUtilityPanel(); }
 function clearUtility() { utilityMode = null; $("#choicePanel").classList.add("hidden"); }
 function selectEquipmentMember(index) { equipmentMember = index; renderUtilityPanel(); }
 function shopRequest(operation, index) { request("/api/shop", {operation, index}); }
+function innRequest() { request("/api/inn", {}); }
 function equipmentRequest(operation, member, equipment, slot) { request("/api/equipment", {operation, member, equipment, slot}); }
 function questRequest(operation, quest) { request("/api/quest", {operation, quest}); }
 function saveSlot(slot, exists) {
@@ -373,7 +375,7 @@ function playResponseTone(path, before, after) {
   if (after === "battle" && before !== "battle") return playTone("battle");
   if (after === "victory" || after === "ending") return playTone("victory");
   if (after === "dialogue" && before !== "dialogue") return playTone("dialogue");
-  if (["/api/action", "/api/shop", "/api/equipment", "/api/quest", "/api/save"].includes(path)) return playTone("confirm");
+  if (["/api/action", "/api/shop", "/api/inn", "/api/equipment", "/api/quest", "/api/save"].includes(path)) return playTone("confirm");
   if (path === "/api/move") return playTone("move");
 }
 

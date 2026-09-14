@@ -561,6 +561,14 @@ class Party:
     def is_wiped_out(self) -> bool:
         return len(self.alive_members) == 0
 
+    def full_restore(self) -> None:
+        """전투 불능을 포함해 모든 파티원의 HP·MP와 상태이상을 회복한다."""
+        for member in self.members:
+            member.hp = member.effective_max_hp
+            member.mp = member.effective_max_mp
+            member.status_effects.clear()
+            member.guarding = False
+
     def print_status(self):
         print(f"보유 골드: {self.gold} G")
         for m in self.members:

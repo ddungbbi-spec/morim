@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 import data
 from http.server import ThreadingHTTPServer
+from models import StatusEffect
 from web_app import DEFAULT_PARTY_SETUP, GameHandler, SessionStore, WEB_ROOT, WebGame
 
 
@@ -196,6 +197,30 @@ class WebGameTests(unittest.TestCase):
         self.assertEqual(self.game.game_map.current_id, "forest_entrance")
         self.assertIn("forest_entrance", self.game.game_map.visited)
         self.assertEqual(self.game.phase, "explore")
+
+    def test_village_inn_fully_restores_party(self):
+        self.finish_intro()
+        for member in self.game.party.members:
+            member.hp = 0
+            member.mp = 0
+            member.guarding = True
+            member.status_effects.append(
+                StatusEffect("poison", "중독", 2, power=3)
+            )
+        result = self.game.inn_action()
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["state"]["inn"])
+        for member in self.game.party.members:
+            self.assertEqual(member.hp, member.effective_max_hp)
+            self.assertEqual(member.mp, member.effective_max_mp)
+            self.assertFalse(member.status_effects)
+            self.assertFalse(member.guarding)
+
+    def test_inn_is_unavailable_outside_village(self):
+        self.finish_intro()
+        self.game.game_map.current_id = "forest_entrance"
+        result = self.game.inn_action()
+        self.assertFalse(result["ok"])
 
     def test_random_encounter_starts_on_world_move(self):
         self.game.advance_dialogue(1)

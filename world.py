@@ -22,6 +22,7 @@ def build_world() -> GameMap:
         dialogue=dialogues.village_intro_dialogue(),
         shop_items=[data.POTION, data.ETHER, data.ANTIDOTE],
         shop_equipment=[data.IRON_SWORD, data.OAK_STAFF, data.LEATHER_ARMOR, data.SWIFT_CHARM],
+        has_inn=True,
     )
 
     forest_entrance = Location(
@@ -202,7 +203,10 @@ def build_world() -> GameMap:
         loc_id="tower_summit",
         name="도전의 탑 정상",
         description="탑의 가장 높은 곳. 구름 위로 솟아 있어 사방이 훤히 내려다보인다.",
-        exits={"3층으로 내려간다": "tower_floor_3"},
+        exits={
+            "탑의 마법진으로 마을에 귀환한다": "village",
+            "3층으로 내려간다": "tower_floor_3",
+        },
         boss=lambda: [data.create_tower_guardian()],
         dialogue=dialogues.tower_summit_dialogue(),
         loot_equipment=data.LEGENDARY_ARMOR,

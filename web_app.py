@@ -194,6 +194,13 @@ class WebGame:
             return self._error(str(error))
         return {"ok": True, "state": self.state()}
 
+    def inn_action(self) -> dict:
+        if self.phase != "explore" or not self.game_map.current.has_inn:
+            return self._error("여관은 시작 마을에서 이용할 수 있습니다.")
+        self.party.full_restore()
+        self._log("여관에서 쉬었습니다. 파티 전원의 HP·MP와 상태이상이 모두 회복되었습니다.")
+        return {"ok": True, "state": self.state()}
+
     def equipment_action(self, operation: str, member_index, equipment_index=None, slot=None) -> dict:
         if self.phase != "explore":
             return self._error("탐험 중에만 장비를 변경할 수 있습니다.")
@@ -788,6 +795,7 @@ class WebGame:
                 for quest_id, definition in QUESTS.items()
             ],
             "shop": shop_state,
+            "inn": location.has_inn,
             "equipment_inventory": [
                 {"index": index, **self._equipment_state(item)}
                 for index, item in enumerate(self.equipment_inventory)
@@ -926,6 +934,8 @@ class GameHandler(BaseHTTPRequestHandler):
                 result = game.advance_dialogue(payload.get("choice"))
             elif self.path == "/api/shop":
                 result = game.shop_action(payload.get("operation", ""), payload.get("index"))
+            elif self.path == "/api/inn":
+                result = game.inn_action()
             elif self.path == "/api/equipment":
                 result = game.equipment_action(
                     payload.get("operation", ""), payload.get("member"),

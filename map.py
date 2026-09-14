@@ -33,6 +33,7 @@ class Location:
         loot_item: Optional[Item] = None,
         loot_equipment: Optional[Equipment] = None,
         locked_exits: Optional[Dict[str, str]] = None,
+        has_inn: bool = False,
     ):
         self.id = loc_id
         self.name = name
@@ -53,6 +54,7 @@ class Location:
         self.loot_claimed = False
         self.locked_exits = locked_exits or {}  # {"exits의 문구": "필요한 아이템 이름"} - 열쇠 아이템을 소모해서 연다
         self.unlocked_labels = set()            # 이미 열어서 더는 열쇠가 필요 없는 문구들 (1회 소모, 이후 영구)
+        self.has_inn = has_inn                  # 파티 전체를 완전히 회복할 수 있는 여관
 
     @property
     def has_shop(self) -> bool:
@@ -176,6 +178,8 @@ def explore(
         options.append(("퀘스트 일지", "quests", None))
         if loc.id == "village":
             options.append(("의뢰 게시판", "quest_board", None))
+        if loc.has_inn:
+            options.append(("여관에서 쉬기 (전원 완전 회복)", "inn", None))
         if loc.has_shop:
             options.append(("상점 이용하기", "shop", None))
         options.append(("게임 저장", "save", None))
@@ -216,6 +220,11 @@ def explore(
         if action == "quest_board":
             from quests import run_quest_board
             run_quest_board(quest_log, party, inventory, game_map)
+            continue
+
+        if action == "inn":
+            party.full_restore()
+            print("\n여관에서 충분히 쉬었다. 파티 전원의 HP·MP와 상태이상이 모두 회복되었다!")
             continue
 
         if action == "shop":

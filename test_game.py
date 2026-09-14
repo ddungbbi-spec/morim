@@ -311,6 +311,29 @@ class GameTests(unittest.TestCase):
             for target in location.exits.values():
                 self.assertIn(target, game_map.locations)
 
+    def test_tower_summit_returns_directly_to_village(self):
+        game_map = build_world()
+        summit = game_map.locations["tower_summit"]
+        self.assertEqual(
+            summit.exits["탑의 마법진으로 마을에 귀환한다"], "village"
+        )
+
+    def test_party_full_restore_recovers_every_status(self):
+        party = Party([data.create_warrior("휴식자"), data.create_mage("마도사")])
+        for member in party.members:
+            member.hp = 0
+            member.mp = 0
+            member.guarding = True
+            member.status_effects.append(
+                StatusEffect("poison", "중독", 3, power=4)
+            )
+        party.full_restore()
+        for member in party.members:
+            self.assertEqual(member.hp, member.effective_max_hp)
+            self.assertEqual(member.mp, member.effective_max_mp)
+            self.assertFalse(member.status_effects)
+            self.assertFalse(member.guarding)
+
     def test_seal_power_changes_stats_once(self):
         party = Party([data.create_warrior("레온")])
         game_map = build_world()
