@@ -398,6 +398,8 @@ class PlayerCharacter(Character):
     ):
         super().__init__(*args, **kwargs)
         self.skill_progression = skill_progression or {}
+        self.base_job = self.job
+        self.advanced_job_id = ""
         self.last_growth_messages: List[str] = []
 
     def sync_skills_for_level(self) -> List[str]:

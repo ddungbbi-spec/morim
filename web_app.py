@@ -27,6 +27,7 @@ from equipment import SLOT_NAMES_KR
 from models import Enemy, Item, Party, PlayerCharacter, Skill
 from quests import QuestLog, QUESTS
 from shop import SELL_RATIO
+from advancement import ADVANCEMENT_LEVEL, advance, options_for
 from world import (
     build_world, complete_tower_challenge, create_scaled_tower_guardian,
     reset_tower_challenge, tower_challenge_tier, tower_clear_count,
@@ -317,6 +318,17 @@ class WebGame:
             self._log(f"퀘스트 [{QUESTS[quest_id].title}] 보상을 받았습니다.")
         else:
             return self._error("지원하지 않는 퀘스트 행동입니다.")
+        return {"ok": True, "state": self.state()}
+
+    def advancement_action(self, member_index, job_id: str) -> dict:
+        if self.phase != "explore" or self.game_map.current_id != "village":
+            return self._error("전직 교관은 시작 마을에서 이용할 수 있습니다.")
+        try:
+            member = self.party.members[self._index(member_index, len(self.party.members), "파티원")]
+            job = advance(member, job_id)
+        except ValueError as error:
+            return self._error(str(error))
+        self._log(f"{member.name}이(가) {job.name}(으)로 전직하고 [{job.skill.name}]을(를) 습득했습니다!")
         return {"ok": True, "state": self.state()}
 
     def save_action(self, operation: str, slot, backup=None) -> dict:
@@ -951,6 +963,23 @@ class WebGame:
                 }
                 for quest_id, definition in QUESTS.items()
             ],
+            "advancement": [
+                {
+                    "member": index,
+                    "name": member.name,
+                    "job": member.job,
+                    "level": member.level,
+                    "eligible": member.level >= ADVANCEMENT_LEVEL and not member.advanced_job_id,
+                    "advanced_job_id": member.advanced_job_id,
+                    "required_level": ADVANCEMENT_LEVEL,
+                    "options": [
+                        {"id": job.id, "name": job.name, "description": job.description,
+                         "skill": job.skill.name}
+                        for job in options_for(member)
+                    ] if not member.advanced_job_id else [],
+                }
+                for index, member in enumerate(self.party.members)
+            ],
             "shop": shop_state,
             "blacksmith": blacksmith_state,
             "inn": location.has_inn,
@@ -1127,6 +1156,8 @@ class GameHandler(BaseHTTPRequestHandler):
                 )
             elif self.path == "/api/quest":
                 result = game.quest_action(payload.get("operation", ""), payload.get("quest", ""))
+            elif self.path == "/api/advancement":
+                result = game.advancement_action(payload.get("member"), payload.get("job", ""))
             elif self.path == "/api/save":
                 result = game.save_action(
                     payload.get("operation", ""), payload.get("slot"), payload.get("backup")

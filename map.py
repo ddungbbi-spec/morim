@@ -223,6 +223,7 @@ def explore(
             options.append(("보스에게 다시 도전", "boss_retry", None))
         if loc.id == "village":
             options.append(("의뢰 게시판", "quest_board", None))
+            options.append(("전직 교관 · 2차 직업", "advancement", None))
             options.append(("대장간에서 장비 강화", "blacksmith", None))
             tower_summit = game_map.locations.get("tower_summit")
             if tower_summit and tower_summit.boss_defeated:
@@ -305,6 +306,32 @@ def explore(
         if action == "quest_board":
             from quests import run_quest_board
             run_quest_board(quest_log, party, inventory, game_map, flags)
+            continue
+
+        if action == "advancement":
+            from advancement import ADVANCEMENT_LEVEL, advance, options_for
+            print(f"\n[전직 교관] Lv.{ADVANCEMENT_LEVEL}부터 2차 직업을 선택할 수 있다.")
+            for i, member in enumerate(party.members, 1):
+                status = member.job if member.advanced_job_id else (
+                    "전직 가능" if member.level >= ADVANCEMENT_LEVEL else f"Lv.{ADVANCEMENT_LEVEL} 필요"
+                )
+                print(f"  {i}) {member.name} · {member.job} · Lv.{member.level} ({status})")
+            print(f"  {len(party.members) + 1}) 돌아가기")
+            member_index = prompt_index("> ", len(party.members) + 1)
+            if member_index == len(party.members):
+                continue
+            member = party.members[member_index]
+            if member.advanced_job_id or member.level < ADVANCEMENT_LEVEL:
+                print("\n아직 전직할 수 없다.")
+                continue
+            choices = options_for(member)
+            for i, job in enumerate(choices, 1):
+                print(f"  {i}) {job.name} · {job.description} · [{job.skill.name}]")
+            print(f"  {len(choices) + 1}) 돌아가기")
+            selection = prompt_index("> ", len(choices) + 1)
+            if selection < len(choices):
+                job = advance(member, choices[selection].id)
+                print(f"\n{member.name}이(가) {job.name}(으)로 전직하고 [{job.skill.name}]을(를) 습득했다!")
             continue
 
         if action == "blacksmith":

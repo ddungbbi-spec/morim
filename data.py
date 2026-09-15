@@ -729,6 +729,8 @@ SKILLS_BY_NAME = {
         SUMMON_SHIVA, SUMMON_IFRIT_EX, SUMMON_RAMUH_EX,
     ]
 }
+from advancement import ADVANCED_JOBS
+SKILLS_BY_NAME.update({job.skill.name: job.skill for job in ADVANCED_JOBS.values()})
 ITEMS_BY_NAME = {it.name: it for it in [POTION, ETHER, ANTIDOTE, MOONLIGHT_TONIC, RUSTY_KEY]}
 EQUIPMENT_BY_NAME = {
     e.name: e for e in [

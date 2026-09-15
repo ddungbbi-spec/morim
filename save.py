@@ -109,6 +109,8 @@ def _character_to_dict(ch: PlayerCharacter) -> dict:
     return {
         "name": ch.name,
         "job": ch.job,
+        "base_job": ch.base_job,
+        "advanced_job_id": ch.advanced_job_id,
         "level": ch.level,
         "hp": ch.hp,
         "max_hp": ch.max_hp,
@@ -141,6 +143,9 @@ def _character_to_dict(ch: PlayerCharacter) -> dict:
 
 
 def _character_from_dict(d: dict) -> PlayerCharacter:
+    from advancement import ADVANCED_JOBS
+    advanced_job = ADVANCED_JOBS.get(d.get("advanced_job_id", ""))
+    base_job = d.get("base_job") or (advanced_job.base_job if advanced_job else d["job"])
     ch = PlayerCharacter(
         name=d["name"],
         job=d["job"],
@@ -151,11 +156,13 @@ def _character_from_dict(d: dict) -> PlayerCharacter:
         defense=d["defense"],
         speed=d["speed"],
         skills=[data.SKILLS_BY_NAME[n] for n in d["skills"] if n in data.SKILLS_BY_NAME],
-        skill_progression=data.JOB_SKILL_GROWTH_BY_JOB.get(d["job"], {}),
+        skill_progression=data.JOB_SKILL_GROWTH_BY_JOB.get(base_job, {}),
         # 버전 1~2 저장 파일의 도적도 새 고유 특성을 자동으로 얻는다.
         critical_rate=d.get("critical_rate", 0.20 if d["job"] == "도적" else 0.0),
         evasion_rate=d.get("evasion_rate", 0.15 if d["job"] == "도적" else 0.0),
     )
+    ch.base_job = base_job
+    ch.advanced_job_id = advanced_job.id if advanced_job else ""
     ch.hp = d["hp"]
     ch.mp = d["mp"]
     ch.exp = d["exp"]
@@ -343,6 +350,7 @@ def _validate_payload(payload: dict) -> None:
         "attack", "defense", "speed", "exp", "skills",
     }
     unknown_skills = set()
+    from advancement import ADVANCED_JOBS
     for character in payload["party"]:
         if not isinstance(character, dict):
             raise SaveGameError("캐릭터 데이터 형식이 올바르지 않습니다.")
@@ -350,6 +358,12 @@ def _validate_payload(payload: dict) -> None:
         if missing_character:
             raise SaveGameError(f"캐릭터 필수 항목이 없습니다: {sorted(missing_character)}")
         unknown_skills.update(set(character["skills"]) - set(data.SKILLS_BY_NAME))
+        advanced_id = character.get("advanced_job_id", "")
+        if advanced_id:
+            advanced_job = ADVANCED_JOBS.get(advanced_id)
+            if (not advanced_job or character["job"] != advanced_job.name
+                    or character.get("base_job") != advanced_job.base_job):
+                raise SaveGameError("2차 직업 정보가 올바르지 않습니다.")
         equipment_data = character.get("equipment", {})
         if not isinstance(equipment_data, dict):
             raise SaveGameError("착용 장비 형식이 올바르지 않습니다.")

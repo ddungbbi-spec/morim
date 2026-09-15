@@ -65,6 +65,23 @@ class WebGameTests(unittest.TestCase):
         self.assertIn("★ 보스가 새로운 힘을 드러낸다!", state["logs"])
         self.assertEqual(self.game.state()["phase_transition_id"], state["phase_transition_id"])
 
+    def test_web_second_job_rules_and_state(self):
+        self.finish_intro()
+        member = self.game.party.members[0]
+        self.assertFalse(self.game.advancement_action(0, "swordmaster")["ok"])
+        member.level = 5
+        self.assertEqual(len(self.game.state()["advancement"][0]["options"]), 2)
+        self.assertFalse(self.game.advancement_action(0, "pyromancer")["ok"])
+        self.assertFalse(self.game.advancement_action(0, {"id": "swordmaster"})["ok"])
+        self.assertFalse(self.game.advancement_action(99, "swordmaster")["ok"])
+        self.assertTrue(self.game.advancement_action(0, "swordmaster")["ok"])
+        self.assertEqual(member.job, "검성")
+        self.assertFalse(self.game.advancement_action(0, "guardian")["ok"])
+        self.assertEqual(self.game.state()["advancement"][0]["options"], [])
+        with patch("web_app.random.random", return_value=0.99):
+            self.game.move("숲으로 향한다")
+        self.assertFalse(self.game.advancement_action(1, "priest")["ok"])
+
     def test_health_endpoint_and_security_headers(self):
         server = ThreadingHTTPServer(("127.0.0.1", 0), GameHandler)
         worker = threading.Thread(target=server.serve_forever, daemon=True)

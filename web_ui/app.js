@@ -219,6 +219,7 @@ function renderCommands() {
       ${gameState.tower?.can_retry ? `<button class="command-button utility" onclick="towerRetry()">도전의 탑 ${gameState.tower.next_tier}단계 개방</button>` : ""}
       <button class="command-button utility" onclick="openUtility('equipment')">장비</button>
       ${gameState.location.id === "village" ? `<button class="command-button utility" onclick="openUtility('quest')">의뢰 게시판</button>` : ""}
+      ${gameState.location.id === "village" ? `<button class="command-button utility" onclick="openUtility('advancement')">전직 교관 · 2차 직업</button>` : ""}
       <button class="command-button utility" onclick="openUtility('save')">저장·불러오기</button>`;
     $("#commandButtons").innerHTML = moves + utilities;
     pending = null;
@@ -315,6 +316,18 @@ function renderUtilityPanel() {
         : `<div class="utility-card disabled"><strong>${escapeHtml(quest.title)} · ${statusNames[quest.status]}</strong><span>${escapeHtml(detail)}</span></div>`;
     }).join("");
     panel.innerHTML = utilityShell("의뢰 게시판", utilitySection("퀘스트", quests));
+  } else if (utilityMode === "advancement") {
+    const members = gameState.advancement.map((member) => {
+      const choices = member.options.map((job) => utilityButton(
+        `${job.name} · ${job.skill}`, job.description,
+        `advancementRequest(${member.member},'${job.id}')`
+      )).join("");
+      return `<section class="utility-section"><p>${escapeHtml(member.name)} · ${escapeHtml(member.job)} · Lv.${member.level}</p>
+        ${member.advanced_job_id ? `<span class="muted-copy">전직 완료 · ${escapeHtml(member.job)}</span>` :
+          member.eligible ? `<div class="utility-list">${choices}</div>` :
+          `<span class="muted-copy">Lv.${member.required_level}부터 전직 가능</span>`}</section>`;
+    }).join("");
+    panel.innerHTML = utilityShell("전직 교관", `<p class="stat-line">5레벨 이상 파티원마다 2가지 계열 중 하나를 선택합니다. 전직은 되돌릴 수 없습니다.</p>${members}`);
   } else if (utilityMode === "save") {
     const slots = gameState.save_slots.map((slot) => `<div class="save-row">
       <div><strong>슬롯 ${slot.slot}</strong><span>${escapeHtml(slot.summary || (slot.exists ? "손상된 저장" : "비어 있음"))}</span></div>
@@ -347,6 +360,11 @@ function blacksmithRequest(equipment) {
   }
 }
 function innRequest() { request("/api/inn", {}); }
+function advancementRequest(member, job) {
+  if (confirm("이 2차 직업으로 전직할까요? 전직은 되돌릴 수 없습니다.")) {
+    request("/api/advancement", {member, job});
+  }
+}
 function towerRetry() {
   if (confirm(`도전의 탑 ${gameState.tower.next_tier}단계를 개방할까요?`)) {
     request("/api/tower", {operation: "reset"});
@@ -447,7 +465,7 @@ function playResponseTone(path, before, after) {
   if (after === "battle" && before !== "battle") return playTone("battle");
   if (after === "victory" || after === "ending") return playTone("victory");
   if (after === "dialogue" && before !== "dialogue") return playTone("dialogue");
-  if (["/api/action", "/api/shop", "/api/inn", "/api/blacksmith", "/api/tower", "/api/boss", "/api/equipment", "/api/quest", "/api/save"].includes(path)) return playTone("confirm");
+  if (["/api/action", "/api/shop", "/api/inn", "/api/blacksmith", "/api/tower", "/api/boss", "/api/equipment", "/api/quest", "/api/advancement", "/api/save"].includes(path)) return playTone("confirm");
   if (path === "/api/move") return playTone("move");
 }
 

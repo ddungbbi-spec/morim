@@ -10,6 +10,7 @@ from contextlib import redirect_stdout
 from unittest.mock import patch
 
 import data
+from advancement import ADVANCED_JOBS, advance, options_for
 import dialogues
 import save
 import balance_simulator
@@ -29,6 +30,60 @@ from world import (
 
 
 class GameTests(unittest.TestCase):
+    def test_all_second_jobs_unlock_at_level_five_and_preserve_growth(self):
+        self.assertEqual(len(ADVANCED_JOBS), 12)
+        for creator in data.JOB_CREATORS.values():
+            for choice in options_for(creator("검증")):
+                member = creator("검증")
+                with self.assertRaises(ValueError):
+                    advance(member, choice.id)
+                member.level = 5
+                member.sync_skills_for_level()
+                original_skills = {skill.name for skill in member.skills}
+                original_attack = member.attack
+                selected = advance(member, choice.id)
+                self.assertEqual(member.job, selected.name)
+                self.assertEqual(member.base_job, selected.base_job)
+                self.assertEqual(member.attack, original_attack + selected.attack)
+                self.assertIn(selected.skill.name, [skill.name for skill in member.skills])
+                self.assertTrue(original_skills.issubset({skill.name for skill in member.skills}))
+                self.assertIs(data.SKILLS_BY_NAME[selected.skill.name], selected.skill)
+                with self.assertRaises(ValueError):
+                    advance(member, choice.id)
+                member.gain_exp(100)
+                self.assertIn(selected.skill.name, [skill.name for skill in member.skills])
+
+    def test_second_job_save_roundtrip_and_old_save_compatibility(self):
+        member = data.create_warrior("전직 기록")
+        member.level = 5
+        member.sync_skills_for_level()
+        advance(member, "guardian")
+        party = Party([member])
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "slot1.json")
+            save.save_game(party, [], build_world(), {}, [], path)
+            loaded_party, *_ = save.load_game(path)
+            loaded = loaded_party.members[0]
+            self.assertEqual(loaded.job, "수호기사")
+            self.assertEqual(loaded.base_job, "전사")
+            self.assertEqual(loaded.advanced_job_id, "guardian")
+            self.assertEqual(loaded.max_hp, member.max_hp)
+            self.assertEqual([s.name for s in loaded.skills], [s.name for s in member.skills])
+            with self.assertRaises(ValueError):
+                advance(loaded, "swordmaster")
+
+            with open(path, encoding="utf-8") as stream:
+                payload = json.load(stream)
+            payload["party"][0].pop("base_job")
+            payload["party"][0].pop("advanced_job_id")
+            payload["party"][0]["job"] = "전사"
+            payload["party"][0]["skills"].remove("철벽의 맹세")
+            with open(path, "w", encoding="utf-8") as stream:
+                json.dump(payload, stream)
+            old_party, *_ = save.load_game(path)
+            self.assertEqual(old_party.members[0].base_job, "전사")
+            self.assertEqual(old_party.members[0].advanced_job_id, "")
+
     def test_balance_simulator_smoke(self):
         battle_rows = balance_simulator.run_analysis(trials=1, seed=7)
         route_rows = balance_simulator.run_route_analysis(trials=1, seed=7)
