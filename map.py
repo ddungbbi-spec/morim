@@ -208,7 +208,8 @@ def explore(
             if loc.id == "final_chamber":
                 flags["demon_lord_defeated"] = True
             if loc.id == "star_rift":
-                flags["star_rift_closed"] = True
+                from blacksmith import award_star_ore
+                print(award_star_ore(flags, inventory))
                 from world import star_chapter_epilogue
                 for line in star_chapter_epilogue(flags):
                     print(line)
@@ -321,6 +322,9 @@ def explore(
                     f"추가 보상 {bonus_gold}G와 {equipment.display_name}을(를) 획득했다."
                 )
             print(f"\n{loc.name}의 보스를 다시 쓰러뜨렸다. 다시 이곳에 오면 재도전할 수 있다.")
+            if loc.id == "star_rift":
+                from blacksmith import award_star_ore
+                print(award_star_ore(flags, inventory))
             if loc.id == "final_chamber":
                 game_map.move_to("village")
                 print("\n빛의 마법진이 파티를 시작 마을로 돌려보냈다.")
@@ -359,7 +363,7 @@ def explore(
 
         if action == "blacksmith":
             from blacksmith import run_blacksmith
-            run_blacksmith(party, equipment_inventory)
+            run_blacksmith(party, equipment_inventory, inventory, flags)
             continue
 
         if action == "inn":

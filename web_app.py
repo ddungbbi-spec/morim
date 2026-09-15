@@ -21,6 +21,7 @@ import save as game_save
 from blacksmith import (
     MAX_ENHANCEMENT, can_upgrade, enhance_equipment,
     matching_material_indices, upgrade_cost,
+    STAR_ORE_NAME, star_ore_cost, award_star_ore,
 )
 from combat import _describe_skill_result
 from equipment import SLOT_NAMES_KR
@@ -256,7 +257,7 @@ class WebGame:
         self._begin_battle(enemies, "boss_retry", title)
         return {"ok": True, "state": self.state()}
 
-    def blacksmith_action(self, equipment_index) -> dict:
+    def blacksmith_action(self, equipment_index, material="duplicate") -> dict:
         if self.phase != "explore" or self.game_map.current_id != "village":
             return self._error("대장간은 시작 마을에서 이용할 수 있습니다.")
         try:
@@ -264,7 +265,8 @@ class WebGame:
                 equipment_index, len(self.equipment_inventory), "강화 장비"
             )
             upgraded, cost = enhance_equipment(
-                self.party, self.equipment_inventory, index
+                self.party, self.equipment_inventory, index,
+                self.inventory, self.flags, material,
             )
         except (IndexError, TypeError, ValueError) as error:
             return self._error(str(error))
@@ -631,7 +633,7 @@ class WebGame:
             if location.id == "final_chamber":
                 self.flags["demon_lord_defeated"] = True
             if location.id == "star_rift":
-                self.flags["star_rift_closed"] = True
+                self._log(award_star_ore(self.flags, self.inventory))
                 if first_clear:
                     from world import star_chapter_epilogue
                     for line in star_chapter_epilogue(self.flags):
@@ -915,6 +917,10 @@ class WebGame:
                 allowed, reason = can_upgrade(
                     self.party, self.equipment_inventory, index
                 )
+                star_allowed, star_reason = can_upgrade(
+                    self.party, self.equipment_inventory, index,
+                    self.inventory, self.flags, "star_ore",
+                )
                 blacksmith_equipment.append({
                     "index": index,
                     **self._equipment_state(item),
@@ -927,10 +933,15 @@ class WebGame:
                     )),
                     "can_upgrade": allowed,
                     "reason": reason,
+                    "star_ore_cost": star_ore_cost(item),
+                    "can_star_upgrade": star_allowed,
+                    "star_reason": star_reason,
                 })
             blacksmith_state = {
                 "max_level": MAX_ENHANCEMENT,
                 "equipment": blacksmith_equipment,
+                "star_unlocked": bool(self.flags.get("star_rift_closed")),
+                "star_ore_count": sum(item.name == STAR_ORE_NAME for item in self.inventory),
             }
         slots = [
             {"slot": number, "exists": exists, "summary": summary}
@@ -1168,7 +1179,7 @@ class GameHandler(BaseHTTPRequestHandler):
             elif self.path == "/api/inn":
                 result = game.inn_action()
             elif self.path == "/api/blacksmith":
-                result = game.blacksmith_action(payload.get("equipment"))
+                result = game.blacksmith_action(payload.get("equipment"), payload.get("material", "duplicate"))
             elif self.path == "/api/tower":
                 result = game.tower_action(payload.get("operation", ""))
             elif self.path == "/api/boss":

@@ -576,6 +576,10 @@ MOONLIGHT_TONIC = Item(
     name="달빛 영약", heal_hp=40, heal_mp=10,
     description="세아가 달빛 샘의 약초로 만든 영약. HP 40과 MP 10을 회복한다.", price=35,
 )
+STAR_ORE = Item(
+    name="성운석", description="별의 균열에서 얻는 강화 재료. 마을 대장간에서 동일 장비 대신 사용한다.",
+    usable_in_combat=False, sellable=False,
+)
 RUSTY_KEY = Item(
     name="녹슨 열쇠",
     description="낡은 열쇠. 어딘가의 잠긴 문에 맞을 것 같다.",
@@ -752,7 +756,7 @@ SKILLS_BY_NAME = {
 }
 from advancement import ADVANCED_JOBS
 SKILLS_BY_NAME.update({job.skill.name: job.skill for job in ADVANCED_JOBS.values()})
-ITEMS_BY_NAME = {it.name: it for it in [POTION, ETHER, ANTIDOTE, MOONLIGHT_TONIC, RUSTY_KEY]}
+ITEMS_BY_NAME = {it.name: it for it in [POTION, ETHER, ANTIDOTE, MOONLIGHT_TONIC, RUSTY_KEY, STAR_ORE]}
 EQUIPMENT_BY_NAME = {
     e.name: e for e in [
         IRON_SWORD, OAK_STAFF, LEATHER_ARMOR, SWIFT_CHARM,

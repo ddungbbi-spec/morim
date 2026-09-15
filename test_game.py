@@ -15,7 +15,7 @@ import dialogues
 import save
 import balance_simulator
 import equipment_simulator
-from blacksmith import MAX_ENHANCEMENT, enhance_equipment, upgrade_cost
+from blacksmith import MAX_ENHANCEMENT, enhance_equipment, upgrade_cost, run_blacksmith
 from quests import QuestLog
 from combat import Battle
 from input_utils import prompt_index
@@ -30,6 +30,73 @@ from world import (
 
 
 class GameTests(unittest.TestCase):
+    def test_star_forge_unique_equipment_costs_limits_and_save(self):
+        party = Party([data.create_warrior("별빛")], gold=99999)
+        inventory = [data.POTION] + [data.STAR_ORE] * 16
+        equipment = [data.STARWARD_CHARM, data.IRON_SWORD]
+        flags = {"star_rift_closed": True}
+        for level in range(1, 6):
+            upgraded, _ = enhance_equipment(party, equipment, 0, inventory, flags, "star_ore")
+            self.assertEqual(upgraded.enhancement_level, level)
+            self.assertEqual(len(inventory), 17 - sum(range(1, level + 1)))
+            self.assertEqual(len(equipment), 2)
+        self.assertEqual(upgraded.speed_bonus, data.STARWARD_CHARM.speed_bonus + 5)
+        self.assertEqual(data.STARWARD_CHARM.enhancement_level, 0)
+        before = (party.gold, list(inventory), list(equipment))
+        with self.assertRaisesRegex(ValueError, "최대 강화"):
+            enhance_equipment(party, equipment, 0, inventory, flags, "star_ore")
+        self.assertEqual((party.gold, inventory, equipment), before)
+        game_map = build_world()
+        game_map.locations["star_rift"].boss_defeated = True
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "slot1.json")
+            save.save_game(party, inventory, game_map, {}, equipment, path)
+            _, loaded_items, _, loaded_flags, loaded_equipment, _ = save.load_game(path)
+        self.assertTrue(loaded_flags["star_rift_closed"])
+        self.assertEqual([i.name for i in loaded_items], ["포션", "성운석"])
+        self.assertEqual(loaded_equipment[0].enhancement_level, 5)
+        self.assertFalse(data.STAR_ORE.usable_in_combat)
+        self.assertFalse(data.STAR_ORE.sellable)
+
+    def test_star_forge_rejections_never_consume_materials(self):
+        party = Party([data.create_warrior("별빛")], gold=999)
+        equipment = [data.STARWARD_CHARM]
+        inventory = [data.STAR_ORE]
+        for flags, material, gold, items in [
+            ({}, "star_ore", 999, inventory),
+            ({"star_rift_closed": True}, "star_ore", 0, inventory),
+            ({"star_rift_closed": True}, "star_ore", 999, []),
+            ({"star_rift_closed": True}, "unknown", 999, inventory),
+        ]:
+            party.gold = gold
+            before = (party.gold, list(items), list(equipment))
+            with self.assertRaises(ValueError):
+                enhance_equipment(party, equipment, 0, items, flags, material)
+            self.assertEqual((party.gold, items, equipment), before)
+
+    def test_console_star_forge_choice_and_rematch_material_reward(self):
+        party = Party([data.create_warrior("별빛")], gold=999)
+        inventory = [data.STAR_ORE]
+        equipment = [data.STARWARD_CHARM]
+        with patch("blacksmith.prompt_index", side_effect=[0, 1, 1]), patch(
+            "blacksmith.prompt_yes_no", return_value=True
+        ), redirect_stdout(io.StringIO()):
+            run_blacksmith(party, equipment, inventory, {"star_rift_closed": True})
+        self.assertEqual(equipment[0].enhancement_level, 1)
+        self.assertEqual(inventory, [])
+        game_map = build_world()
+        game_map.move_to("star_rift")
+        game_map.current.dialogue_played = True
+        game_map.current.boss_defeated = True
+        game_map.current.loot_claimed = True
+        flags = {}
+        with patch.object(Battle, "run", return_value=True), patch(
+            "map.prompt_index", side_effect=[5, 8]
+        ), patch("map.prompt_yes_no", return_value=True), redirect_stdout(io.StringIO()):
+            explore(game_map, party, inventory, flags, equipment)
+        self.assertEqual([item.name for item in inventory], ["성운석"] * 3)
+        self.assertTrue(flags["star_rift_closed"])
+
     def test_post_boss_chapter_gate_choice_quest_and_legacy_save(self):
         game_map = build_world()
         label = "북쪽 관측소로 향한다"

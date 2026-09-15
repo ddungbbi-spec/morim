@@ -279,12 +279,23 @@ function renderUtilityPanel() {
         ? "최대 강화 단계"
         : `${item.cost}G · 동일 장비 ${item.materials}개 보유${item.reason ? ` · ${item.reason}` : ""}`;
       const action = item.can_upgrade ? `blacksmithRequest(${item.index})` : "";
-      return action
-        ? utilityButton(`${item.display_name} 강화`, detail, action)
+      const duplicate = action
+        ? utilityButton(`${item.display_name} · 동일 장비 강화`, detail, action)
         : `<div class="utility-card disabled"><strong>${escapeHtml(item.display_name)}</strong><span>${escapeHtml(detail)}</span></div>`;
+      if (!gameState.blacksmith.star_unlocked) return duplicate;
+      const starDetail = item.enhancement_level >= gameState.blacksmith.max_level
+        ? "최대 강화 단계"
+        : `${item.cost}G · 성운석 ${item.star_ore_cost}개 소비${item.star_reason ? ` · ${item.star_reason}` : ""}`;
+      const star = item.can_star_upgrade
+        ? utilityButton(`${item.display_name} · 성운석 강화`, starDetail, `blacksmithRequest(${item.index},'star_ore')`)
+        : `<div class="utility-card disabled"><strong>${escapeHtml(item.display_name)} · 성운석 강화</strong><span>${escapeHtml(starDetail)}</span></div>`;
+      return duplicate + star;
     }).join("");
     panel.innerHTML = utilityShell("마을 대장간", `
       <p class="stat-line">동일한 이름의 장비 1개와 골드를 사용해 최대 +${gameState.blacksmith.max_level}까지 확정 강화합니다.</p>
+      <p class="stat-line">${gameState.blacksmith.star_unlocked
+        ? `별빛 강화 개방 · 성운석 ${gameState.blacksmith.star_ore_count}개 보유. 동일 장비 대신 다음 강화 단계만큼의 성운석을 사용할 수 있습니다. 별의 균열 보스 승리마다 3개를 얻습니다.`
+        : "검은 별의 잔재를 처치하면 동일 장비가 필요 없는 별빛 강화가 열립니다."}</p>
       ${utilitySection("강화할 장비", equipment)}`);
   } else if (utilityMode === "equipment") {
     equipmentMember = Math.max(0, Math.min(equipmentMember, gameState.party.length - 1));
@@ -355,9 +366,12 @@ function clearUtility() { utilityMode = null; shopIndex = null; $("#choicePanel"
 function selectShop(index) { shopIndex = index; renderUtilityPanel(); }
 function selectEquipmentMember(index) { equipmentMember = index; renderUtilityPanel(); }
 function shopRequest(operation, index) { request("/api/shop", {operation, index, shop: shopIndex}); }
-function blacksmithRequest(equipment) {
-  if (confirm("같은 장비 하나와 골드를 사용해 강화할까요?")) {
-    request("/api/blacksmith", {equipment});
+function blacksmithRequest(equipment, material = "duplicate") {
+  const item = gameState.blacksmith?.equipment.find((entry) => entry.index === equipment);
+  if (!item) return;
+  const materials = material === "star_ore" ? `성운석 ${item.star_ore_cost}개` : "같은 장비 1개";
+  if (confirm(`${item.display_name}: ${materials}와 ${item.cost}G를 사용해 강화할까요?`)) {
+    request("/api/blacksmith", {equipment, material});
   }
 }
 function innRequest() { request("/api/inn", {}); }

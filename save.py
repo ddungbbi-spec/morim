@@ -295,6 +295,8 @@ def load_game(path: str = DEFAULT_SAVE_PATH):
     # 구버전 저장 파일의 보스 처치 기록을 새 챕터 개방 조건으로 복원한다.
     if game_map.locations["final_chamber"].boss_defeated:
         flags["demon_lord_defeated"] = True
+    if game_map.locations["star_rift"].boss_defeated:
+        flags["star_rift_closed"] = True
     from quests import QuestLog
     quest_log = QuestLog(payload.get("quest_states", {}))
     quest_log.sync_story_flags(flags)

@@ -16,6 +16,47 @@ from web_app import DEFAULT_PARTY_SETUP, GameHandler, SessionStore, WEB_ROOT, We
 
 
 class WebGameTests(unittest.TestCase):
+    def test_web_star_forge_gate_choice_and_atomic_failure(self):
+        self.finish_intro()
+        self.game.party.gold = 9999
+        self.game.equipment_inventory = [data.IRON_SWORD, data.IRON_SWORD]
+        self.game.inventory = [data.STAR_ORE] * 3
+        self.assertFalse(self.game.blacksmith_action(0, "star_ore")["ok"])
+        self.assertEqual(len(self.game.inventory), 3)
+        self.game.flags["star_rift_closed"] = True
+        state = self.game.state()["blacksmith"]
+        self.assertTrue(state["star_unlocked"])
+        self.assertEqual(state["star_ore_count"], 3)
+        self.assertTrue(state["equipment"][0]["can_star_upgrade"])
+        self.assertTrue(self.game.blacksmith_action(0, "star_ore")["ok"])
+        self.assertEqual(len(self.game.equipment_inventory), 2)
+        self.assertEqual(len(self.game.inventory), 2)
+        self.assertTrue(self.game.blacksmith_action(0)["ok"])
+        self.assertEqual(len(self.game.equipment_inventory), 1)
+        self.assertEqual(len(self.game.inventory), 2)
+        before = self.game.party.gold
+        self.assertFalse(self.game.blacksmith_action(0, "star_ore")["ok"])
+        self.assertEqual(self.game.party.gold, before)
+        self.assertFalse(self.game.blacksmith_action(0, ["star_ore"])["ok"])
+        self.game.game_map.move_to("star_rift")
+        self.assertFalse(self.game.blacksmith_action(0, "star_ore")["ok"])
+
+    def test_web_star_boss_material_reward_once_per_victory(self):
+        self.finish_intro()
+        self.game.inventory = []
+        self.game.game_map.move_to("star_rift")
+        self.game.game_map.current.dialogue_played = True
+        self.game._begin_battle([data.create_slime()], "boss", "검증")
+        with patch("web_app.random.random", return_value=0.99):
+            self.game._victory()
+            self.game._victory()
+        self.assertEqual(sum(i.name == "성운석" for i in self.game.inventory), 3)
+        self.assertTrue(self.game.boss_action("retry")["ok"])
+        with patch("web_app.random.random", return_value=0.99):
+            self.game._victory()
+        self.assertEqual(sum(i.name == "성운석" for i in self.game.inventory), 6)
+        self.assertEqual(sum(i.name == "별의 수호 부적" for i in self.game.equipment_inventory), 1)
+
     def test_web_post_boss_chapter_gate_choice_boss_and_reward(self):
         self.finish_intro()
         label = "북쪽 관측소로 향한다"
