@@ -21,6 +21,7 @@ from input_utils import prompt_index
 from map import explore
 from models import Party, StatusEffect
 from shop import _sell_menu
+from shop import Shop
 from world import (
     build_world, complete_tower_challenge, create_scaled_tower_guardian,
     reset_tower_challenge,
@@ -420,6 +421,20 @@ class GameTests(unittest.TestCase):
             data.EQUIPMENT_BY_NAME["장로의 수호 인장"],
             data.ELDER_GUARDIAN_SIGIL,
         )
+
+    def test_conditional_shop_unlock_and_discount_rules(self):
+        shop = Shop(
+            "시험 약초점", items=[data.MOONLIGHT_TONIC],
+            required_flag="found_herbalist", discount_flag="escorted_herbalist",
+            discount_rate=0.20,
+        )
+        self.assertFalse(shop.is_available({}))
+        self.assertTrue(shop.is_available({"found_herbalist": True}))
+        self.assertEqual(shop.price_for(data.MOONLIGHT_TONIC, {}), 35)
+        self.assertEqual(
+            shop.price_for(data.MOONLIGHT_TONIC, {"escorted_herbalist": True}), 28
+        )
+        self.assertIs(data.ITEMS_BY_NAME["달빛 영약"], data.MOONLIGHT_TONIC)
 
     def test_tower_summit_returns_directly_to_village(self):
         game_map = build_world()

@@ -109,6 +109,16 @@ def build_world() -> GameMap:
                 equipment=[data.LEATHER_ARMOR, data.SWIFT_CHARM],
                 description="방어구와 모험용 장신구를 판매한다.",
             ),
+            Shop(
+                "세아의 약초점",
+                items=[data.ANTIDOTE, data.MOONLIGHT_TONIC],
+                description="달빛 샘에서 구한 희귀 약초와 영약을 판매한다.",
+                required_flag="found_herbalist",
+                unlock_description="약초꾼 세아 구조 필요",
+                discount_flag="escorted_herbalist",
+                discount_rate=0.20,
+                discount_description="호위 감사 전 상품 20% 할인",
+            ),
         ],
         has_inn=True,
     )

@@ -357,7 +357,7 @@ class WebGameTests(unittest.TestCase):
         shops = self.game.state()["shop"]["shops"]
         self.assertEqual(
             [shop["name"] for shop in shops],
-            ["여행자 잡화점", "바람칼 무기점", "철벽 방어구점"],
+            ["여행자 잡화점", "바람칼 무기점", "철벽 방어구점", "세아의 약초점"],
         )
         self.game.party.gold = 100
         before_count = len(self.game.inventory)
@@ -378,6 +378,25 @@ class WebGameTests(unittest.TestCase):
 
         wrong_stock = self.game.shop_action("buy_item", 0, shop_index=1)
         self.assertFalse(wrong_stock["ok"])
+
+    def test_herbalist_shop_unlocks_and_applies_escort_discount(self):
+        self.finish_intro()
+        herbal_shop = self.game.state()["shop"]["shops"][3]
+        self.assertFalse(herbal_shop["available"])
+        blocked = self.game.shop_action("buy_item", 1, shop_index=3)
+        self.assertFalse(blocked["ok"])
+
+        self.game.flags["found_herbalist"] = True
+        self.game.flags["escorted_herbalist"] = True
+        self.game.party.gold = 35
+        herbal_shop = self.game.state()["shop"]["shops"][3]
+        tonic = herbal_shop["items"][1]
+        self.assertTrue(herbal_shop["available"])
+        self.assertEqual((tonic["base_price"], tonic["price"]), (35, 28))
+        bought = self.game.shop_action("buy_item", 1, shop_index=3)
+        self.assertTrue(bought["ok"])
+        self.assertEqual(self.game.party.gold, 7)
+        self.assertEqual(self.game.inventory[-1].name, "달빛 영약")
 
     def test_web_blacksmith_upgrades_only_in_village(self):
         self.finish_intro()

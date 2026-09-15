@@ -6,7 +6,7 @@ shop.py
 """
 
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Optional
 
 from models import Item, Equipment, Party
 from input_utils import prompt_index
@@ -22,6 +22,22 @@ class Shop:
     items: List[Item] = field(default_factory=list)
     equipment: List[Equipment] = field(default_factory=list)
     description: str = ""
+    required_flag: Optional[str] = None
+    unlock_description: str = ""
+    discount_flag: Optional[str] = None
+    discount_rate: float = 0.0
+    discount_description: str = ""
+
+    def is_available(self, flags: Optional[dict] = None) -> bool:
+        return self.required_flag is None or bool((flags or {}).get(self.required_flag))
+
+    def active_discount(self, flags: Optional[dict] = None) -> float:
+        if self.discount_flag and (flags or {}).get(self.discount_flag):
+            return max(0.0, min(0.9, self.discount_rate))
+        return 0.0
+
+    def price_for(self, product, flags: Optional[dict] = None) -> int:
+        return max(1, int(product.price * (1.0 - self.active_discount(flags))))
 
 
 def run_shop(
@@ -31,6 +47,8 @@ def run_shop(
     shop_items: List[Item],
     shop_equipment: List[Equipment],
     shop_name: str = "상점",
+    discount_rate: float = 0.0,
+    discount_description: str = "",
 ) -> None:
     """상점 메뉴 루프. 구매/판매 모두 여기서 처리합니다."""
     shop_items = shop_items or []
@@ -39,15 +57,20 @@ def run_shop(
     while True:
         print(f"\n=== {shop_name} ===")
         print(f"보유 골드: {party.gold} G")
+        if discount_rate:
+            label = discount_description or f"전 상품 {discount_rate:.0%} 할인"
+            print(f"혜택: {label}")
 
         print("\n[구매 - 아이템]")
         for i, it in enumerate(shop_items, 1):
-            print(f"  {i}) {it.name}  {it.price} G  - {it.description}")
+            price = _discounted_price(it.price, discount_rate)
+            print(f"  {i}) {it.name}  {price} G  - {it.description}")
 
         item_count = len(shop_items)
         print("\n[구매 - 장비]")
         for i, eq in enumerate(shop_equipment, 1):
-            print(f"  {item_count + i}) {eq.display_name}  {eq.price} G  - {eq.description}")
+            price = _discounted_price(eq.price, discount_rate)
+            print(f"  {item_count + i}) {eq.display_name}  {price} G  - {eq.description}")
 
         equip_count = len(shop_equipment)
         sell_option = item_count + equip_count + 1
@@ -65,30 +88,44 @@ def run_shop(
             continue
 
         if 1 <= num <= item_count:
-            _buy_item(party, inventory, shop_items[num - 1])
+            item = shop_items[num - 1]
+            _buy_item(party, inventory, item, _discounted_price(item.price, discount_rate))
             continue
 
         if item_count < num <= item_count + equip_count:
-            _buy_equipment(party, equipment_inventory, shop_equipment[num - item_count - 1])
+            equipment = shop_equipment[num - item_count - 1]
+            _buy_equipment(
+                party, equipment_inventory, equipment,
+                _discounted_price(equipment.price, discount_rate),
+            )
             continue
 
         print("잘못된 입력입니다.")
 
 
-def _buy_item(party: Party, inventory: List[Item], item: Item) -> None:
-    if party.gold < item.price:
+def _discounted_price(price: int, discount_rate: float) -> int:
+    return max(1, int(price * (1.0 - max(0.0, min(0.9, discount_rate)))))
+
+
+def _buy_item(party: Party, inventory: List[Item], item: Item, price: Optional[int] = None) -> None:
+    price = item.price if price is None else price
+    if party.gold < price:
         print("골드가 부족합니다.")
         return
-    party.gold -= item.price
+    party.gold -= price
     inventory.append(item)
     print(f"{item.name}을(를) 구매했다! (남은 골드: {party.gold} G)")
 
 
-def _buy_equipment(party: Party, equipment_inventory: List[Equipment], eq: Equipment) -> None:
-    if party.gold < eq.price:
+def _buy_equipment(
+    party: Party, equipment_inventory: List[Equipment], eq: Equipment,
+    price: Optional[int] = None,
+) -> None:
+    price = eq.price if price is None else price
+    if party.gold < price:
         print("골드가 부족합니다.")
         return
-    party.gold -= eq.price
+    party.gold -= price
     equipment_inventory.append(eq)
     print(f"{eq.display_name}을(를) 구매했다! (남은 골드: {party.gold} G)")
 

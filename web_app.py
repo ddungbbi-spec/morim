@@ -169,22 +169,26 @@ class WebGame:
         location = self.game_map.current
         try:
             shop = location.shops[self._index(shop_index, len(location.shops), "상점")]
+            if not shop.is_available(self.flags):
+                raise ValueError(f"{shop.unlock_description} 후에 이용할 수 있습니다.")
             if operation == "buy_item":
                 item = shop.items[self._index(index, len(shop.items), "상품")]
-                if self.party.gold < item.price:
+                price = shop.price_for(item, self.flags)
+                if self.party.gold < price:
                     raise ValueError("골드가 부족합니다.")
-                self.party.gold -= item.price
+                self.party.gold -= price
                 self.inventory.append(item)
-                self._log(f"{item.name}을(를) {item.price}G에 구매했습니다.")
+                self._log(f"{item.name}을(를) {price}G에 구매했습니다.")
             elif operation == "buy_equipment":
                 equipment = shop.equipment[
                     self._index(index, len(shop.equipment), "상품")
                 ]
-                if self.party.gold < equipment.price:
+                price = shop.price_for(equipment, self.flags)
+                if self.party.gold < price:
                     raise ValueError("골드가 부족합니다.")
-                self.party.gold -= equipment.price
+                self.party.gold -= price
                 self.equipment_inventory.append(equipment)
-                self._log(f"{equipment.display_name}을(를) {equipment.price}G에 구매했습니다.")
+                self._log(f"{equipment.display_name}을(를) {price}G에 구매했습니다.")
             elif operation == "sell_item":
                 sellable = [item for item in self.inventory if item.sellable]
                 item = sellable[self._index(index, len(sellable), "판매 아이템")]
@@ -819,15 +823,27 @@ class WebGame:
                         "index": shop_index,
                         "name": shop.name,
                         "description": shop.description,
+                        "available": shop.is_available(self.flags),
+                        "unlock_description": shop.unlock_description,
+                        "discount_rate": shop.active_discount(self.flags),
+                        "discount_description": (
+                            shop.discount_description if shop.active_discount(self.flags) else ""
+                        ),
                         "items": [
                             {
-                                "index": index, "name": item.name, "price": item.price,
+                                "index": index, "name": item.name,
+                                "price": shop.price_for(item, self.flags),
+                                "base_price": item.price,
                                 "description": item.description,
                             }
                             for index, item in enumerate(shop.items)
                         ],
                         "equipment": [
-                            {"index": index, **self._equipment_state(item)}
+                            {
+                                "index": index, **self._equipment_state(item),
+                                "price": shop.price_for(item, self.flags),
+                                "base_price": item.price,
+                            }
                             for index, item in enumerate(shop.equipment)
                         ],
                     }

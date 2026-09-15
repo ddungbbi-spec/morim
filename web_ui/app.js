@@ -216,13 +216,15 @@ function renderUtilityPanel() {
   if (utilityMode === "shop") {
     if (!gameState.shop) return clearUtility();
     if (shopIndex === null || !gameState.shop.shops[shopIndex]) {
-      const shops = gameState.shop.shops.map((shop) => utilityButton(
-        shop.name, shop.description || "판매 목록 보기", `selectShop(${shop.index})`
-      )).join("");
+      const shops = gameState.shop.shops.map((shop) => shop.available
+        ? utilityButton(shop.name, shop.description || "판매 목록 보기", `selectShop(${shop.index})`)
+        : `<div class="utility-card disabled"><strong>${escapeHtml(shop.name)} · 🔒</strong><span>${escapeHtml(shop.unlock_description)}</span></div>`
+      ).join("");
       panel.innerHTML = utilityShell("시작 마을 상점가", utilitySection("방문할 상점", shops));
       return;
     }
     const shop = gameState.shop.shops[shopIndex];
+    if (!shop.available) { shopIndex = null; return renderUtilityPanel(); }
     const buyItems = shop.items.map((item) => utilityButton(
       `${item.name} · ${item.price}G`, item.description,
       `shopRequest('buy_item',${item.index})`
@@ -241,6 +243,7 @@ function renderUtilityPanel() {
     )).join("");
     panel.innerHTML = utilityShell(shop.name, `
       <button class="command-button utility" onclick="selectShop(null)">다른 상점 보기</button>
+      ${shop.discount_description ? `<p class="stat-line">${escapeHtml(shop.discount_description)}</p>` : ""}
       ${utilitySection("아이템 구매", buyItems)}
       ${utilitySection("장비 구매", buyEquipment)}
       ${utilitySection("판매", sellItems + sellEquipment)}`);

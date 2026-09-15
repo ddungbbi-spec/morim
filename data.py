@@ -509,6 +509,10 @@ def create_sealed_demon_lord() -> Enemy:
 POTION = Item(name="포션", heal_hp=25, description="HP를 25 회복한다.", price=15)
 ETHER = Item(name="에테르", heal_mp=15, description="MP를 15 회복한다.", price=20)
 ANTIDOTE = Item(name="해독제", cures_status="poison", description="중독 상태를 치료한다.", price=12)
+MOONLIGHT_TONIC = Item(
+    name="달빛 영약", heal_hp=40, heal_mp=10,
+    description="세아가 달빛 샘의 약초로 만든 영약. HP 40과 MP 10을 회복한다.", price=35,
+)
 RUSTY_KEY = Item(
     name="녹슨 열쇠",
     description="낡은 열쇠. 어딘가의 잠긴 문에 맞을 것 같다.",
@@ -668,7 +672,7 @@ SKILLS_BY_NAME = {
         SUMMON_SHIVA, SUMMON_IFRIT_EX, SUMMON_RAMUH_EX,
     ]
 }
-ITEMS_BY_NAME = {it.name: it for it in [POTION, ETHER, ANTIDOTE, RUSTY_KEY]}
+ITEMS_BY_NAME = {it.name: it for it in [POTION, ETHER, ANTIDOTE, MOONLIGHT_TONIC, RUSTY_KEY]}
 EQUIPMENT_BY_NAME = {
     e.name: e for e in [
         IRON_SWORD, OAK_STAFF, LEATHER_ARMOR, SWIFT_CHARM,

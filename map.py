@@ -230,7 +230,10 @@ def explore(
         if loc.has_inn:
             options.append(("여관에서 쉬기 (전원 완전 회복)", "inn", None))
         for shop in loc.shops:
-            options.append((f"{shop.name} 이용하기", "shop", shop))
+            label = f"{shop.name} 이용하기"
+            if not shop.is_available(flags):
+                label += f" (🔒 {shop.unlock_description})"
+            options.append((label, "shop", shop))
         options.append(("게임 저장", "save", None))
         options.append(("저장 후 게임 종료", "save_exit", None))
         options.append(("저장하지 않고 종료", "quit", None))
@@ -322,9 +325,15 @@ def explore(
 
         if action == "shop":
             from shop import run_shop  # map.py <-> shop.py 순환 참조 방지용 지연 import
+            if not payload.is_available(flags):
+                print(f"\n{payload.unlock_description} 후에 이용할 수 있다.")
+                continue
+            discount_rate = payload.active_discount(flags)
             run_shop(
                 party, inventory, equipment_inventory,
                 payload.items, payload.equipment, shop_name=payload.name,
+                discount_rate=discount_rate,
+                discount_description=payload.discount_description,
             )
             continue
 
