@@ -4,7 +4,7 @@ data.py
 새로운 스토리/던전/보스를 추가할 때는 주로 이 파일을 편집하면 됩니다.
 """
 
-from models import Skill, SkillGrowth, Item, Equipment, PlayerCharacter, Enemy
+from models import BossPhase, Skill, SkillGrowth, Item, Equipment, PlayerCharacter, Enemy
 import random
 
 
@@ -179,6 +179,29 @@ SUMMON_RAMUH_EX = Skill(
 ROCK_COUNTER = Skill(
     name="암석 반격", mp_cost=0, power=5, kind="attack", aoe=True,
     description="몸의 균열에서 암석 파편을 폭발시켜 파티 전체에 반격한다.",
+)
+DARK_RAMPAGE = Skill(
+    name="암흑 폭주", mp_cost=0, power=0, kind="buff",
+    description="갑옷에 깃든 어둠을 폭주시켜 공격력을 크게 높인다.",
+    buff_stat="attack", buff_amount=5, buff_duration=4, buff_name="암흑 폭주",
+)
+MIST_BARRIER = Skill(
+    name="안개 장막", mp_cost=0, power=0, kind="buff",
+    description="짙은 안개로 몸을 감싸 방어력을 높인다.",
+    buff_stat="defense", buff_amount=5, buff_duration=3, buff_name="안개 장막",
+)
+DEEP_MIST = Skill(
+    name="심연의 안개", mp_cost=0, power=7, kind="attack", aoe=True,
+    description="차가운 심연의 안개로 파티 전체를 덮친다.", element="ice",
+)
+ABYSSAL_BARRIER = Skill(
+    name="심연의 결계", mp_cost=0, power=0, kind="buff",
+    description="심연의 힘으로 방어 결계를 펼친다.",
+    buff_stat="defense", buff_amount=6, buff_duration=4, buff_name="심연의 결계",
+)
+LAST_JUDGMENT = Skill(
+    name="최후의 심판", mp_cost=0, power=10, kind="attack", aoe=True,
+    description="남은 마력을 폭발시켜 파티 전체에 최후의 심판을 내린다.",
 )
 
 
@@ -373,6 +396,10 @@ def create_dark_knight() -> Enemy:
         skills=[DARK_BOLT, PARALYZE_STRIKE, INTIMIDATING_ROAR], exp_reward=60, gold_reward=40,
         smart_ai=True,
         action_pattern=[INTIMIDATING_ROAR, DARK_BOLT, None, PARALYZE_STRIKE],
+        boss_phases=[BossPhase(
+            0.5, DARK_RAMPAGE,
+            "다크 나이트의 갑옷 틈에서 검은 불길이 솟아오른다!",
+        )],
     )
 
 
@@ -488,6 +515,10 @@ def create_mist_queen() -> Enemy:
         skills=[WEAKEN, CHAOS_WAVE, PARALYZE_STRIKE], exp_reward=95, gold_reward=65,
         smart_ai=True, weakness="thunder", resistance="ice",
         action_pattern=[WEAKEN, CHAOS_WAVE, PARALYZE_STRIKE, None],
+        boss_phases=[
+            BossPhase(0.65, MIST_BARRIER, "안개의 여왕이 사당의 안개를 갑옷처럼 휘감는다!"),
+            BossPhase(0.30, DEEP_MIST, "사당의 물이 얼어붙으며 심연의 안개가 폭발한다!"),
+        ],
     )
 
 
@@ -500,6 +531,10 @@ def create_sealed_demon_lord() -> Enemy:
         skills=[APOCALYPSE_STRIKE, CHAOS_WAVE, PARALYZE_STRIKE], exp_reward=100, gold_reward=70,
         smart_ai=True,
         action_pattern=[CHAOS_WAVE, PARALYZE_STRIKE, APOCALYPSE_STRIKE, None],
+        boss_phases=[
+            BossPhase(0.70, ABYSSAL_BARRIER, "봉인된 마왕이 사슬을 끊고 심연의 결계를 펼친다!"),
+            BossPhase(0.35, LAST_JUDGMENT, "봉인의 방이 붕괴하며 마왕의 최후의 심판이 시작된다!"),
+        ],
     )
 
 
@@ -664,6 +699,7 @@ SKILLS_BY_NAME = {
         SUMMON_IFRIT, SUMMON_RAMUH, JUDGMENT_LIGHT,
         RUSTY_STRIKE, CURSE_WHISPER, FLAME_BREATH,
         APOCALYPSE_STRIKE, CHAOS_WAVE, ROCK_COUNTER,
+        DARK_RAMPAGE, MIST_BARRIER, DEEP_MIST, ABYSSAL_BARRIER, LAST_JUDGMENT,
         GUARD_STANCE, BRAVER_SLASH, SPINNING_SLASH,
         AERO, FIRAGA, BLIZZAGA,
         HEALING_WIND, CURA, HOLY_LIGHT,

@@ -531,6 +531,18 @@ class WebGameTests(unittest.TestCase):
         self.assertIn("보스 전투에서는 도망칠 수 없습니다.", self.game.logs)
         self.assertIsNot(self.game.current_actor, actor)
 
+    def test_web_boss_phase_message_is_logged(self):
+        self.finish_intro()
+        self.game._begin_battle(
+            [data.create_sealed_demon_lord()], "boss", "페이즈 연출 시험"
+        )
+        boss = self.game.enemies[0]
+        boss.hp = int(boss.effective_max_hp * 0.3)
+        self.game._enemy_action(boss)
+        self.assertTrue(any("★" in message and "사슬" in message for message in self.game.logs))
+        self.game._enemy_action(boss)
+        self.assertTrue(any("★" in message and "붕괴" in message for message in self.game.logs))
+
     def test_victory_awards_gold_and_opens_encounter_selection(self):
         self.game.start_battle("forest")
         for enemy in self.game.enemies:

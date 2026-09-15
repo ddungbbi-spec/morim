@@ -274,6 +274,8 @@ class Battle:
     # -----------------------------------------------------------------
     def _enemy_turn(self, enemy: Enemy):
         skill, target = enemy.choose_action(self.party.alive_members)
+        if enemy.last_phase_message:
+            print(f"\n★ {enemy.last_phase_message}")
         if target is None:
             return
         if skill is None:

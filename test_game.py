@@ -95,6 +95,26 @@ class GameTests(unittest.TestCase):
         self.assertIs(phase_target, hero)
         self.assertTrue(golem.phase_triggered)
 
+    def test_multi_phase_boss_triggers_in_order_with_messages(self):
+        hero = data.create_warrior("페이즈 대상")
+        boss = data.create_sealed_demon_lord()
+        boss.hp = int(boss.effective_max_hp * 0.3)
+
+        first_skill, first_target = boss.choose_action([hero])
+        self.assertEqual(first_skill.name, "심연의 결계")
+        self.assertIs(first_target, boss)
+        self.assertIn("사슬", boss.last_phase_message)
+
+        second_skill, second_target = boss.choose_action([hero])
+        self.assertEqual(second_skill.name, "최후의 심판")
+        self.assertIs(second_target, hero)
+        self.assertTrue(second_skill.aoe)
+        self.assertIn("붕괴", boss.last_phase_message)
+
+        third_skill, _ = boss.choose_action([hero])
+        self.assertEqual(third_skill.name, "혼돈의 파동")
+        self.assertEqual(boss.last_phase_message, "")
+
     def test_main_quest_progress_and_single_claim(self):
         quest_log = QuestLog()
         quest_log.sync_story_flags({"promised_elder": True})

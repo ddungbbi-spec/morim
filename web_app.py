@@ -665,6 +665,8 @@ class WebGame:
 
     def _enemy_action(self, enemy: Enemy) -> None:
         skill, target = enemy.choose_action(self.party.alive_members)
+        if enemy.last_phase_message:
+            self._log(f"★ {enemy.last_phase_message}")
         if target is None:
             return
         if skill is None:

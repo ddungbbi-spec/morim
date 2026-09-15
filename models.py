@@ -47,6 +47,15 @@ class SkillGrowth:
     replaces: Optional[str] = None
 
 
+@dataclass(frozen=True)
+class BossPhase:
+    """보스가 지정 체력 이하에서 전투당 한 번 발동하는 전용 행동."""
+
+    threshold: float
+    skill: Skill
+    message: str
+
+
 @dataclass
 class Item:
     """소지품(포션, 회복 아이템 등)"""
@@ -445,6 +454,7 @@ class Enemy(Character):
         equipment_drop_chance: Optional[float] = None,
         action_pattern: Optional[List[Optional[Skill]]] = None,
         phase_skill: Optional[Skill] = None, phase_threshold: float = 0.5,
+        boss_phases: Optional[List[BossPhase]] = None,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
@@ -463,6 +473,16 @@ class Enemy(Character):
         self.action_count = 0
         self.phase_skill = phase_skill
         self.phase_threshold = phase_threshold
+        self.boss_phases = sorted(
+            list(boss_phases or []) + (
+                [BossPhase(phase_threshold, phase_skill, f"{self.name}이(가) 새로운 힘을 드러낸다!")]
+                if phase_skill is not None else []
+            ),
+            key=lambda phase: phase.threshold,
+            reverse=True,
+        )
+        self.triggered_phase_indices = set()
+        self.last_phase_message = ""
         self.phase_triggered = False
 
     def _pick_target(self, alive_targets: List[Character], prefer: str) -> Character:
@@ -489,16 +509,20 @@ class Enemy(Character):
         if not alive_targets:
             return None, None
         default_target = random.choice(alive_targets)
+        self.last_phase_message = ""
 
-        # 일부 보스는 HP가 기준 이하가 되면 전투당 한 번 전용 단계 행동을 사용한다.
-        if (
-            self.phase_skill is not None
-            and not self.phase_triggered
-            and self.hp / self.effective_max_hp <= self.phase_threshold
-            and self.mp >= self.phase_skill.mp_cost
-        ):
-            self.phase_triggered = True
-            return self._skill_and_target(self.phase_skill, alive_targets, default_target)
+        # 높은 체력 구간부터 순서대로 확인해 급격히 체력이 줄어도 페이즈를 건너뛰지 않는다.
+        hp_ratio = self.hp / self.effective_max_hp
+        for index, phase in enumerate(self.boss_phases):
+            if (
+                index not in self.triggered_phase_indices
+                and hp_ratio <= phase.threshold
+                and self.mp >= phase.skill.mp_cost
+            ):
+                self.triggered_phase_indices.add(index)
+                self.phase_triggered = True  # 단일 phase_skill을 쓰는 기존 코드와 호환
+                self.last_phase_message = phase.message
+                return self._skill_and_target(phase.skill, alive_targets, default_target)
 
         # action_pattern이 있으면 지정된 순서대로 행동한다. None은 기본 공격이다.
         # MP가 모자란 스킬 차례에는 기본 공격으로 자연스럽게 대체한다.
