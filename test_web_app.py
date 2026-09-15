@@ -347,6 +347,32 @@ class WebGameTests(unittest.TestCase):
         self.assertTrue(self.game.game_map.current.boss_defeated)
         self.assertEqual(self.game.phase, "explore")
 
+    def test_final_boss_web_returns_to_village_with_one_time_loot_and_ending(self):
+        self.game.game_map.current_id = "final_chamber"
+        chamber = self.game.game_map.current
+        chamber.dialogue_played = True
+        self.game.game_map.locations["village"].dialogue_played = True
+        self.game._begin_battle([data.create_sealed_demon_lord()], "boss", "최종 보스")
+        with patch("web_app.random.random", return_value=0.99):
+            self.game._victory()
+        self.assertEqual(self.game.game_map.current_id, "village")
+        self.assertEqual(self.game.phase, "explore")
+        self.assertTrue(chamber.boss_defeated)
+        self.assertTrue(chamber.loot_claimed)
+        self.assertTrue(self.game.game_map.locations["ending"].dialogue_played)
+        self.assertEqual(sum(item.name == data.SEALBREAKER_BLADE.name
+                             for item in self.game.equipment_inventory), 1)
+        self.assertIn("빛의 마법진", " ".join(self.game.logs))
+
+        # 재도전에서도 마을로 돌아오되 엔딩과 보물은 다시 지급하지 않는다.
+        self.game.game_map.current_id = "final_chamber"
+        self.game._begin_battle([data.create_sealed_demon_lord()], "boss_retry", "재도전")
+        with patch("web_app.random.random", return_value=0.99):
+            self.game._victory()
+        self.assertEqual(self.game.game_map.current_id, "village")
+        self.assertEqual(sum(item.name == data.SEALBREAKER_BLADE.name
+                             for item in self.game.equipment_inventory), 1)
+
     def test_defeated_world_boss_can_be_rechallenged_without_duplicate_treasure(self):
         self.game.game_map.current_id = "forgotten_shrine"
         location = self.game.game_map.current

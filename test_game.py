@@ -657,6 +657,41 @@ class GameTests(unittest.TestCase):
         after = (party.members[0].max_hp, party.members[0].attack, party.members[0].defense)
         self.assertEqual(after, (before[0] + 6, before[1] + 2, before[2] + 1))
 
+    def test_final_boss_console_returns_to_village_after_loot_and_ending(self):
+        party = Party([data.create_warrior("귀환자")])
+        game_map = build_world()
+        game_map.current_id = "final_chamber"
+        game_map.current.dialogue_played = True
+        game_map.locations["village"].dialogue_played = True
+        equipment = []
+        output = io.StringIO()
+        with patch.object(Battle, "run", return_value=True), patch(
+            "map.prompt_index", side_effect=lambda _, count: count - 1
+        ), patch("map.prompt_yes_no", return_value=True), redirect_stdout(output):
+            self.assertFalse(explore(game_map, party, [], {}, equipment))
+        self.assertEqual(game_map.current_id, "village")
+        self.assertTrue(game_map.locations["final_chamber"].boss_defeated)
+        self.assertTrue(game_map.locations["final_chamber"].loot_claimed)
+        self.assertTrue(game_map.locations["ending"].dialogue_played)
+        self.assertEqual(sum(item.name == data.SEALBREAKER_BLADE.name for item in equipment), 1)
+        self.assertIn("빛의 마법진", output.getvalue())
+
+    def test_final_boss_console_rematch_returns_without_duplicate_loot(self):
+        party = Party([data.create_warrior("재도전자")])
+        game_map = build_world()
+        game_map.current_id = "final_chamber"
+        chamber = game_map.current
+        chamber.dialogue_played = chamber.boss_defeated = chamber.loot_claimed = True
+        game_map.locations["village"].dialogue_played = True
+        equipment = [data.SEALBREAKER_BLADE]
+        selections = iter([5])
+        with patch.object(Battle, "run", return_value=True), patch(
+            "map.prompt_index", side_effect=lambda _, count: next(selections, count - 1)
+        ), patch("map.prompt_yes_no", return_value=True), redirect_stdout(io.StringIO()):
+            self.assertFalse(explore(game_map, party, [], {}, equipment))
+        self.assertEqual(game_map.current_id, "village")
+        self.assertEqual(equipment, [data.SEALBREAKER_BLADE])
+
     def test_save_roundtrip_backup_and_corruption_detection(self):
         party = Party([data.create_warrior("저장자")], gold=37)
         game_map = build_world()

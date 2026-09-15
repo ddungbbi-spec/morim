@@ -631,12 +631,28 @@ class WebGame:
             self.quest_log.refresh_from_world(self.game_map, self.flags)
             if first_clear:
                 self._log(f"{location.name}의 위험이 사라졌습니다.")
+            elif location.id == "final_chamber":
+                self._log(f"{location.name}의 보스를 다시 쓰러뜨렸습니다. 다시 이곳에 오면 재도전할 수 있습니다.")
             else:
                 self._log(
                     f"{location.name}의 보스를 다시 쓰러뜨렸습니다. "
                     "이 장소에서 언제든 재도전할 수 있습니다."
                 )
             self._after_location_dialogue()
+            if location.id == "final_chamber":
+                ending = self.game_map.locations["ending"]
+                if ending.dialogue and not ending.dialogue_played:
+                    node = ending.dialogue.nodes[ending.dialogue.start_id]
+                    for line in node.resolve_lines(self.flags):
+                        self._log(line)
+                    if node.effect:
+                        node.effect(self.flags)
+                    ending.dialogue_played = True
+                self.game_map.move_to("village")
+                self._log("빛의 마법진이 파티를 시작 마을로 돌려보냈습니다.")
+                self._enter_current_location()
+                if self.phase == "explore":
+                    self.result_message = "최종 보스를 처치하고 시작 마을로 귀환했습니다."
         elif context == "random":
             self._enter_current_location()
         else:

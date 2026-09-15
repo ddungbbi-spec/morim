@@ -116,6 +116,19 @@ class GameMap:
         return "\n".join(lines)
 
 
+def _claim_location_loot(loc: Location, inventory: list, equipment_inventory: list) -> None:
+    if not loc.has_loot or loc.loot_claimed or (loc.boss and not loc.boss_defeated):
+        return
+    print("\n보물을 발견했다!")
+    if loc.loot_item:
+        inventory.append(loc.loot_item)
+        print(f"[{loc.loot_item.name}]을(를) 손에 넣었다!")
+    if loc.loot_equipment:
+        equipment_inventory.append(loc.loot_equipment)
+        print(f"{loc.loot_equipment.display_name}을(를) 손에 넣었다! (장비 관리에서 착용할 수 있다)")
+    loc.loot_claimed = True
+
+
 def explore(
     game_map: GameMap,
     party: Party,
@@ -193,18 +206,18 @@ def explore(
             if loc.id == "echo_vault":
                 flags["echo_purified"] = True
             print(f"\n{loc.name}의 위험이 사라졌다. 계속 진행할 수 있다.")
+            if loc.id == "final_chamber":
+                _claim_location_loot(loc, inventory, equipment_inventory)
+                ending = game_map.locations["ending"]
+                if ending.dialogue and not ending.dialogue_played:
+                    ending.dialogue.run(flags)
+                    ending.dialogue_played = True
+                game_map.move_to("village")
+                print("\n빛의 마법진이 파티를 시작 마을로 돌려보냈다.")
             continue  # 보스 처치 후 같은 장소를 다시 보여주고 이동 선택으로 넘어감
 
         # 보물(아이템/장비)이 있는 장소면 1회성으로 획득 (보스가 있다면 처치 후에만 가능)
-        if loc.has_loot and not loc.loot_claimed and (not loc.boss or loc.boss_defeated):
-            print("\n보물을 발견했다!")
-            if loc.loot_item:
-                inventory.append(loc.loot_item)
-                print(f"[{loc.loot_item.name}]을(를) 손에 넣었다!")
-            if loc.loot_equipment:
-                equipment_inventory.append(loc.loot_equipment)
-                print(f"{loc.loot_equipment.display_name}을(를) 손에 넣었다! (장비 관리에서 착용할 수 있다)")
-            loc.loot_claimed = True
+        _claim_location_loot(loc, inventory, equipment_inventory)
 
         if loc.is_ending:
             print("\n--- 이야기는 여기서 계속됩니다 (데모 종료 지점) ---")
@@ -300,7 +313,10 @@ def explore(
                     f"\n도전의 탑 {clear_count}회 클리어! "
                     f"추가 보상 {bonus_gold}G와 {equipment.display_name}을(를) 획득했다."
                 )
-            print(f"\n{loc.name}의 보스를 다시 쓰러뜨렸다. 원하면 다시 도전할 수 있다.")
+            print(f"\n{loc.name}의 보스를 다시 쓰러뜨렸다. 다시 이곳에 오면 재도전할 수 있다.")
+            if loc.id == "final_chamber":
+                game_map.move_to("village")
+                print("\n빛의 마법진이 파티를 시작 마을로 돌려보냈다.")
             continue
 
         if action == "quest_board":
