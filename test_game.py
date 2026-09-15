@@ -416,7 +416,7 @@ class GameTests(unittest.TestCase):
 
     def test_mist_marsh_expansion_is_connected_and_reward_registered(self):
         game_map = build_world()
-        self.assertEqual(len(game_map.locations), 23)
+        self.assertEqual(len(game_map.locations), 25)
         self.assertEqual(
             game_map.locations["deep_forest"].exits["안개 습지로 들어간다"],
             "mist_marsh",
@@ -429,6 +429,75 @@ class GameTests(unittest.TestCase):
         self.assertEqual(boss.name, "안개의 여왕")
         self.assertEqual(boss.weakness, "thunder")
         self.assertIs(data.EQUIPMENT_BY_NAME["안개의 망토"], data.MIST_CLOAK)
+
+    def test_archive_episode_choice_quest_ending_and_save(self):
+        game_map = build_world()
+        label = "세아가 알려준 수로로 들어간다"
+        spring = game_map.locations["moonlit_spring"]
+        self.assertEqual(spring.exits[label], "drowned_archive")
+        self.assertFalse(spring.flag_requirements[label].is_met({}))
+        self.assertTrue(spring.flag_requirements[label].is_met({"found_herbalist": True}))
+        self.assertEqual(game_map.locations["drowned_archive"].exits[
+            "메아리가 울리는 아래층으로 내려간다"
+        ], "echo_vault")
+        self.assertEqual(game_map.locations["echo_vault"].boss()[0].name, "봉인의 메아리")
+        self.assertIs(data.EQUIPMENT_BY_NAME["기록실의 등불"], data.ARCHIVE_LANTERN)
+
+        for choice, reported, reward in (("1", True, 90), ("2", False, 65)):
+            with self.subTest(choice=choice):
+                flags = {"found_herbalist": True, "echo_purified": True}
+                with patch.object(builtins, "input", return_value=choice), redirect_stdout(io.StringIO()):
+                    dialogues.drowned_archive_dialogue().run(flags)
+                self.assertTrue(flags["archive_discovered"])
+                self.assertEqual(flags["archive_reported"], reported)
+
+                quest_log = QuestLog()
+                quest_log.sync_story_flags(flags)
+                self.assertEqual(quest_log.status("seals_echo"), "active")
+                game_map.locations["echo_vault"].boss_defeated = True
+                quest_log.refresh_from_world(game_map, flags)
+                self.assertEqual(quest_log.status("seals_echo"), "ready")
+                party = Party([data.create_healer("기록 수호자")], gold=0)
+                inventory = []
+                self.assertTrue(quest_log.claim("seals_echo", party, inventory, flags))
+                self.assertEqual(party.gold, reward)
+                self.assertEqual([item.name for item in inventory], ["달빛 영약"])
+                self.assertFalse(quest_log.claim("seals_echo", party, inventory, flags))
+                ending_lines = dialogues.ending_dialogue().nodes["end"].resolve_lines(flags)
+                self.assertTrue(any("기록" in line for line in ending_lines))
+
+                with tempfile.TemporaryDirectory() as directory:
+                    game_map.move_to("echo_vault")
+                    game_map.locations["echo_vault"].dialogue_played = True
+                    game_map.locations["echo_vault"].loot_claimed = True
+                    path = os.path.join(directory, "slot1.json")
+                    save.save_game(party, inventory, game_map, flags,
+                                   [data.ARCHIVE_LANTERN], path, quest_log=quest_log)
+                    _, loaded_inventory, loaded_map, loaded_flags, loaded_equipment, loaded_log = save.load_game(path)
+                self.assertEqual(loaded_map.current_id, "echo_vault")
+                self.assertTrue(loaded_map.current.boss_defeated)
+                self.assertTrue(loaded_map.current.loot_claimed)
+                self.assertEqual(loaded_flags["archive_reported"], reported)
+                self.assertEqual(loaded_log.status("seals_echo"), "completed")
+                self.assertEqual(loaded_inventory[0].name, "달빛 영약")
+                self.assertEqual(loaded_equipment[0].name, "기록실의 등불")
+
+    def test_console_archive_boss_sets_story_flag(self):
+        game_map = build_world()
+        game_map.move_to("echo_vault")
+        game_map.current.dialogue_played = True
+        flags = {"archive_discovered": True, "archive_reported": False}
+        party = Party([data.create_warrior("메아리 수호자")])
+        equipment = []
+        with patch("map.Battle") as battle_type, patch.object(
+            builtins, "input", side_effect=["9", "y"]
+        ), redirect_stdout(io.StringIO()):
+            battle_type.return_value.run.return_value = True
+            result = explore(game_map, party, [], flags, equipment)
+        self.assertFalse(result)
+        self.assertTrue(flags["echo_purified"])
+        self.assertTrue(game_map.current.boss_defeated)
+        self.assertEqual([item.name for item in equipment], ["기록실의 등불"])
 
     def test_elder_armory_uses_story_flag_and_registers_reward(self):
         game_map = build_world()

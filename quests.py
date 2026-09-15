@@ -58,6 +58,17 @@ QUESTS: Dict[str, QuestDefinition] = {
         bonus_gold_reward=20,
         completion_flag="found_herbalist",
     ),
+    "seals_echo": QuestDefinition(
+        quest_id="seals_echo",
+        title="봉인의 잔향",
+        description="가라앉은 기록실에서 밝혀진 봉인의 균열을 따라 메아리를 잠재운다.",
+        target_location_id="echo_vault",
+        objective="메아리의 석실에서 봉인의 메아리 처치",
+        gold_reward=65,
+        item_rewards=(("달빛 영약", 1),),
+        bonus_flag="archive_reported",
+        bonus_gold_reward=25,
+    ),
 }
 
 
@@ -80,9 +91,11 @@ class QuestLog:
         return True
 
     def sync_story_flags(self, flags: dict) -> None:
-        """오프닝에서 노인의 부탁을 수락했다면 메인 퀘스트를 자동 수락한다."""
+        """대화에서 받은 부탁과 기록실에서 찾은 단서를 의뢰에 반영한다."""
         if flags.get("promised_elder") is True:
             self.accept("ruins_darkness")
+        if flags.get("archive_discovered") is True:
+            self.accept("seals_echo")
 
     def refresh_from_world(self, game_map, flags: dict | None = None) -> None:
         """활성 퀘스트의 보스와 대화 플래그 완료 조건을 확인한다."""
@@ -173,7 +186,7 @@ def run_quest_board(
         elif status == "ready":
             quest_log.claim(quest_id, party, inventory, flags)
             if definition.bonus_flag and (flags or {}).get(definition.bonus_flag):
-                rewards.append(f"호위 보너스 {definition.bonus_gold_reward}G")
+                rewards.append(f"선택 보너스 {definition.bonus_gold_reward}G")
             print("의뢰를 완료했습니다! " + ", ".join(rewards))
         elif status == "active":
             print("아직 목표를 달성하지 못했습니다.")

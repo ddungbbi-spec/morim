@@ -96,6 +96,63 @@ def moonlit_spring_dialogue() -> Dialogue:
     return Dialogue(nodes=[found, escort, rest], start_id="found")
 
 
+def drowned_archive_dialogue() -> Dialogue:
+    """세아가 발견한 기록실에서 봉인의 진실을 읽고 공개 여부를 정한다."""
+
+    def discover(flags: dict):
+        flags["archive_discovered"] = True
+
+    def share_records(flags: dict):
+        flags["archive_reported"] = True
+
+    def keep_records(flags: dict):
+        flags["archive_reported"] = False
+
+    read = DialogueNode(
+        "read",
+        [
+            "세아가 알려준 수로 끝에서 물에 잠긴 기록실이 나타난다.",
+            "리제: \"이 문양은 폐허의 봉인의 문과 같아. 안개도 봉인의 균열에서 새어 나왔던 거야.\"",
+            "낡은 기록에는 균열의 메아리가 아래층에 남아 있다고 적혀 있다.",
+            "셀린: \"마을에 진실을 알릴까, 아니면 먼저 우리가 책임지고 처리할까?\"",
+        ],
+        choices=[
+            ("기록을 장로에게 전하기로 한다", "share"),
+            ("혼란을 막기 위해 기록을 간직한다", "keep"),
+        ],
+        effect=discover,
+    )
+    share = DialogueNode(
+        "share",
+        [
+            "레온: \"장로가 알아야 마을도 대비할 수 있어. 메아리를 잠재운 뒤 함께 돌아가자.\"",
+            "파티는 읽을 수 있는 기록을 조심스럽게 챙겼다.",
+        ],
+        effect=share_records,
+    )
+    keep = DialogueNode(
+        "keep",
+        [
+            "레온: \"지금 알리면 사람들이 겁부터 먹을 거야. 우선 메아리를 잠재우자.\"",
+            "파티는 기록의 위치만 기억한 채 아래층으로 향했다.",
+        ],
+        effect=keep_records,
+    )
+    return Dialogue(nodes=[read, share, keep], start_id="read")
+
+
+def echo_vault_dialogue() -> Dialogue:
+    node = DialogueNode(
+        "echo",
+        [
+            "기록실 아래의 빈 석실에서 마왕의 목소리가 메아리처럼 울린다.",
+            "셀린: \"본체가 아니야. 봉인의 틈에 남은 기억이 안개를 움직인 거야.\"",
+            "레온: \"이 잔향을 멈춰야 샘도 마을도 안전해져.\"",
+        ],
+    )
+    return Dialogue(nodes=[node], start_id="echo")
+
+
 def shadow_valley_dialogue() -> Dialogue:
     """그림자 골짜기 진입 시의 짧은 분위기 연출용 대화 (선택지 없음)."""
     node = DialogueNode(
@@ -215,29 +272,36 @@ def ending_dialogue() -> Dialogue:
         embraced = flags.get("embraced_power")
 
         if promised and not embraced:
-            return [
+            lines = [
                 "빛 속에서 마을 노인의 말이 떠오른다.",
                 "\"자네들 덕분에 마을이 평화를 되찾았네. 고맙네.\"",
                 "파티는 약속을 지켰다는 뿌듯함을 안고, 스스로의 힘만으로 빛 속으로 걸어 들어갔다.",
             ]
         elif promised and embraced:
-            return [
+            lines = [
                 "마을은 구했지만, 파티의 몸속에는 낯선 힘이 여전히 꿈틀거리고 있다.",
                 "셀린: \"...이걸로 정말 괜찮은 걸까.\"",
                 "레온: \"그건, 앞으로 알아가야겠지.\"",
             ]
         elif not promised and embraced:
-            return [
+            lines = [
                 "누구와의 약속도 없었지만, 파티는 스스로 위험 속으로 걸어 들어갔었다.",
                 "그리고 지금, 손에 넣은 낯선 힘이 온몸을 타고 흐른다.",
                 "레온: \"...이제부터가 진짜 시작일지도 모르겠군.\"",
             ]
         else:
-            return [
+            lines = [
                 "빛 속에서 파티는 조용히 생각에 잠긴다.",
                 "약속하지 않았던 일이었지만, 스스로 나서서 위험을 해결했다.",
                 "그것으로 충분했다... 라고 레온은 생각했다.",
             ]
+
+        if flags.get("echo_purified"):
+            if flags.get("archive_reported"):
+                lines.append("장로에게 전하기로 한 기록은 마을이 봉인의 균열에 대비할 단서가 될 것이다.")
+            else:
+                lines.append("가라앉은 기록실의 진실은 파티만 간직했지만, 봉인의 잔향은 잠잠해졌다.")
+        return lines
 
     node = DialogueNode("end", text_fn)
     return Dialogue(nodes=[node], start_id="end")

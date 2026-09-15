@@ -218,9 +218,40 @@ def build_world() -> GameMap:
         loc_id="moonlit_spring",
         name="달빛 샘",
         description="안개가 걷힌 샘 위로 달빛이 쏟아진다. 고요한 물결이 긴 여정의 끝을 알린다.",
-        exits={"잊힌 사당으로 돌아간다": "forgotten_shrine"},
+        exits={
+            "잊힌 사당으로 돌아간다": "forgotten_shrine",
+            "세아가 알려준 수로로 들어간다": "drowned_archive",
+        },
+        flag_requirements={
+            "세아가 알려준 수로로 들어간다": FlagRequirement(
+                flag="found_herbalist",
+                description="세아의 수로 안내 필요",
+                failure_message="세아에게 수로의 위치를 듣기 전에는 들어갈 수 없다.",
+            ),
+        },
         dialogue=dialogues.moonlit_spring_dialogue(),
         loot_item=data.ETHER,
+    )
+
+    drowned_archive = Location(
+        loc_id="drowned_archive",
+        name="가라앉은 기록실",
+        description="샘 아래 수로와 이어진 석실. 젖은 기록들이 봉인의 균열을 가리킨다.",
+        exits={
+            "메아리가 울리는 아래층으로 내려간다": "echo_vault",
+            "달빛 샘으로 돌아간다": "moonlit_spring",
+        },
+        dialogue=dialogues.drowned_archive_dialogue(),
+    )
+
+    echo_vault = Location(
+        loc_id="echo_vault",
+        name="메아리의 석실",
+        description="봉인의 틈에서 흘러나온 기억이 안개처럼 석실을 채우고 있다.",
+        exits={"가라앉은 기록실로 돌아간다": "drowned_archive"},
+        boss=lambda: [data.create_seal_echo()],
+        dialogue=dialogues.echo_vault_dialogue(),
+        loot_equipment=data.ARCHIVE_LANTERN,
     )
 
     shadow_valley = Location(
@@ -418,6 +449,7 @@ def build_world() -> GameMap:
         locations=[
             village, elder_armory, forest_entrance, deep_forest,
             mist_marsh, sunken_boardwalk, forgotten_shrine, moonlit_spring,
+            drowned_archive, echo_vault,
             shadow_valley, ruins, seal_gate, final_chamber,
             cave, cave_treasure, cave_vault, ending,
             tower_floor_1, tower_floor_2, tower_floor_3, tower_summit,

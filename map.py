@@ -190,6 +190,8 @@ def explore(
                         f"추가 보상 {bonus_gold}G와 {equipment.display_name}을(를) 획득했다."
                     )
             loc.boss_defeated = True
+            if loc.id == "echo_vault":
+                flags["echo_purified"] = True
             print(f"\n{loc.name}의 위험이 사라졌다. 계속 진행할 수 있다.")
             continue  # 보스 처치 후 같은 장소를 다시 보여주고 이동 선택으로 넘어감
 

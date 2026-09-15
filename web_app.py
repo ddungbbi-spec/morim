@@ -612,6 +612,8 @@ class WebGame:
                     )
             first_clear = not location.boss_defeated
             location.boss_defeated = True
+            if location.id == "echo_vault":
+                self.flags["echo_purified"] = True
             self.quest_log.refresh_from_world(self.game_map, self.flags)
             if first_clear:
                 self._log(f"{location.name}의 위험이 사라졌습니다.")

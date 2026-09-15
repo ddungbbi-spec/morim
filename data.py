@@ -522,6 +522,20 @@ def create_mist_queen() -> Enemy:
     )
 
 
+def create_seal_echo() -> Enemy:
+    """안개 습지에 남은 봉인의 잔향. 본체와 달리 불에 약하다."""
+    return Enemy(
+        name="봉인의 메아리", job="미니보스", level=6,
+        max_hp=100, max_mp=24, attack=13, defense=7, speed=8,
+        skills=[CURSE_WHISPER, CHAOS_WAVE], exp_reward=75, gold_reward=50,
+        smart_ai=True, weakness="fire", resistance="ice",
+        action_pattern=[CURSE_WHISPER, CHAOS_WAVE, None],
+        boss_phases=[BossPhase(
+            0.5, DEEP_MIST, "기록실의 글자가 얼어붙으며 봉인의 메아리가 폭발한다!",
+        )],
+    )
+
+
 def create_sealed_demon_lord() -> Enemy:
     """메인 스토리의 진짜 최종 보스. 폐허 지하에 봉인되어 있던 존재.
     강력한 단일 공격과 전체 공격, 마비를 섞어 쓰는 진짜 최종전다운 복합형"""
@@ -616,6 +630,13 @@ ELDER_GUARDIAN_SIGIL = Equipment(
     description="마을을 지키겠다고 맹세한 이에게 맡기는 인장. 방어력 +2, 최대 HP +6",
     price=55, rarity="uncommon", damage_reduction_bonus=0.03,
     special_effect="받는 피해 3% 감소",
+)
+
+ARCHIVE_LANTERN = Equipment(
+    name="기록실의 등불", slot="accessory", max_mp_bonus=8, defense_bonus=2,
+    description="메아리를 잠재운 뒤 되찾은 등불. 최대 MP +8, 방어력 +2",
+    price=75, rarity="rare", damage_reduction_bonus=0.04,
+    special_effect="받는 피해 4% 감소",
 )
 
 
@@ -715,5 +736,6 @@ EQUIPMENT_BY_NAME = {
         MITHRIL_DAGGER, LEGENDARY_ARMOR, DRAKE_SCALE_ARMOR, SEALBREAKER_BLADE, LUCKY_RING,
         MIST_CLOAK,
         ELDER_GUARDIAN_SIGIL,
+        ARCHIVE_LANTERN,
     ]
 }

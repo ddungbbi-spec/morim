@@ -460,6 +460,57 @@ class WebGameTests(unittest.TestCase):
             ["해독제", "해독제", "에테르"],
         )
 
+    def test_web_archive_story_route_boss_reward_and_quest(self):
+        self.finish_intro()
+        self.game.game_map.current_id = "moonlit_spring"
+        self.game.phase = "explore"
+        self.game.game_map.current.dialogue_played = True
+        blocked = self.game.move("세아가 알려준 수로로 들어간다")
+        self.assertFalse(blocked["ok"])
+        self.assertTrue(self.game.state()["location"]["exits"][1]["locked"])
+        self.game.game_map.current.dialogue_played = False
+        self.game._enter_current_location()
+        self.assertEqual(self.game.phase, "dialogue")
+        self.game.advance_dialogue(1)
+        self.game.advance_dialogue()
+        self.assertTrue(self.game.flags["found_herbalist"])
+
+        opened = self.game.move("세아가 알려준 수로로 들어간다")
+        self.assertTrue(opened["ok"])
+        self.assertEqual(self.game.phase, "dialogue")
+        self.assertEqual(self.game.game_map.current_id, "drowned_archive")
+        self.game.advance_dialogue(0)
+        self.game.advance_dialogue()
+        self.assertTrue(self.game.flags["archive_reported"])
+        self.assertEqual(self.game.quest_log.status("seals_echo"), "active")
+
+        entered = self.game.move("메아리가 울리는 아래층으로 내려간다")
+        self.assertTrue(entered["ok"])
+        self.game.advance_dialogue()
+        self.assertEqual(self.game.phase, "battle")
+        self.assertEqual(self.game.enemies[0].name, "봉인의 메아리")
+        self.game.enemies[0].hp = 1
+        with patch("models.random.randint", return_value=0), patch(
+            "web_app.random.random", return_value=0.99
+        ):
+            while self.game.phase == "battle":
+                self.game.act({"type": "attack", "target": 0})
+        self.assertTrue(self.game.flags["echo_purified"])
+        self.assertTrue(self.game.game_map.current.boss_defeated)
+        self.assertTrue(self.game.game_map.current.loot_claimed)
+        self.assertEqual(self.game.quest_log.status("seals_echo"), "ready")
+        self.assertEqual(sum(item.name == "기록실의 등불" for item in self.game.equipment_inventory), 1)
+
+        self.game.move("가라앉은 기록실로 돌아간다")
+        self.game.move("달빛 샘으로 돌아간다")
+        self.game.game_map.current_id = "village"
+        self.game._enter_current_location()
+        before_gold = self.game.party.gold
+        claimed = self.game.quest_action("claim", "seals_echo")
+        self.assertTrue(claimed["ok"])
+        self.assertEqual(self.game.party.gold, before_gold + 90)
+        self.assertEqual(self.game.inventory[-1].name, "달빛 영약")
+
     def test_web_save_and_load_roundtrip(self):
         self.finish_intro()
         with tempfile.TemporaryDirectory() as directory, patch("save.SAVE_DIR", directory):
