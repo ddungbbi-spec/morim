@@ -42,7 +42,7 @@ class Location:
         self.exits = exits or {}
         self.encounter_chance = encounter_chance
         self.encounter_pool = encounter_pool or []
-        self.boss = boss              # 보스가 있는 장소면 전투 함수를 넣는다 (1회성, boss 처치 후에만 loot 획득 가능)
+        self.boss = boss              # 보스가 있는 장소면 전투 함수를 넣는다 (최초 처치 후 수동 재도전 가능)
         self.boss_defeated = False
         self.is_ending = is_ending
         self.dialogue = dialogue      # 이 장소에 처음 들어왔을 때 재생할 대화 (1회성)
@@ -193,6 +193,8 @@ def explore(
         options.append(("장비 관리", "equip", None))
         options.append(("지도 보기", "map", None))
         options.append(("퀘스트 일지", "quests", None))
+        if loc.boss and loc.boss_defeated:
+            options.append(("보스에게 다시 도전", "boss_retry", None))
         if loc.id == "village":
             options.append(("의뢰 게시판", "quest_board", None))
             options.append(("대장간에서 장비 강화", "blacksmith", None))
@@ -238,6 +240,34 @@ def explore(
 
         if action == "quests":
             print("\n" + quest_log.render_journal())
+            continue
+
+        if action == "boss_retry":
+            print("\n쓰러뜨린 보스의 기운이 다시 모여든다...!")
+            if loc.id == "tower_summit":
+                from world import (
+                    create_scaled_tower_guardian, tower_challenge_tier,
+                    tower_clear_count,
+                )
+                if tower_clear_count(flags) == 0:
+                    flags["tower_clear_count"] = 1
+                enemies = [create_scaled_tower_guardian(flags)]
+                print(f"도전 단계: {tower_challenge_tier(flags)}")
+            else:
+                enemies = loc.boss()
+            won = Battle(party, enemies, inventory, equipment_inventory).run()
+            if not won:
+                return False
+            if loc.id == "tower_summit":
+                from world import complete_tower_challenge
+                clear_count, bonus_gold, equipment = complete_tower_challenge(
+                    flags, party, equipment_inventory
+                )
+                print(
+                    f"\n도전의 탑 {clear_count}회 클리어! "
+                    f"추가 보상 {bonus_gold}G와 {equipment.display_name}을(를) 획득했다."
+                )
+            print(f"\n{loc.name}의 보스를 다시 쓰러뜨렸다. 원하면 다시 도전할 수 있다.")
             continue
 
         if action == "quest_board":

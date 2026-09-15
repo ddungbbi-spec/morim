@@ -375,6 +375,24 @@ class GameTests(unittest.TestCase):
             for target in location.exits.values():
                 self.assertIn(target, game_map.locations)
 
+    def test_console_defeated_boss_can_be_rechallenged(self):
+        game_map = build_world()
+        game_map.current_id = "ruins"
+        game_map.current.dialogue_played = True
+        game_map.current.boss_defeated = True
+        party = Party([data.create_warrior("재도전자")])
+
+        with patch("map.Battle") as battle_type, patch.object(
+            builtins, "input", side_effect=["6", "9", "y"]
+        ), redirect_stdout(io.StringIO()):
+            battle_type.return_value.run.return_value = True
+            result = explore(game_map, party, [], {}, [])
+
+        self.assertFalse(result)
+        battle_type.assert_called_once()
+        self.assertEqual(battle_type.call_args.args[1][0].name, "다크 나이트")
+        self.assertTrue(game_map.current.boss_defeated)
+
     def test_mist_marsh_expansion_is_connected_and_reward_registered(self):
         game_map = build_world()
         self.assertEqual(len(game_map.locations), 22)
@@ -462,7 +480,7 @@ class GameTests(unittest.TestCase):
         game_map.current.boss_defeated = True
         game_map.current.dialogue_played = True
         before = (party.members[0].max_hp, party.members[0].attack, party.members[0].defense)
-        answers = iter(["8", "y"])
+        answers = iter(["9", "y"])
         with patch.object(builtins, "input", side_effect=lambda _="": next(answers)):
             self.assertFalse(explore(game_map, party, [], {"embraced_power": True}, []))
         after = (party.members[0].max_hp, party.members[0].attack, party.members[0].defense)

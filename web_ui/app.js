@@ -190,6 +190,7 @@ function renderCommands() {
     const utilities = `${gameState.shop ? `<button class="command-button utility" onclick="openUtility('shop')">상점</button>` : ""}
       ${gameState.inn ? `<button class="command-button utility" onclick="innRequest()">여관 · 전원 회복</button>` : ""}
       ${gameState.blacksmith ? `<button class="command-button utility" onclick="openUtility('blacksmith')">대장간 · 장비 강화</button>` : ""}
+      ${gameState.boss_retry?.available ? `<button class="command-button danger" onclick="bossRetry()">보스에게 다시 도전</button>` : ""}
       ${gameState.tower?.can_retry ? `<button class="command-button utility" onclick="towerRetry()">도전의 탑 ${gameState.tower.next_tier}단계 개방</button>` : ""}
       <button class="command-button utility" onclick="openUtility('equipment')">장비</button>
       ${gameState.location.id === "village" ? `<button class="command-button utility" onclick="openUtility('quest')">의뢰 게시판</button>` : ""}
@@ -313,6 +314,11 @@ function towerRetry() {
     request("/api/tower", {operation: "reset"});
   }
 }
+function bossRetry() {
+  if (confirm(`${gameState.boss_retry.location_name}의 보스에게 다시 도전할까요?`)) {
+    request("/api/boss", {operation: "retry"});
+  }
+}
 function equipmentRequest(operation, member, equipment, slot) { request("/api/equipment", {operation, member, equipment, slot}); }
 function questRequest(operation, quest) { request("/api/quest", {operation, quest}); }
 function saveSlot(slot, exists) {
@@ -403,7 +409,7 @@ function playResponseTone(path, before, after) {
   if (after === "battle" && before !== "battle") return playTone("battle");
   if (after === "victory" || after === "ending") return playTone("victory");
   if (after === "dialogue" && before !== "dialogue") return playTone("dialogue");
-  if (["/api/action", "/api/shop", "/api/inn", "/api/blacksmith", "/api/tower", "/api/equipment", "/api/quest", "/api/save"].includes(path)) return playTone("confirm");
+  if (["/api/action", "/api/shop", "/api/inn", "/api/blacksmith", "/api/tower", "/api/boss", "/api/equipment", "/api/quest", "/api/save"].includes(path)) return playTone("confirm");
   if (path === "/api/move") return playTone("move");
 }
 

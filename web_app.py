@@ -221,6 +221,29 @@ class WebGame:
         )
         return {"ok": True, "state": self.state()}
 
+    def boss_action(self, operation: str) -> dict:
+        location = self.game_map.current
+        if self.phase != "explore":
+            return self._error("탐험 중에만 보스에게 다시 도전할 수 있습니다.")
+        if operation != "retry":
+            return self._error("지원하지 않는 보스 행동입니다.")
+        if not location.boss or not location.boss_defeated:
+            return self._error("현재 장소에는 다시 도전할 보스가 없습니다.")
+
+        if location.id == "tower_summit" and tower_clear_count(self.flags) == 0:
+            # 반복 도전 기능 도입 전 저장도 최초 정복을 끝낸 상태로 보정한다.
+            self.flags["tower_clear_count"] = 1
+        enemies = (
+            [create_scaled_tower_guardian(self.flags)]
+            if location.id == "tower_summit" else location.boss()
+        )
+        title = (
+            f"{location.name} · {tower_challenge_tier(self.flags)}단계 재도전"
+            if location.id == "tower_summit" else f"{location.name}의 보스 재도전"
+        )
+        self._begin_battle(enemies, "boss_retry", title)
+        return {"ok": True, "state": self.state()}
+
     def blacksmith_action(self, equipment_index) -> dict:
         if self.phase != "explore" or self.game_map.current_id != "village":
             return self._error("대장간은 시작 마을에서 이용할 수 있습니다.")
@@ -565,7 +588,7 @@ class WebGame:
         self.current_actor = None
         context = self.battle_context
         self.battle_context = ""
-        if context == "boss":
+        if context in {"boss", "boss_retry"}:
             location = self.game_map.current
             if location.id == "tower_summit":
                 clear_count, bonus_gold, equipment = complete_tower_challenge(
@@ -578,9 +601,16 @@ class WebGame:
                         f"도전의 탑 {clear_count}회 클리어 보상: "
                         f"{bonus_gold}G, {equipment.display_name}"
                     )
+            first_clear = not location.boss_defeated
             location.boss_defeated = True
             self.quest_log.refresh_from_world(self.game_map, self.flags)
-            self._log(f"{location.name}의 위험이 사라졌습니다.")
+            if first_clear:
+                self._log(f"{location.name}의 위험이 사라졌습니다.")
+            else:
+                self._log(
+                    f"{location.name}의 보스를 다시 쓰러뜨렸습니다. "
+                    "이 장소에서 언제든 재도전할 수 있습니다."
+                )
             self._after_location_dialogue()
         elif context == "random":
             self._enter_current_location()
@@ -878,6 +908,14 @@ class WebGame:
             "shop": shop_state,
             "blacksmith": blacksmith_state,
             "inn": location.has_inn,
+            "boss_retry": {
+                "available": (
+                    self.phase == "explore"
+                    and bool(location.boss)
+                    and location.boss_defeated
+                ),
+                "location_name": location.name,
+            },
             "tower": {
                 "clear_count": tower_clear_count(self.flags),
                 "next_tier": tower_challenge_tier(self.flags),
@@ -1031,6 +1069,8 @@ class GameHandler(BaseHTTPRequestHandler):
                 result = game.blacksmith_action(payload.get("equipment"))
             elif self.path == "/api/tower":
                 result = game.tower_action(payload.get("operation", ""))
+            elif self.path == "/api/boss":
+                result = game.boss_action(payload.get("operation", ""))
             elif self.path == "/api/equipment":
                 result = game.equipment_action(
                     payload.get("operation", ""), payload.get("member"),

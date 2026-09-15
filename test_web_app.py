@@ -286,6 +286,46 @@ class WebGameTests(unittest.TestCase):
         self.assertTrue(self.game.game_map.current.boss_defeated)
         self.assertEqual(self.game.phase, "explore")
 
+    def test_defeated_world_boss_can_be_rechallenged_without_duplicate_treasure(self):
+        self.game.game_map.current_id = "forgotten_shrine"
+        location = self.game.game_map.current
+        location.dialogue_played = True
+        location.boss_defeated = True
+        location.loot_claimed = True
+        self.game.phase = "explore"
+        before_cloaks = sum(
+            item.name == data.MIST_CLOAK.name for item in self.game.equipment_inventory
+        )
+
+        state = self.game.state()
+        self.assertTrue(state["boss_retry"]["available"])
+        started = self.game.boss_action("retry")
+        self.assertTrue(started["ok"])
+        self.assertEqual(self.game.phase, "battle")
+        self.assertEqual(self.game.battle_context, "boss_retry")
+        self.assertEqual(self.game.enemies[0].name, "안개의 여왕")
+
+        self.game.enemies[0].hp = 1
+        with patch("models.random.randint", return_value=0), patch(
+            "web_app.random.random", return_value=0.99
+        ):
+            while self.game.phase == "battle":
+                self.game.act({"type": "attack", "target": 0})
+
+        after_cloaks = sum(
+            item.name == data.MIST_CLOAK.name for item in self.game.equipment_inventory
+        )
+        self.assertEqual(after_cloaks, before_cloaks)
+        self.assertTrue(self.game.game_map.current.boss_defeated)
+        self.assertTrue(self.game.state()["boss_retry"]["available"])
+        self.assertIn("언제든 재도전", " ".join(self.game.logs))
+
+    def test_boss_retry_is_rejected_before_first_clear(self):
+        self.game.game_map.current_id = "ruins"
+        self.game.phase = "explore"
+        result = self.game.boss_action("retry")
+        self.assertFalse(result["ok"])
+
     def test_web_shop_buy_sell_and_key_item_protection(self):
         self.finish_intro()
         self.game.party.gold = 100
