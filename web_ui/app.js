@@ -185,7 +185,7 @@ function renderCommands() {
     $("#commandTitle").textContent = "이동";
     const moves = gameState.location.exits.map((exit) => {
       const encoded = encodeURIComponent(exit.label);
-      const lock = exit.locked ? ` · 🔒 ${escapeHtml(exit.required_item)}` : "";
+      const lock = exit.locked ? ` · 🔒 ${escapeHtml(exit.lock_reason || exit.required_item)}` : "";
       return `<button class="command-button" onclick="moveTo('${encoded}')">${escapeHtml(exit.label)}${lock}</button>`;
     }).join("");
     const utilities = `${gameState.shop ? `<button class="command-button utility" onclick="openUtility('shop')">상점</button>` : ""}

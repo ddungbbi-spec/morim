@@ -188,6 +188,32 @@ class WebGameTests(unittest.TestCase):
         self.assertEqual(self.game.phase, "explore")
         self.assertEqual(self.game.quest_log.status("ruins_darkness"), "active")
 
+    def test_story_flag_locks_and_unlocks_elder_armory(self):
+        label = "장로의 비밀 무기고로 들어간다"
+        self.game.advance_dialogue(1)
+        self.game.advance_dialogue()
+        locked_exit = next(
+            exit_data for exit_data in self.game.state()["location"]["exits"]
+            if exit_data["label"] == label
+        )
+        self.assertTrue(locked_exit["locked"])
+        self.assertEqual(locked_exit["lock_reason"], "장로의 신뢰 필요")
+        blocked = self.game.move(label)
+        self.assertFalse(blocked["ok"])
+        self.assertEqual(self.game.game_map.current_id, "village")
+
+        accepted = WebGame()
+        accepted.configure_party(DEFAULT_PARTY_SETUP)
+        accepted.advance_dialogue(0)
+        accepted.advance_dialogue()
+        moved = accepted.move(label)
+        self.assertTrue(moved["ok"])
+        self.assertEqual(accepted.game_map.current_id, "elder_armory")
+        self.assertEqual(
+            accepted.equipment_inventory[-1].name,
+            "장로의 수호 인장",
+        )
+
     def test_world_move_updates_location_and_visited_map(self):
         self.game.advance_dialogue(1)
         self.game.advance_dialogue()

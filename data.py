@@ -572,6 +572,13 @@ MIST_CLOAK = Equipment(
     price=95, rarity="rare", evasion_rate_bonus=0.05, special_effect="회피율 +5%",
 )
 
+ELDER_GUARDIAN_SIGIL = Equipment(
+    name="장로의 수호 인장", slot="accessory", defense_bonus=2, max_hp_bonus=6,
+    description="마을을 지키겠다고 맹세한 이에게 맡기는 인장. 방어력 +2, 최대 HP +6",
+    price=55, rarity="uncommon", damage_reduction_bonus=0.03,
+    special_effect="받는 피해 3% 감소",
+)
+
 
 RANDOM_EQUIPMENT_BASES = [
     ("강철검", "weapon"),
@@ -667,5 +674,6 @@ EQUIPMENT_BY_NAME = {
         IRON_SWORD, OAK_STAFF, LEATHER_ARMOR, SWIFT_CHARM,
         MITHRIL_DAGGER, LEGENDARY_ARMOR, DRAKE_SCALE_ARMOR, SEALBREAKER_BLADE, LUCKY_RING,
         MIST_CLOAK,
+        ELDER_GUARDIAN_SIGIL,
     ]
 }

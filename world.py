@@ -5,7 +5,7 @@ world.py
 build_world()의 리스트에 넣어주면 됩니다.
 """
 
-from map import Location, GameMap
+from map import FlagRequirement, Location, GameMap
 from shop import Shop
 import data
 import dialogues
@@ -83,6 +83,14 @@ def build_world() -> GameMap:
         exits={
             "숲으로 향한다": "forest_entrance",
             "도전의 탑으로 향한다": "tower_floor_1",
+            "장로의 비밀 무기고로 들어간다": "elder_armory",
+        },
+        flag_requirements={
+            "장로의 비밀 무기고로 들어간다": FlagRequirement(
+                flag="promised_elder",
+                description="장로의 신뢰 필요",
+                failure_message="장로의 부탁을 맡은 이에게만 비밀 무기고가 열린다.",
+            ),
         },
         dialogue=dialogues.village_intro_dialogue(),
         shops=[
@@ -103,6 +111,14 @@ def build_world() -> GameMap:
             ),
         ],
         has_inn=True,
+    )
+
+    elder_armory = Location(
+        loc_id="elder_armory",
+        name="장로의 비밀 무기고",
+        description="마을 수호자들이 사용하던 장비가 보관된 작은 지하실이다. 중앙 제단에 오래된 인장이 놓여 있다.",
+        exits={"시작 마을로 돌아간다": "village"},
+        loot_equipment=data.ELDER_GUARDIAN_SIGIL,
     )
 
     forest_entrance = Location(
@@ -390,7 +406,7 @@ def build_world() -> GameMap:
 
     return GameMap(
         locations=[
-            village, forest_entrance, deep_forest,
+            village, elder_armory, forest_entrance, deep_forest,
             mist_marsh, sunken_boardwalk, forgotten_shrine, moonlit_spring,
             shadow_valley, ruins, seal_gate, final_chamber,
             cave, cave_treasure, cave_vault, ending,

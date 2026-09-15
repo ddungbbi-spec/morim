@@ -395,7 +395,7 @@ class GameTests(unittest.TestCase):
 
     def test_mist_marsh_expansion_is_connected_and_reward_registered(self):
         game_map = build_world()
-        self.assertEqual(len(game_map.locations), 22)
+        self.assertEqual(len(game_map.locations), 23)
         self.assertEqual(
             game_map.locations["deep_forest"].exits["안개 습지로 들어간다"],
             "mist_marsh",
@@ -408,6 +408,18 @@ class GameTests(unittest.TestCase):
         self.assertEqual(boss.name, "안개의 여왕")
         self.assertEqual(boss.weakness, "thunder")
         self.assertIs(data.EQUIPMENT_BY_NAME["안개의 망토"], data.MIST_CLOAK)
+
+    def test_elder_armory_uses_story_flag_and_registers_reward(self):
+        game_map = build_world()
+        label = "장로의 비밀 무기고로 들어간다"
+        requirement = game_map.locations["village"].flag_requirements[label]
+        self.assertFalse(requirement.is_met({"promised_elder": False}))
+        self.assertTrue(requirement.is_met({"promised_elder": True}))
+        self.assertEqual(game_map.locations["village"].exits[label], "elder_armory")
+        self.assertIs(
+            data.EQUIPMENT_BY_NAME["장로의 수호 인장"],
+            data.ELDER_GUARDIAN_SIGIL,
+        )
 
     def test_tower_summit_returns_directly_to_village(self):
         game_map = build_world()

@@ -6,6 +6,7 @@ map.py
 
 from __future__ import annotations
 import random
+from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional
 
 from models import Party, Enemy, Item, Equipment
@@ -13,6 +14,19 @@ from combat import Battle
 from story import Dialogue
 from input_utils import prompt_index, prompt_yes_no
 from shop import Shop
+
+
+@dataclass(frozen=True)
+class FlagRequirement:
+    """스토리 flag가 기대값일 때만 통과할 수 있는 이동 조건."""
+
+    flag: str
+    description: str
+    expected: object = True
+    failure_message: str = "아직 이 길을 이용할 조건을 갖추지 못했다."
+
+    def is_met(self, flags: dict) -> bool:
+        return flags.get(self.flag) == self.expected
 
 
 class Location:
@@ -35,6 +49,7 @@ class Location:
         loot_item: Optional[Item] = None,
         loot_equipment: Optional[Equipment] = None,
         locked_exits: Optional[Dict[str, str]] = None,
+        flag_requirements: Optional[Dict[str, FlagRequirement]] = None,
         has_inn: bool = False,
     ):
         self.id = loc_id
@@ -61,6 +76,7 @@ class Location:
         self.loot_equipment = loot_equipment  # 보물상자 등에서 얻는 장비 (1회성)
         self.loot_claimed = False
         self.locked_exits = locked_exits or {}  # {"exits의 문구": "필요한 아이템 이름"} - 열쇠 아이템을 소모해서 연다
+        self.flag_requirements = flag_requirements or {}  # 대화 선택 등 flags 조건. 충족 전에는 통과 불가
         self.unlocked_labels = set()            # 이미 열어서 더는 열쇠가 필요 없는 문구들 (1회 소모, 이후 영구)
         self.has_inn = has_inn                  # 파티 전체를 완전히 회복할 수 있는 여관
 
@@ -225,7 +241,10 @@ def explore(
         print("\n[행동을 선택하세요]")
         for i, (label, action, _) in enumerate(options, 1):
             display = label
-            if action == "move" and label in loc.locked_exits and label not in loc.unlocked_labels:
+            requirement = loc.flag_requirements.get(label) if action == "move" else None
+            if requirement and not requirement.is_met(flags):
+                display = f"{label} (🔒 {requirement.description})"
+            elif action == "move" and label in loc.locked_exits and label not in loc.unlocked_labels:
                 display = f"{label} (🔒 {loc.locked_exits[label]} 필요)"
             print(f"  {i}) {display}")
 
@@ -341,6 +360,10 @@ def explore(
             continue
 
         if action == "move":
+            requirement = loc.flag_requirements.get(label)
+            if requirement and not requirement.is_met(flags):
+                print(f"\n{requirement.failure_message}")
+                continue
             if label in loc.locked_exits and label not in loc.unlocked_labels:
                 required_item_name = loc.locked_exits[label]
                 owned_key = next((it for it in inventory if it.name == required_item_name), None)

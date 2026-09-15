@@ -140,6 +140,10 @@ class WebGame:
         if exit_label not in location.exits:
             return self._error("이동할 길을 찾을 수 없습니다.")
 
+        requirement = location.flag_requirements.get(exit_label)
+        if requirement and not requirement.is_met(self.flags):
+            return self._error(requirement.failure_message)
+
         if exit_label in location.locked_exits and exit_label not in location.unlocked_labels:
             required_name = location.locked_exits[exit_label]
             key = next((item for item in self.inventory if item.name == required_name), None)
@@ -780,13 +784,20 @@ class WebGame:
         usable_items = [item for item in self.inventory if item.usable_in_combat]
         exits = []
         for label, target_id in location.exits.items():
-            locked = label in location.locked_exits and label not in location.unlocked_labels
+            requirement = location.flag_requirements.get(label)
+            flag_locked = bool(requirement and not requirement.is_met(self.flags))
+            item_locked = label in location.locked_exits and label not in location.unlocked_labels
+            locked = flag_locked or item_locked
             exits.append({
                 "label": label,
                 "target_id": target_id,
                 "target_name": self.game_map.locations[target_id].name,
                 "locked": locked,
-                "required_item": location.locked_exits.get(label) if locked else None,
+                "required_item": location.locked_exits.get(label) if item_locked else None,
+                "lock_reason": (
+                    requirement.description if flag_locked
+                    else location.locked_exits.get(label) if item_locked else None
+                ),
             })
         dialogue_state = None
         if self.phase == "dialogue" and self.dialogue is not None:
