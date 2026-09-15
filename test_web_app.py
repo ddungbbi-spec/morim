@@ -16,6 +16,46 @@ from web_app import DEFAULT_PARTY_SETUP, GameHandler, SessionStore, WEB_ROOT, We
 
 
 class WebGameTests(unittest.TestCase):
+    def test_web_post_boss_chapter_gate_choice_boss_and_reward(self):
+        self.finish_intro()
+        label = "북쪽 관측소로 향한다"
+        self.assertFalse(self.game.move(label)["ok"])
+        self.assertFalse(self.game.quest_action("accept", "fallen_star")["ok"])
+        self.assertEqual(next(quest for quest in self.game.state()["quests"]
+                              if quest["id"] == "fallen_star")["status"], "locked")
+        self.assertTrue(next(exit for exit in self.game.state()["location"]["exits"]
+                             if exit["label"] == label)["locked"])
+        self.game.game_map.locations["final_chamber"].boss_defeated = True
+        self.game.flags["demon_lord_defeated"] = True
+        self.assertTrue(self.game.move(label)["ok"])
+        self.assertEqual(self.game.phase, "dialogue")
+        self.game.advance_dialogue(0)
+        self.game.advance_dialogue()
+        self.assertTrue(self.game.flags["star_signal_reported"])
+        self.assertEqual(self.game.quest_log.status("fallen_star"), "active")
+        self.assertTrue(self.game.move("낙하지로 내려간다")["ok"])
+        if self.game.phase == "battle":
+            with patch("web_app.random.random", return_value=0.99):
+                self.game._victory()
+        self.assertEqual(self.game.phase, "dialogue")
+        self.game.advance_dialogue()
+        self.assertTrue(self.game.move("별의 균열로 들어간다")["ok"])
+        self.game.advance_dialogue()
+        self.assertEqual(self.game.phase, "battle")
+        self.assertEqual(self.game.enemies[0].name, "검은 별의 잔재")
+        with patch("web_app.random.random", return_value=0.99):
+            self.game._victory()
+        self.assertTrue(self.game.flags["star_rift_closed"])
+        self.assertEqual(self.game.quest_log.status("fallen_star"), "ready")
+        self.assertEqual(sum(item.name == "별의 수호 부적" for item in self.game.equipment_inventory), 1)
+        self.assertTrue(self.game.move("유성 낙하지로 돌아간다")["ok"])
+        self.assertTrue(self.game.move("관측소로 돌아간다")["ok"])
+        self.assertTrue(self.game.move("마을로 돌아간다")["ok"])
+        before = self.game.party.gold
+        self.assertTrue(self.game.quest_action("claim", "fallen_star")["ok"])
+        self.assertEqual(self.game.party.gold, before + 110)
+        self.assertFalse(self.game.quest_action("claim", "fallen_star")["ok"])
+
     def setUp(self):
         self.game = WebGame()
         result = self.game.configure_party(DEFAULT_PARTY_SETUP)

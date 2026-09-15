@@ -552,6 +552,20 @@ def create_sealed_demon_lord() -> Enemy:
     )
 
 
+def create_star_remnant() -> Enemy:
+    """후일담 챕터 보스. 최종전 이후 파티를 위한 전투."""
+    return Enemy(
+        name="검은 별의 잔재", job="보스", level=8,
+        max_hp=145, max_mp=42, attack=17, defense=10, speed=8,
+        skills=[CURSE_WHISPER, CHAOS_WAVE, PARALYZE_STRIKE],
+        exp_reward=120, gold_reward=85, smart_ai=True,
+        weakness="thunder", resistance="ice",
+        action_pattern=[CURSE_WHISPER, CHAOS_WAVE, PARALYZE_STRIKE, None],
+        boss_phases=[BossPhase(0.45, LAST_JUDGMENT,
+                               "검은 별의 잔재가 흩어진 봉인의 사슬을 휘두른다!")],
+    )
+
+
 # ---------------------------------------------------------------------------
 # 아이템
 # ---------------------------------------------------------------------------
@@ -637,6 +651,13 @@ ARCHIVE_LANTERN = Equipment(
     description="메아리를 잠재운 뒤 되찾은 등불. 최대 MP +8, 방어력 +2",
     price=75, rarity="rare", damage_reduction_bonus=0.04,
     special_effect="받는 피해 4% 감소",
+)
+
+STARWARD_CHARM = Equipment(
+    name="별의 수호 부적", slot="accessory", defense_bonus=3, max_hp_bonus=10,
+    description="검은 별의 잔재를 잠재운 뒤 얻은 부적. 방어력 +3, 최대 HP +10",
+    price=95, rarity="rare", damage_reduction_bonus=0.06,
+    special_effect="받는 피해 6% 감소",
 )
 
 
@@ -739,5 +760,6 @@ EQUIPMENT_BY_NAME = {
         MIST_CLOAK,
         ELDER_GUARDIAN_SIGIL,
         ARCHIVE_LANTERN,
+        STARWARD_CHARM,
     ]
 }

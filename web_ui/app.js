@@ -172,12 +172,12 @@ function renderWorld() {
   const worldVisible = gameState.phase !== "battle" && gameState.phase !== "setup";
   locationPanel.classList.toggle("hidden", !worldVisible || gameState.phase === "dialogue");
   if (worldVisible) {
-    const statuses = {available: "미수락", active: "진행 중", ready: "보상 가능", completed: "완료"};
+    const statuses = {available: "미수락", active: "진행 중", ready: "보상 가능", completed: "완료", locked: "미발견"};
     locationPanel.innerHTML = `
       <p class="location-copy">${escapeHtml(gameState.location.description)}</p>
       <p class="map-caption">발견한 장소</p>
       <div class="map-chips">${gameState.location.visited.map((place) => `<span class="map-chip${place.current ? " current" : ""}">${escapeHtml(place.name)}</span>`).join("")}</div>
-      <div class="quest-strip">${gameState.quests.map((quest) => `<div class="quest-line"><strong>${escapeHtml(quest.title)}</strong><span>${escapeHtml(statuses[quest.status] || quest.status)}</span></div>`).join("")}</div>`;
+      <div class="quest-strip">${gameState.quests.filter((quest) => quest.status !== "locked").map((quest) => `<div class="quest-line"><strong>${escapeHtml(quest.title)}</strong><span>${escapeHtml(statuses[quest.status] || quest.status)}</span></div>`).join("")}</div>`;
   }
 
   if (gameState.phase === "dialogue" && gameState.dialogue) {
@@ -304,8 +304,9 @@ function renderUtilityPanel() {
       ${utilitySection("착용 장비 · 누르면 해제", worn)}
       ${utilitySection("보유 장비 · 누르면 착용", inventory)}`);
   } else if (utilityMode === "quest") {
-    const statusNames = {available:"수락 가능",active:"진행 중",ready:"보상 가능",completed:"완료"};
+    const statusNames = {available:"수락 가능",active:"진행 중",ready:"보상 가능",completed:"완료",locked:"미발견"};
     const quests = gameState.quests.map((quest) => {
+      if (quest.status === "locked") return "";
       let action = "";
       if (quest.status === "available") action = `questRequest('accept','${quest.id}')`;
       if (quest.status === "ready") action = `questRequest('claim','${quest.id}')`;

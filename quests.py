@@ -24,6 +24,7 @@ class QuestDefinition:
     bonus_flag: str = ""
     bonus_gold_reward: int = 0
     completion_flag: str = ""
+    unlock_flag: str = ""
 
 
 QUESTS: Dict[str, QuestDefinition] = {
@@ -69,6 +70,14 @@ QUESTS: Dict[str, QuestDefinition] = {
         bonus_flag="archive_reported",
         bonus_gold_reward=25,
     ),
+    "fallen_star": QuestDefinition(
+        quest_id="fallen_star", title="검은 별의 신호",
+        description="마왕 처치 뒤 북쪽 관측소에서 시작된 봉인의 후일담을 조사한다.",
+        target_location_id="star_rift", objective="별의 균열에서 검은 별의 잔재 처치",
+        gold_reward=90, item_rewards=(("달빛 영약", 1),), main_quest=True,
+        bonus_flag="star_signal_reported", bonus_gold_reward=20,
+        unlock_flag="star_signal_found",
+    ),
 }
 
 
@@ -84,11 +93,20 @@ class QuestLog:
     def status(self, quest_id: str) -> str:
         return self.states[quest_id]
 
-    def accept(self, quest_id: str) -> bool:
+    def accept(self, quest_id: str, flags: dict | None = None) -> bool:
         if self.states.get(quest_id) != "available":
+            return False
+        if QUESTS[quest_id].unlock_flag and not (flags or {}).get(QUESTS[quest_id].unlock_flag):
             return False
         self.states[quest_id] = "active"
         return True
+
+    def display_status(self, quest_id: str, flags: dict | None = None) -> str:
+        status = self.states[quest_id]
+        if status == "available" and QUESTS[quest_id].unlock_flag:
+            if not (flags or {}).get(QUESTS[quest_id].unlock_flag):
+                return "locked"
+        return status
 
     def sync_story_flags(self, flags: dict) -> None:
         """대화에서 받은 부탁과 기록실에서 찾은 단서를 의뢰에 반영한다."""
@@ -96,6 +114,8 @@ class QuestLog:
             self.accept("ruins_darkness")
         if flags.get("archive_discovered") is True:
             self.accept("seals_echo")
+        if flags.get("star_signal_found") is True:
+            self.accept("fallen_star", flags)
 
     def refresh_from_world(self, game_map, flags: dict | None = None) -> None:
         """활성 퀘스트의 보스와 대화 플래그 완료 조건을 확인한다."""
@@ -131,16 +151,19 @@ class QuestLog:
         self.states[quest_id] = "completed"
         return True
 
-    def render_journal(self) -> str:
+    def render_journal(self, flags: dict | None = None) -> str:
         labels = {
             "available": "미수락",
             "active": "진행 중",
             "ready": "보상 수령 가능",
             "completed": "완료",
+            "locked": "아직 발견되지 않음",
         }
         lines = ["[퀘스트 일지]"]
         for quest_id, definition in QUESTS.items():
-            status = self.states[quest_id]
+            status = self.display_status(quest_id, flags)
+            if status == "locked":
+                continue
             category = "메인" if definition.main_quest else "사이드"
             lines.append(f"- [{category}] {definition.title} · {labels[status]}")
             lines.append(f"  목표: {definition.objective}")
@@ -157,13 +180,16 @@ def run_quest_board(
         "active": "진행 중",
         "ready": "보상 수령 가능",
         "completed": "완료",
+        "locked": "아직 발견되지 않음",
     }
     definitions = list(QUESTS.values())
 
     while True:
         print("\n[마을 의뢰 게시판]")
         for index, definition in enumerate(definitions, 1):
-            print(f"  {index}) {definition.title} ({status_labels[quest_log.status(definition.quest_id)]})")
+            status = quest_log.display_status(definition.quest_id, flags)
+            title = definition.title if status != "locked" else "미발견 의뢰"
+            print(f"  {index}) {title} ({status_labels[status]})")
         print(f"  {len(definitions) + 1}) 돌아가기")
         choice = prompt_index("> ", len(definitions) + 1)
         if choice == len(definitions):
@@ -171,7 +197,10 @@ def run_quest_board(
 
         definition = definitions[choice]
         quest_id = definition.quest_id
-        status = quest_log.status(quest_id)
+        status = quest_log.display_status(quest_id, flags)
+        if status == "locked":
+            print("아직 이 의뢰를 발견하지 못했습니다.")
+            continue
         print(f"\n[{definition.title}] {definition.description}")
         print(f"목표: {definition.objective}")
         rewards = [f"골드 {definition.gold_reward}G"]
@@ -180,7 +209,7 @@ def run_quest_board(
 
         if status == "available":
             if prompt_yes_no("이 의뢰를 수락할까요? (y/n)> "):
-                quest_log.accept(quest_id)
+                quest_log.accept(quest_id, flags)
                 quest_log.refresh_from_world(game_map, flags)
                 print("의뢰를 수락했습니다.")
         elif status == "ready":

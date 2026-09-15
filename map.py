@@ -205,6 +205,13 @@ def explore(
             loc.boss_defeated = True
             if loc.id == "echo_vault":
                 flags["echo_purified"] = True
+            if loc.id == "final_chamber":
+                flags["demon_lord_defeated"] = True
+            if loc.id == "star_rift":
+                flags["star_rift_closed"] = True
+                from world import star_chapter_epilogue
+                for line in star_chapter_epilogue(flags):
+                    print(line)
             print(f"\n{loc.name}의 위험이 사라졌다. 계속 진행할 수 있다.")
             if loc.id == "final_chamber":
                 _claim_location_loot(loc, inventory, equipment_inventory)
@@ -285,7 +292,7 @@ def explore(
             continue
 
         if action == "quests":
-            print("\n" + quest_log.render_journal())
+            print("\n" + quest_log.render_journal(flags))
             continue
 
         if action == "boss_retry":

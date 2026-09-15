@@ -53,6 +53,44 @@ def village_intro_dialogue() -> Dialogue:
     return Dialogue(nodes=[ask, end_help, end_refuse], start_id="ask")
 
 
+def star_observatory_dialogue() -> Dialogue:
+    """후일담의 첫 갈림길. 기록 공개 선택과 별도로 장로에게 알릴 수 있다."""
+    def report(flags):
+        flags["star_signal_found"] = True
+        flags["star_signal_reported"] = True
+
+    def investigate(flags):
+        flags["star_signal_found"] = True
+        flags["star_signal_reported"] = False
+
+    return Dialogue(nodes=[
+        DialogueNode("signal", [
+            "관측 장치의 바늘이 밤하늘의 검은 별을 따라 흔들린다.",
+            "셀린: \"마왕을 쓰러뜨렸는데도 봉인의 파편이 하늘에서 떨어지고 있어.\"",
+            "리제: \"낙하지를 살펴봐야 해. 장로에게 먼저 알릴까?\"",
+        ], choices=[("장로에게 신호를 알리고 함께 대비한다", "report"),
+                    ("소동을 피하려 먼저 직접 조사한다", "investigate")]),
+        DialogueNode("report", ["장로는 마을의 등불을 밝히고 파티에게 낙하지 조사를 부탁한다."], effect=report),
+        DialogueNode("investigate", ["파티는 밤이 깊기 전에 조용히 낙하지로 향한다."], effect=investigate),
+    ], start_id="signal")
+
+
+def fallen_star_dialogue() -> Dialogue:
+    return Dialogue(nodes=[DialogueNode("fall", [
+        "검은 유성은 돌이 아니라 봉인의 잔해였다.",
+        "레온: \"끝난 줄 알았던 이야기가 여기까지 이어졌군. 균열을 닫자.\"",
+    ])], start_id="fall")
+
+
+def star_rift_dialogue() -> Dialogue:
+    return Dialogue(nodes=[DialogueNode("rift", lambda flags: [
+        "별의 균열에서 마왕의 그림자가 아니라 봉인을 지탱하던 잔재가 깨어난다.",
+        ("셀린: \"장로가 마을을 지키는 동안 우리가 균열을 막아야 해.\""
+         if flags.get("star_signal_reported") else
+         "셀린: \"마을에 닿기 전에 우리가 먼저 균열을 막아야 해.\""),
+    ])], start_id="rift")
+
+
 def moonlit_spring_dialogue() -> Dialogue:
     """달빛 샘에서 약초꾼 세아를 발견하고 호위 여부를 정한다."""
 

@@ -30,6 +30,70 @@ from world import (
 
 
 class GameTests(unittest.TestCase):
+    def test_post_boss_chapter_gate_choice_quest_and_legacy_save(self):
+        game_map = build_world()
+        label = "북쪽 관측소로 향한다"
+        requirement = game_map.locations["village"].flag_requirements[label]
+        self.assertFalse(requirement.is_met({}))
+        self.assertFalse(QuestLog().accept("fallen_star", {}))
+        self.assertTrue(requirement.is_met({"demon_lord_defeated": True}))
+        self.assertEqual(game_map.locations["village"].exits[label], "star_observatory")
+        self.assertEqual(game_map.locations["star_rift"].boss()[0].name, "검은 별의 잔재")
+        self.assertIs(data.EQUIPMENT_BY_NAME["별의 수호 부적"], data.STARWARD_CHARM)
+        for choice, reported, gold in (("1", True, 110), ("2", False, 90)):
+            with self.subTest(choice=choice):
+                flags = {"demon_lord_defeated": True}
+                with patch.object(builtins, "input", return_value=choice), redirect_stdout(io.StringIO()):
+                    dialogues.star_observatory_dialogue().run(flags)
+                self.assertTrue(flags["star_signal_found"])
+                self.assertEqual(flags["star_signal_reported"], reported)
+                quests = QuestLog()
+                quests.sync_story_flags(flags)
+                self.assertEqual(quests.status("fallen_star"), "active")
+                game_map.locations["star_rift"].boss_defeated = True
+                quests.refresh_from_world(game_map, flags)
+                self.assertEqual(quests.status("fallen_star"), "ready")
+                party = Party([data.create_warrior("별지기")])
+                inventory = []
+                self.assertTrue(quests.claim("fallen_star", party, inventory, flags))
+                self.assertEqual(party.gold, gold)
+                self.assertEqual([item.name for item in inventory], ["달빛 영약"])
+                self.assertFalse(quests.claim("fallen_star", party, inventory, flags))
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "slot1.json")
+            game_map.locations["final_chamber"].boss_defeated = True
+            save.save_game(party, [], game_map, {}, [], path)
+            _, _, loaded, legacy_flags, _, _ = save.load_game(path)
+            self.assertTrue(legacy_flags["demon_lord_defeated"])
+            self.assertTrue(loaded.locations["village"].flag_requirements[label].is_met(legacy_flags))
+            game_map.move_to("star_rift")
+            game_map.current.loot_claimed = True
+            flags = {"demon_lord_defeated": True, "star_signal_found": True,
+                     "star_signal_reported": True, "star_rift_closed": True}
+            quests = QuestLog({"fallen_star": "completed"})
+            save.save_game(party, [], game_map, flags, [data.STARWARD_CHARM], path,
+                           quest_log=quests)
+            _, _, new_map, new_flags, new_equipment, new_quests = save.load_game(path)
+            self.assertEqual(new_map.current_id, "star_rift")
+            self.assertTrue(new_map.current.loot_claimed)
+            self.assertTrue(new_flags["star_rift_closed"])
+            self.assertEqual(new_equipment[0].name, "별의 수호 부적")
+            self.assertEqual(new_quests.status("fallen_star"), "completed")
+
+    def test_console_star_boss_closes_rift_once(self):
+        game_map = build_world()
+        game_map.move_to("star_rift")
+        game_map.current.dialogue_played = True
+        flags = {"star_signal_found": True}
+        equipment = []
+        with patch.object(Battle, "run", return_value=True), patch(
+            "map.prompt_index", side_effect=lambda _, count: count - 1
+        ), patch("map.prompt_yes_no", return_value=True), redirect_stdout(io.StringIO()):
+            self.assertFalse(explore(game_map, Party([data.create_warrior("별지기")]), [], flags, equipment))
+        self.assertTrue(flags["star_rift_closed"])
+        self.assertTrue(game_map.current.boss_defeated)
+        self.assertEqual([item.name for item in equipment], ["별의 수호 부적"])
+
     def test_all_second_jobs_unlock_at_level_five_and_preserve_growth(self):
         self.assertEqual(len(ADVANCED_JOBS), 12)
         for creator in data.JOB_CREATORS.values():
@@ -471,7 +535,7 @@ class GameTests(unittest.TestCase):
 
     def test_mist_marsh_expansion_is_connected_and_reward_registered(self):
         game_map = build_world()
-        self.assertEqual(len(game_map.locations), 25)
+        self.assertEqual(len(game_map.locations), 28)
         self.assertEqual(
             game_map.locations["deep_forest"].exits["안개 습지로 들어간다"],
             "mist_marsh",

@@ -14,6 +14,17 @@ import dialogues
 TOWER_SUMMIT_ID = "tower_summit"
 
 
+def star_chapter_epilogue(flags: dict) -> list[str]:
+    """균열을 닫은 뒤 첫 처치 때만 보여줄 마을의 후일담."""
+    lines = ["검은 별이 사라지고 낙하지 위로 새벽빛이 번진다."]
+    if flags.get("star_signal_reported"):
+        lines.append("장로가 밝힌 등불을 따라 마을 사람들은 균열의 밤을 무사히 넘겼다.")
+    else:
+        lines.append("마을이 잠든 사이 파티는 조용히 균열을 막고 돌아갈 길을 찾았다.")
+    lines.append("리제: \"봉인은 끝났지만, 저 별은 어디에서 왔을까?\"")
+    return lines
+
+
 def tower_clear_count(flags: dict) -> int:
     try:
         return max(0, int(flags.get("tower_clear_count", 0)))
@@ -84,8 +95,14 @@ def build_world() -> GameMap:
             "숲으로 향한다": "forest_entrance",
             "도전의 탑으로 향한다": "tower_floor_1",
             "장로의 비밀 무기고로 들어간다": "elder_armory",
+            "북쪽 관측소로 향한다": "star_observatory",
         },
         flag_requirements={
+            "북쪽 관측소로 향한다": FlagRequirement(
+                flag="demon_lord_defeated",
+                description="봉인된 마왕 처치 필요",
+                failure_message="봉인의 방의 마왕을 처치한 뒤에만 북쪽의 신호를 조사할 수 있다.",
+            ),
             "장로의 비밀 무기고로 들어간다": FlagRequirement(
                 flag="promised_elder",
                 description="장로의 신뢰 필요",
@@ -129,6 +146,30 @@ def build_world() -> GameMap:
         description="마을 수호자들이 사용하던 장비가 보관된 작은 지하실이다. 중앙 제단에 오래된 인장이 놓여 있다.",
         exits={"시작 마을로 돌아간다": "village"},
         loot_equipment=data.ELDER_GUARDIAN_SIGIL,
+    )
+
+    star_observatory = Location(
+        loc_id="star_observatory", name="북쪽 관측소",
+        description="마왕이 사라진 밤부터 오래된 관측 장치가 검은 별을 가리킨다.",
+        exits={"낙하지로 내려간다": "fallen_star_field", "마을로 돌아간다": "village"},
+        dialogue=dialogues.star_observatory_dialogue(),
+    )
+    fallen_star_field = Location(
+        loc_id="fallen_star_field", name="유성 낙하지",
+        description="검게 그을린 땅에 봉인의 문과 닮은 별의 문양이 새겨져 있다.",
+        exits={"별의 균열로 들어간다": "star_rift", "관측소로 돌아간다": "star_observatory"},
+        encounter_chance=0.45,
+        encounter_pool=[lambda: [data.create_cursed_wraith()],
+                        lambda: [data.create_shadow_stalker(), data.create_cursed_wraith()]],
+        dialogue=dialogues.fallen_star_dialogue(),
+    )
+    star_rift = Location(
+        loc_id="star_rift", name="별의 균열",
+        description="별빛 아래 봉인의 찢어진 조각이 살아 있는 그림자로 뭉친다.",
+        exits={"유성 낙하지로 돌아간다": "fallen_star_field"},
+        boss=lambda: [data.create_star_remnant()],
+        dialogue=dialogues.star_rift_dialogue(),
+        loot_equipment=data.STARWARD_CHARM,
     )
 
     forest_entrance = Location(
@@ -447,7 +488,8 @@ def build_world() -> GameMap:
 
     return GameMap(
         locations=[
-            village, elder_armory, forest_entrance, deep_forest,
+            village, elder_armory, star_observatory, fallen_star_field, star_rift,
+            forest_entrance, deep_forest,
             mist_marsh, sunken_boardwalk, forgotten_shrine, moonlit_spring,
             drowned_archive, echo_vault,
             shadow_valley, ruins, seal_gate, final_chamber,

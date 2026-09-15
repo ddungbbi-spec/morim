@@ -292,6 +292,9 @@ def load_game(path: str = DEFAULT_SAVE_PATH):
             game_map.locations[loc_id].unlocked_labels = set(state.get("unlocked_labels", []))
 
     flags = payload.get("flags", {})
+    # 구버전 저장 파일의 보스 처치 기록을 새 챕터 개방 조건으로 복원한다.
+    if game_map.locations["final_chamber"].boss_defeated:
+        flags["demon_lord_defeated"] = True
     from quests import QuestLog
     quest_log = QuestLog(payload.get("quest_states", {}))
     quest_log.sync_story_flags(flags)

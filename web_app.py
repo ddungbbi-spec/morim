@@ -306,7 +306,7 @@ class WebGame:
             return self._error("존재하지 않는 퀘스트입니다.")
         self.quest_log.refresh_from_world(self.game_map, self.flags)
         if operation == "accept":
-            if not self.quest_log.accept(quest_id):
+            if not self.quest_log.accept(quest_id, self.flags):
                 return self._error("지금은 이 퀘스트를 수락할 수 없습니다.")
             self.quest_log.refresh_from_world(self.game_map, self.flags)
             self._log(f"퀘스트 [{QUESTS[quest_id].title}]을(를) 수락했습니다.")
@@ -628,6 +628,14 @@ class WebGame:
             location.boss_defeated = True
             if location.id == "echo_vault":
                 self.flags["echo_purified"] = True
+            if location.id == "final_chamber":
+                self.flags["demon_lord_defeated"] = True
+            if location.id == "star_rift":
+                self.flags["star_rift_closed"] = True
+                if first_clear:
+                    from world import star_chapter_epilogue
+                    for line in star_chapter_epilogue(self.flags):
+                        self._log(line)
             self.quest_log.refresh_from_world(self.game_map, self.flags)
             if first_clear:
                 self._log(f"{location.name}의 위험이 사라졌습니다.")
@@ -971,7 +979,7 @@ class WebGame:
                 {
                     "id": quest_id,
                     "title": definition.title,
-                    "status": self.quest_log.status(quest_id),
+                    "status": self.quest_log.display_status(quest_id, self.flags),
                     "objective": definition.objective,
                     "description": definition.description,
                     "gold_reward": definition.gold_reward,
