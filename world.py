@@ -6,6 +6,7 @@ build_world()의 리스트에 넣어주면 됩니다.
 """
 
 from map import Location, GameMap
+from shop import Shop
 import data
 import dialogues
 
@@ -84,8 +85,23 @@ def build_world() -> GameMap:
             "도전의 탑으로 향한다": "tower_floor_1",
         },
         dialogue=dialogues.village_intro_dialogue(),
-        shop_items=[data.POTION, data.ETHER, data.ANTIDOTE],
-        shop_equipment=[data.IRON_SWORD, data.OAK_STAFF, data.LEATHER_ARMOR, data.SWIFT_CHARM],
+        shops=[
+            Shop(
+                "여행자 잡화점",
+                items=[data.POTION, data.ETHER, data.ANTIDOTE],
+                description="회복약과 상태이상 치료제를 판매한다.",
+            ),
+            Shop(
+                "바람칼 무기점",
+                equipment=[data.IRON_SWORD, data.OAK_STAFF],
+                description="전사와 마법사를 위한 무기를 취급한다.",
+            ),
+            Shop(
+                "철벽 방어구점",
+                equipment=[data.LEATHER_ARMOR, data.SWIFT_CHARM],
+                description="방어구와 모험용 장신구를 판매한다.",
+            ),
+        ],
         has_inn=True,
     )
 

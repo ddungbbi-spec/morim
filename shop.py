@@ -1,16 +1,27 @@
 """
 shop.py
 골드로 아이템/장비를 사고파는 상점 UI입니다.
-파는 물건 목록(shop_items, shop_equipment)은 world.py에서 각 Location에 연결합니다.
+각 상점의 이름과 독립 재고는 world.py에서 Shop으로 만들어 Location에 연결합니다.
 판매가는 정가의 절반으로 고정되어 있습니다.
 """
 
+from dataclasses import dataclass, field
 from typing import List
 
 from models import Item, Equipment, Party
 from input_utils import prompt_index
 
 SELL_RATIO = 0.5
+
+
+@dataclass(frozen=True)
+class Shop:
+    """한 상점의 이름과 독립적인 판매 재고."""
+
+    name: str
+    items: List[Item] = field(default_factory=list)
+    equipment: List[Equipment] = field(default_factory=list)
+    description: str = ""
 
 
 def run_shop(

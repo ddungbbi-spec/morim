@@ -12,6 +12,7 @@ from models import Party, Enemy, Item, Equipment
 from combat import Battle
 from story import Dialogue
 from input_utils import prompt_index, prompt_yes_no
+from shop import Shop
 
 
 class Location:
@@ -30,6 +31,7 @@ class Location:
         dialogue: Optional[Dialogue] = None,
         shop_items: Optional[List[Item]] = None,
         shop_equipment: Optional[List[Equipment]] = None,
+        shops: Optional[List[Shop]] = None,
         loot_item: Optional[Item] = None,
         loot_equipment: Optional[Equipment] = None,
         locked_exits: Optional[Dict[str, str]] = None,
@@ -47,8 +49,14 @@ class Location:
         self.is_ending = is_ending
         self.dialogue = dialogue      # 이 장소에 처음 들어왔을 때 재생할 대화 (1회성)
         self.dialogue_played = False
-        self.shop_items = shop_items or []          # 이 장소에 상점이 있다면 파는 아이템 목록
-        self.shop_equipment = shop_equipment or []  # 이 장소에 상점이 있다면 파는 장비 목록
+        legacy_items = shop_items or []
+        legacy_equipment = shop_equipment or []
+        self.shops = list(shops or [])
+        if not self.shops and (legacy_items or legacy_equipment):
+            self.shops.append(Shop("상점", legacy_items, legacy_equipment))
+        # 이전 코드가 Location의 단일 재고를 읽어도 전체 상품을 볼 수 있게 유지한다.
+        self.shop_items = [item for shop in self.shops for item in shop.items]
+        self.shop_equipment = [item for shop in self.shops for item in shop.equipment]
         self.loot_item = loot_item            # 보물상자 등에서 얻는 아이템 (1회성)
         self.loot_equipment = loot_equipment  # 보물상자 등에서 얻는 장비 (1회성)
         self.loot_claimed = False
@@ -58,7 +66,7 @@ class Location:
 
     @property
     def has_shop(self) -> bool:
-        return bool(self.shop_items or self.shop_equipment)
+        return bool(self.shops)
 
     @property
     def has_loot(self) -> bool:
@@ -205,8 +213,8 @@ def explore(
                 options.append((f"도전의 탑 {next_tier}단계 개방", "tower_retry", None))
         if loc.has_inn:
             options.append(("여관에서 쉬기 (전원 완전 회복)", "inn", None))
-        if loc.has_shop:
-            options.append(("상점 이용하기", "shop", None))
+        for shop in loc.shops:
+            options.append((f"{shop.name} 이용하기", "shop", shop))
         options.append(("게임 저장", "save", None))
         options.append(("저장 후 게임 종료", "save_exit", None))
         options.append(("저장하지 않고 종료", "quit", None))
@@ -295,7 +303,10 @@ def explore(
 
         if action == "shop":
             from shop import run_shop  # map.py <-> shop.py 순환 참조 방지용 지연 import
-            run_shop(party, inventory, equipment_inventory, loc.shop_items, loc.shop_equipment, shop_name=loc.name)
+            run_shop(
+                party, inventory, equipment_inventory,
+                payload.items, payload.equipment, shop_name=payload.name,
+            )
             continue
 
         if action == "save":

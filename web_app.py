@@ -159,21 +159,22 @@ class WebGame:
             self._enter_current_location()
         return {"ok": True, "state": self.state()}
 
-    def shop_action(self, operation: str, index) -> dict:
+    def shop_action(self, operation: str, index, shop_index=0) -> dict:
         if self.phase != "explore" or not self.game_map.current.has_shop:
             return self._error("현재 장소에서는 상점을 이용할 수 없습니다.")
         location = self.game_map.current
         try:
+            shop = location.shops[self._index(shop_index, len(location.shops), "상점")]
             if operation == "buy_item":
-                item = location.shop_items[self._index(index, len(location.shop_items), "상품")]
+                item = shop.items[self._index(index, len(shop.items), "상품")]
                 if self.party.gold < item.price:
                     raise ValueError("골드가 부족합니다.")
                 self.party.gold -= item.price
                 self.inventory.append(item)
                 self._log(f"{item.name}을(를) {item.price}G에 구매했습니다.")
             elif operation == "buy_equipment":
-                equipment = location.shop_equipment[
-                    self._index(index, len(location.shop_equipment), "상품")
+                equipment = shop.equipment[
+                    self._index(index, len(shop.equipment), "상품")
                 ]
                 if self.party.gold < equipment.price:
                     raise ValueError("골드가 부족합니다.")
@@ -802,16 +803,24 @@ class WebGame:
         if location.has_shop:
             sellable_items = [item for item in self.inventory if item.sellable]
             shop_state = {
-                "items": [
+                "shops": [
                     {
-                        "index": index, "name": item.name, "price": item.price,
-                        "description": item.description,
+                        "index": shop_index,
+                        "name": shop.name,
+                        "description": shop.description,
+                        "items": [
+                            {
+                                "index": index, "name": item.name, "price": item.price,
+                                "description": item.description,
+                            }
+                            for index, item in enumerate(shop.items)
+                        ],
+                        "equipment": [
+                            {"index": index, **self._equipment_state(item)}
+                            for index, item in enumerate(shop.equipment)
+                        ],
                     }
-                    for index, item in enumerate(location.shop_items)
-                ],
-                "equipment": [
-                    {"index": index, **self._equipment_state(item)}
-                    for index, item in enumerate(location.shop_equipment)
+                    for shop_index, shop in enumerate(location.shops)
                 ],
                 "sell_items": [
                     {
@@ -1062,7 +1071,10 @@ class GameHandler(BaseHTTPRequestHandler):
             elif self.path == "/api/dialogue":
                 result = game.advance_dialogue(payload.get("choice"))
             elif self.path == "/api/shop":
-                result = game.shop_action(payload.get("operation", ""), payload.get("index"))
+                result = game.shop_action(
+                    payload.get("operation", ""), payload.get("index"),
+                    payload.get("shop", 0),
+                )
             elif self.path == "/api/inn":
                 result = game.inn_action()
             elif self.path == "/api/blacksmith":

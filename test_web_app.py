@@ -328,6 +328,11 @@ class WebGameTests(unittest.TestCase):
 
     def test_web_shop_buy_sell_and_key_item_protection(self):
         self.finish_intro()
+        shops = self.game.state()["shop"]["shops"]
+        self.assertEqual(
+            [shop["name"] for shop in shops],
+            ["여행자 잡화점", "바람칼 무기점", "철벽 방어구점"],
+        )
         self.game.party.gold = 100
         before_count = len(self.game.inventory)
         bought = self.game.shop_action("buy_item", 0)
@@ -340,6 +345,13 @@ class WebGameTests(unittest.TestCase):
         sold = self.game.shop_action("sell_item", 0)
         self.assertTrue(sold["ok"])
         self.assertIn(data.RUSTY_KEY, self.game.inventory)
+
+        weapon = self.game.shop_action("buy_equipment", 0, shop_index=1)
+        self.assertTrue(weapon["ok"])
+        self.assertEqual(self.game.equipment_inventory[-1].name, "철검")
+
+        wrong_stock = self.game.shop_action("buy_item", 0, shop_index=1)
+        self.assertFalse(wrong_stock["ok"])
 
     def test_web_blacksmith_upgrades_only_in_village(self):
         self.finish_intro()

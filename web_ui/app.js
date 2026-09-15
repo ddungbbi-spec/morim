@@ -2,6 +2,7 @@ let gameState = null;
 let pending = null;
 let utilityMode = null;
 let equipmentMember = 0;
+let shopIndex = null;
 let installPrompt = null;
 let soundEnabled = localStorage.getItem("undefined-legend-sound") !== "off";
 const SAVE_BACKUP_KEY = "undefined-legend-save-backups-v1";
@@ -214,11 +215,19 @@ function renderUtilityPanel() {
   panel.classList.remove("hidden");
   if (utilityMode === "shop") {
     if (!gameState.shop) return clearUtility();
-    const buyItems = gameState.shop.items.map((item) => utilityButton(
+    if (shopIndex === null || !gameState.shop.shops[shopIndex]) {
+      const shops = gameState.shop.shops.map((shop) => utilityButton(
+        shop.name, shop.description || "판매 목록 보기", `selectShop(${shop.index})`
+      )).join("");
+      panel.innerHTML = utilityShell("시작 마을 상점가", utilitySection("방문할 상점", shops));
+      return;
+    }
+    const shop = gameState.shop.shops[shopIndex];
+    const buyItems = shop.items.map((item) => utilityButton(
       `${item.name} · ${item.price}G`, item.description,
       `shopRequest('buy_item',${item.index})`
     )).join("");
-    const buyEquipment = gameState.shop.equipment.map((item) => utilityButton(
+    const buyEquipment = shop.equipment.map((item) => utilityButton(
       `${item.display_name} · ${item.price}G`, item.description,
       `shopRequest('buy_equipment',${item.index})`
     )).join("");
@@ -230,7 +239,8 @@ function renderUtilityPanel() {
       `${item.display_name} 판매 · ${item.price}G`, item.description,
       `shopRequest('sell_equipment',${item.index})`
     )).join("");
-    panel.innerHTML = utilityShell("마을 상점", `
+    panel.innerHTML = utilityShell(shop.name, `
+      <button class="command-button utility" onclick="selectShop(null)">다른 상점 보기</button>
       ${utilitySection("아이템 구매", buyItems)}
       ${utilitySection("장비 구매", buyEquipment)}
       ${utilitySection("판매", sellItems + sellEquipment)}`);
@@ -299,10 +309,11 @@ function utilityButton(title, detail, onclick) {
   return `<button class="utility-card" onclick="${onclick}"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(detail)}</span></button>`;
 }
 
-function openUtility(mode) { utilityMode = mode; renderUtilityPanel(); }
-function clearUtility() { utilityMode = null; $("#choicePanel").classList.add("hidden"); }
+function openUtility(mode) { utilityMode = mode; if (mode === "shop") shopIndex = null; renderUtilityPanel(); }
+function clearUtility() { utilityMode = null; shopIndex = null; $("#choicePanel").classList.add("hidden"); }
+function selectShop(index) { shopIndex = index; renderUtilityPanel(); }
 function selectEquipmentMember(index) { equipmentMember = index; renderUtilityPanel(); }
-function shopRequest(operation, index) { request("/api/shop", {operation, index}); }
+function shopRequest(operation, index) { request("/api/shop", {operation, index, shop: shopIndex}); }
 function blacksmithRequest(equipment) {
   if (confirm("같은 장비 하나와 골드를 사용해 강화할까요?")) {
     request("/api/blacksmith", {equipment});
