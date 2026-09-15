@@ -79,6 +79,8 @@ class WebGame:
         self.phase = "setup"
         self.result_message = "원정대의 이름과 직업을 선택하세요."
         self.logs = ["새 게임 준비 중입니다."]
+        self.phase_transition_id = 0
+        self.phase_transition_message = ""
         self.turn = 0
         self._order = []
         self._cursor = 0
@@ -668,6 +670,8 @@ class WebGame:
     def _enemy_action(self, enemy: Enemy) -> None:
         skill, target = enemy.choose_action(self.party.alive_members)
         if enemy.last_phase_message:
+            self.phase_transition_id += 1
+            self.phase_transition_message = enemy.last_phase_message
             self._log(f"★ {enemy.last_phase_message}")
         if target is None:
             return
@@ -920,6 +924,8 @@ class WebGame:
             "inventory_count": len(self.inventory),
             "equipment_count": len(self.equipment_inventory),
             "logs": self.logs,
+            "phase_transition_id": self.phase_transition_id,
+            "phase_transition_message": self.phase_transition_message,
             "location": {
                 "id": location.id,
                 "name": location.name,

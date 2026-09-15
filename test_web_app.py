@@ -47,6 +47,24 @@ class WebGameTests(unittest.TestCase):
             {"192x192", "512x512", "any"},
         )
 
+    def test_boss_phase_transition_is_reported_once_per_event(self):
+        self.finish_intro()
+        self.game._begin_battle([data.create_dark_knight()], "boss", "다크 나이트")
+        enemy = self.game.enemies[0]
+        before = self.game.state()["phase_transition_id"]
+
+        def transition(_members):
+            enemy.last_phase_message = "보스가 새로운 힘을 드러낸다!"
+            return None, self.game.party.alive_members[0]
+
+        with patch.object(enemy, "choose_action", side_effect=transition):
+            self.game._enemy_action(enemy)
+        state = self.game.state()
+        self.assertEqual(state["phase_transition_id"], before + 1)
+        self.assertEqual(state["phase_transition_message"], "보스가 새로운 힘을 드러낸다!")
+        self.assertIn("★ 보스가 새로운 힘을 드러낸다!", state["logs"])
+        self.assertEqual(self.game.state()["phase_transition_id"], state["phase_transition_id"])
+
     def test_health_endpoint_and_security_headers(self):
         server = ThreadingHTTPServer(("127.0.0.1", 0), GameHandler)
         worker = threading.Thread(target=server.serve_forever, daemon=True)

@@ -30,6 +30,8 @@ body {
 
 body.phase-battle .stage { box-shadow: 0 20px 70px rgba(240, 113, 120, .12); }
 body.phase-dialogue .dialogue-panel { animation: storyIn .35s ease both; }
+.stage.phase-flash { animation: bossPhaseFlash .7s ease-out; }
+.phase-announcement { margin: 14px 0; padding: 13px 16px; border: 1px solid rgba(240, 113, 120, .7); border-radius: 12px; background: linear-gradient(100deg, rgba(240, 113, 120, .27), rgba(241, 198, 109, .12)); color: #fff1d8; line-height: 1.6; font-weight: 700; animation: storyIn .25s ease-out; }
 
 .ambient { position: fixed; border-radius: 50%; filter: blur(80px); opacity: .12; pointer-events: none; }
 .ambient-a { width: 340px; height: 340px; background: var(--cyan); top: 10%; left: -180px; }
@@ -213,6 +215,7 @@ h2 { font-size: 1.3rem; }
 .log { height: 570px; overflow-y: auto; padding-right: 4px; margin-top: 14px; scrollbar-color: #33445f transparent; }
 .log-entry { padding: 9px 4px 9px 13px; border-left: 2px solid #33445f; color: #c8d0df; font-size: .76rem; line-height: 1.5; }
 .log-entry:last-child { color: var(--text); border-left-color: var(--gold); }
+.log-entry.boss-phase-entry { color: #ffe3bb; background: rgba(240, 113, 120, .11); border-left-color: var(--red); font-weight: 700; }
 
 footer { border-top: 1px solid var(--line); margin-top: 8px; }
 
@@ -224,6 +227,12 @@ footer { border-top: 1px solid var(--line); margin-top: 8px; }
 @keyframes storyIn {
   from { opacity: 0; transform: translateX(-10px); }
   to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes bossPhaseFlash {
+  0% { box-shadow: 0 0 0 2px rgba(240, 113, 120, .95), 0 0 70px rgba(240, 113, 120, .6); transform: translateX(-3px); }
+  45% { transform: translateX(3px); }
+  100% { transform: translateX(0); }
 }
 
 @media (prefers-reduced-motion: reduce) {

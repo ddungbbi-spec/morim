@@ -4,6 +4,7 @@ let utilityMode = null;
 let equipmentMember = 0;
 let shopIndex = null;
 let installPrompt = null;
+let phaseAnnouncementTimer = null;
 let soundEnabled = localStorage.getItem("undefined-legend-sound") !== "off";
 const SAVE_BACKUP_KEY = "undefined-legend-save-backups-v1";
 
@@ -21,6 +22,7 @@ async function request(path, body = null) {
   const response = await fetch(path, options);
   const result = await response.json();
   const previousPhase = gameState?.phase;
+  const previousTransitionId = gameState?.phase_transition_id;
   gameState = result.state || gameState;
   if (result.ok && result.backup && result.slot) {
     storeBrowserBackup(result.slot, result.backup);
@@ -34,6 +36,26 @@ async function request(path, body = null) {
   }
   pending = null;
   render();
+  if (result.ok && previousTransitionId != null &&
+      gameState?.phase_transition_id > previousTransitionId) {
+    announceBossPhase(gameState.phase_transition_message);
+  }
+}
+
+function announceBossPhase(message) {
+  const announcement = $("#phaseAnnouncement");
+  if (!message) return;
+  clearTimeout(phaseAnnouncementTimer);
+  announcement.textContent = message;
+  announcement.classList.remove("hidden");
+  const stage = $(".stage");
+  stage.classList.remove("phase-flash");
+  void stage.offsetWidth;
+  stage.classList.add("phase-flash");
+  phaseAnnouncementTimer = setTimeout(() => {
+    announcement.classList.add("hidden");
+    stage.classList.remove("phase-flash");
+  }, 2400);
 }
 
 function browserBackups() {
@@ -108,7 +130,9 @@ function render() {
     : `<p class="muted-copy">아직 편성된 파티가 없습니다.</p>`;
   $("#enemyCards").innerHTML = gameState.phase === "battle"
     ? gameState.enemies.map((enemy) => characterCard(enemy, true)).join("") : "";
-  $("#battleLog").innerHTML = gameState.logs.map((line) => `<div class="log-entry">${escapeHtml(line)}</div>`).join("");
+  $("#battleLog").innerHTML = gameState.logs.map((line) =>
+    `<div class="log-entry${line.startsWith("★ ") ? " boss-phase-entry" : ""}">${escapeHtml(line)}</div>`
+  ).join("");
   $("#battleLog").scrollTop = $("#battleLog").scrollHeight;
 
   const labels = {setup: "편성", explore: "탐험", dialogue: "대화", battle: "전투", victory: "승리", defeat: "전멸", fled: "도주", ending: "완료"};
