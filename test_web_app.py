@@ -546,6 +546,8 @@ class WebGameTests(unittest.TestCase):
         self.game.equipment_inventory.extend([data.IRON_SWORD, data.IRON_SWORD])
         state = self.game.state()
         self.assertTrue(state["blacksmith"]["equipment"][0]["can_upgrade"])
+        self.assertIn("공격력", state["blacksmith"]["equipment"][0]["preview"])
+        self.assertIn("→", state["blacksmith"]["equipment"][0]["preview"])
 
         result = self.game.blacksmith_action(0)
         self.assertTrue(result["ok"])

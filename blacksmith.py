@@ -73,18 +73,10 @@ def can_upgrade(
     return True, ""
 
 
-def enhance_equipment(
-    party: Party, equipment_inventory: List[Equipment], target_index: int,
-    inventory=None, flags=None, material="duplicate",
-) -> Tuple[Equipment, int]:
-    """골드와 선택한 재료를 소비하고 대상 장비를 한 단계 강화한다."""
-    allowed, reason = can_upgrade(party, equipment_inventory, target_index, inventory, flags, material)
-    if not allowed:
-        raise ValueError(reason)
-
-    target = equipment_inventory[target_index]
-    material_index = (matching_material_indices(equipment_inventory, target_index)[0]
-                      if material == "duplicate" else None)
+def preview_upgrade(target: Equipment) -> Equipment:
+    """원본이나 자원을 변경하지 않고 다음 단계 장비를 계산한다."""
+    if target.enhancement_level >= MAX_ENHANCEMENT:
+        raise ValueError("이미 최대 강화 단계입니다.")
     cost = upgrade_cost(target)
     next_level = target.enhancement_level + 1
     bonuses = {}
@@ -100,11 +92,40 @@ def enhance_equipment(
         raise ValueError("강화할 수 없는 장비 슬롯입니다.")
 
     base_description = target.description.split(" · 강화 +", 1)[0]
-    upgraded = replace(
+    return replace(
         target, enhancement_level=next_level,
         description=f"{base_description} · 강화 +{next_level}",
         price=target.price + max(1, cost // 2), generated=True, **bonuses,
     )
+
+
+def upgrade_preview_text(target: Equipment) -> str:
+    if target.enhancement_level >= MAX_ENHANCEMENT:
+        return "최대 강화 단계"
+    upgraded = preview_upgrade(target)
+    labels = {"attack_bonus": "공격력", "defense_bonus": "방어력",
+              "max_hp_bonus": "최대 체력", "max_mp_bonus": "최대 마나",
+              "speed_bonus": "속도"}
+    return " / ".join(
+        f"{label} {getattr(target, field)} → {getattr(upgraded, field)}"
+        for field, label in labels.items()
+        if getattr(target, field) != getattr(upgraded, field)
+    )
+
+
+def enhance_equipment(
+    party: Party, equipment_inventory: List[Equipment], target_index: int,
+    inventory=None, flags=None, material="duplicate",
+) -> Tuple[Equipment, int]:
+    """골드와 선택한 재료를 소비하고 대상 장비를 한 단계 강화한다."""
+    allowed, reason = can_upgrade(party, equipment_inventory, target_index, inventory, flags, material)
+    if not allowed:
+        raise ValueError(reason)
+    target = equipment_inventory[target_index]
+    upgraded = preview_upgrade(target)
+    material_index = (matching_material_indices(equipment_inventory, target_index)[0]
+                      if material == "duplicate" else None)
+    cost = upgrade_cost(target)
     party.gold -= cost
     if material_index is not None:
         equipment_inventory.pop(material_index)
@@ -154,6 +175,7 @@ def run_blacksmith(party: Party, equipment_inventory: List[Equipment], inventory
             print(reason)
             continue
         target = equipment_inventory[selected]
+        print(f"강화 미리보기: {upgrade_preview_text(target)}")
         material_text = (f"성운석 {star_ore_cost(target)}개" if material == "star_ore"
                          else "동일 장비 1개")
         if not prompt_yes_no(

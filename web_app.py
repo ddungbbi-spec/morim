@@ -20,7 +20,7 @@ import data
 import save as game_save
 from blacksmith import (
     MAX_ENHANCEMENT, can_upgrade, enhance_equipment,
-    matching_material_indices, upgrade_cost,
+    matching_material_indices, upgrade_cost, upgrade_preview_text,
     STAR_ORE_NAME, star_ore_cost, award_star_ore,
 )
 from combat import _describe_skill_result
@@ -932,6 +932,7 @@ class WebGame:
                         self.equipment_inventory, index
                     )),
                     "can_upgrade": allowed,
+                    "preview": upgrade_preview_text(item),
                     "reason": reason,
                     "star_ore_cost": star_ore_cost(item),
                     "can_star_upgrade": star_allowed,

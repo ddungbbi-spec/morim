@@ -15,7 +15,7 @@ import dialogues
 import save
 import balance_simulator
 import equipment_simulator
-from blacksmith import MAX_ENHANCEMENT, enhance_equipment, upgrade_cost, run_blacksmith
+from blacksmith import MAX_ENHANCEMENT, enhance_equipment, upgrade_cost, run_blacksmith, preview_upgrade, upgrade_preview_text
 from quests import QuestLog
 from combat import Battle
 from input_utils import prompt_index
@@ -30,6 +30,25 @@ from world import (
 
 
 class GameTests(unittest.TestCase):
+    def test_upgrade_preview_matches_both_materials_without_mutation(self):
+        for base in (data.IRON_SWORD, data.LEATHER_ARMOR, data.SWIFT_CHARM):
+            for material in ("duplicate", "star_ore"):
+                target = base
+                for level in range(5):
+                    party = Party([data.create_warrior("미리보기")], gold=99999)
+                    equipment = [target, base]
+                    inventory = [data.STAR_ORE] * 5
+                    before = (party.gold, list(equipment), list(inventory), target.__dict__.copy())
+                    preview = preview_upgrade(target)
+                    self.assertIn("→", upgrade_preview_text(target))
+                    self.assertEqual(before, (party.gold, equipment, inventory, target.__dict__))
+                    target, _ = enhance_equipment(party, equipment, 0, inventory,
+                                                   {"star_rift_closed": True}, material)
+                    self.assertEqual(preview, target)
+                self.assertEqual(upgrade_preview_text(target), "최대 강화 단계")
+                with self.assertRaises(ValueError):
+                    preview_upgrade(target)
+
     def test_star_forge_unique_equipment_costs_limits_and_save(self):
         party = Party([data.create_warrior("별빛")], gold=99999)
         inventory = [data.POTION] + [data.STAR_ORE] * 16

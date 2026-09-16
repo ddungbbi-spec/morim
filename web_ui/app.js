@@ -277,7 +277,7 @@ function renderUtilityPanel() {
     const equipment = gameState.blacksmith.equipment.map((item) => {
       const detail = item.enhancement_level >= gameState.blacksmith.max_level
         ? "최대 강화 단계"
-        : `${item.cost}G · 동일 장비 ${item.materials}개 보유${item.reason ? ` · ${item.reason}` : ""}`;
+        : `${item.preview} · ${item.cost}G · 동일 장비 ${item.materials}개 보유${item.reason ? ` · ${item.reason}` : ""}`;
       const action = item.can_upgrade ? `blacksmithRequest(${item.index})` : "";
       const duplicate = action
         ? utilityButton(`${item.display_name} · 동일 장비 강화`, detail, action)
@@ -285,7 +285,7 @@ function renderUtilityPanel() {
       if (!gameState.blacksmith.star_unlocked) return duplicate;
       const starDetail = item.enhancement_level >= gameState.blacksmith.max_level
         ? "최대 강화 단계"
-        : `${item.cost}G · 성운석 ${item.star_ore_cost}개 소비${item.star_reason ? ` · ${item.star_reason}` : ""}`;
+        : `${item.preview} · ${item.cost}G · 성운석 ${item.star_ore_cost}개 소비${item.star_reason ? ` · ${item.star_reason}` : ""}`;
       const star = item.can_star_upgrade
         ? utilityButton(`${item.display_name} · 성운석 강화`, starDetail, `blacksmithRequest(${item.index},'star_ore')`)
         : `<div class="utility-card disabled"><strong>${escapeHtml(item.display_name)} · 성운석 강화</strong><span>${escapeHtml(starDetail)}</span></div>`;
@@ -370,7 +370,7 @@ function blacksmithRequest(equipment, material = "duplicate") {
   const item = gameState.blacksmith?.equipment.find((entry) => entry.index === equipment);
   if (!item) return;
   const materials = material === "star_ore" ? `성운석 ${item.star_ore_cost}개` : "같은 장비 1개";
-  if (confirm(`${item.display_name}: ${materials}와 ${item.cost}G를 사용해 강화할까요?`)) {
+  if (confirm(`${item.display_name}\n${item.preview}\n${materials}와 ${item.cost}G를 사용해 강화할까요?`)) {
     request("/api/blacksmith", {equipment, material});
   }
 }
