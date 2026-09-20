@@ -6,6 +6,7 @@ import json
 import threading
 import http.cookiejar
 import urllib.request
+import urllib.error
 from pathlib import Path
 from unittest.mock import patch
 
@@ -253,6 +254,69 @@ class WebGameTests(unittest.TestCase):
             server.shutdown()
             server.server_close()
             worker.join(timeout=2)
+
+    def test_http_blacksmith_quote_replay_and_invalid_json_shape(self):
+        game = WebGame()
+        game.configure_party(DEFAULT_PARTY_SETUP)
+        game.advance_dialogue(1)
+        game.advance_dialogue()
+        game.party.gold = 9999
+        game.equipment_inventory = [data.IRON_SWORD, data.IRON_SWORD]
+
+        with patch("web_app.GAME", game), patch(
+            "web_app.GAME_LOCK", threading.Lock()
+        ), patch.object(GameHandler, "multi_session_enabled", False):
+            server = ThreadingHTTPServer(("127.0.0.1", 0), GameHandler)
+            worker = threading.Thread(target=server.serve_forever, daemon=True)
+            worker.start()
+
+            def request(path, body):
+                encoded = json.dumps(body).encode("utf-8")
+                return urllib.request.Request(
+                    f"http://127.0.0.1:{server.server_port}{path}",
+                    data=encoded,
+                    headers={"Content-Type": "application/json"},
+                )
+
+            try:
+                with urllib.request.urlopen(
+                    f"http://127.0.0.1:{server.server_port}/api/state", timeout=2
+                ) as response:
+                    state = json.load(response)["state"]
+                quote = state["blacksmith"]["equipment"][0]["quote"]
+                body = {"equipment": 0, "material": "duplicate", "quote": quote}
+
+                with urllib.request.urlopen(
+                    request("/api/blacksmith", body), timeout=2
+                ) as response:
+                    result = json.load(response)
+                self.assertTrue(result["ok"])
+                self.assertEqual(result["state"]["equipment_inventory"][0][
+                    "enhancement_level"
+                ], 1)
+
+                with self.assertRaises(urllib.error.HTTPError) as replay_error:
+                    urllib.request.urlopen(request("/api/blacksmith", body), timeout=2)
+                self.assertEqual(replay_error.exception.code, 400)
+                replay = json.load(replay_error.exception)
+                self.assertFalse(replay["ok"])
+                self.assertIn("다시 확인", replay["error"])
+
+                with self.assertRaises(urllib.error.HTTPError) as shape_error:
+                    urllib.request.urlopen(request("/api/new", []), timeout=2)
+                self.assertEqual(shape_error.exception.code, 400)
+                shape = json.load(shape_error.exception)
+                self.assertEqual(shape["error"], "JSON 요청은 객체 형식이어야 합니다.")
+
+                with urllib.request.urlopen(
+                    f"http://127.0.0.1:{server.server_port}/app.js", timeout=2
+                ) as response:
+                    self.assertEqual(response.headers["Cache-Control"], "no-cache")
+                    self.assertIn("javascript", response.headers["Content-Type"])
+            finally:
+                server.shutdown()
+                server.server_close()
+                worker.join(timeout=2)
 
     def test_mobile_touch_and_deployment_files(self):
         project_root = Path(WEB_ROOT).parent

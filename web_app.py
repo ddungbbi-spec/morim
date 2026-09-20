@@ -1177,6 +1177,9 @@ class GameHandler(BaseHTTPRequestHandler):
         except (ValueError, json.JSONDecodeError):
             self._json({"ok": False, "error": "JSON 요청 형식이 올바르지 않습니다."}, 400)
             return
+        if not isinstance(payload, dict):
+            self._json({"ok": False, "error": "JSON 요청은 객체 형식이어야 합니다."}, 400)
+            return
         game, game_lock = self._game_session()
         with game_lock:
             if self.path == "/api/new":
@@ -1198,7 +1201,11 @@ class GameHandler(BaseHTTPRequestHandler):
             elif self.path == "/api/inn":
                 result = game.inn_action()
             elif self.path == "/api/blacksmith":
-                result = game.blacksmith_action(payload.get("equipment"), payload.get("material", "duplicate"), payload.get("quote"))
+                result = game.blacksmith_action(
+                    payload.get("equipment"),
+                    payload.get("material", "duplicate"),
+                    payload.get("quote"),
+                )
             elif self.path == "/api/tower":
                 result = game.tower_action(payload.get("operation", ""))
             elif self.path == "/api/boss":
@@ -1244,7 +1251,10 @@ class GameHandler(BaseHTTPRequestHandler):
             mime = f"{mime}; charset=utf-8"
         self.send_header("Content-Type", mime)
         cache_control = (
-            "no-cache" if candidate.name in {"index.html", "app.js", "styles.css", "sw.js", "manifest.webmanifest"}
+            "no-cache"
+            if candidate.name in {
+                "index.html", "app.js", "styles.css", "sw.js", "manifest.webmanifest",
+            }
             else "public, max-age=3600"
         )
         self.send_header("Cache-Control", cache_control)
