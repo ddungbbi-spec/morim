@@ -14,6 +14,56 @@ import dialogues
 TOWER_SUMMIT_ID = "tower_summit"
 
 
+MAP_REGIONS = [
+    {
+        "id": "village", "name": "시작 마을", "description": "원정대의 거점과 지원 시설",
+        "locations": ("village", "elder_armory"),
+    },
+    {
+        "id": "forest", "name": "어둠의 숲과 봉인", "description": "폐허와 봉인의 방으로 이어지는 메인 경로",
+        "locations": ("forest_entrance", "deep_forest", "shadow_valley", "ruins",
+                      "seal_gate", "final_chamber", "ending"),
+    },
+    {
+        "id": "marsh", "name": "안개 습지", "description": "달빛 샘과 가라앉은 기록실",
+        "locations": ("mist_marsh", "sunken_boardwalk", "forgotten_shrine", "moonlit_spring",
+                      "drowned_archive", "echo_vault"),
+    },
+    {
+        "id": "cave", "name": "고대 동굴", "description": "골렘의 보물방과 잠긴 비밀 금고",
+        "locations": ("cave", "cave_treasure", "cave_vault"),
+    },
+    {
+        "id": "mine", "name": "버려진 폐광", "description": "광부의 원혼과 탄광 드레이크의 둥지",
+        "locations": ("mine_entrance", "mine_deep", "mine_depths"),
+    },
+    {
+        "id": "tower", "name": "도전의 탑", "description": "단계가 높아지는 반복 도전 지역",
+        "locations": ("tower_floor_1", "tower_floor_2", "tower_floor_3", "tower_summit"),
+    },
+    {
+        "id": "fallen_star", "name": "검은 별 낙하지", "description": "마왕 처치 후 열리는 별의 균열",
+        "locations": ("star_observatory", "fallen_star_field", "star_rift"),
+        "unlock_flag": "demon_lord_defeated", "unlock_description": "봉인된 마왕 처치 필요",
+    },
+    {
+        "id": "astral", "name": "별빛 항로", "description": "검은 별의 근원과 공허의 왕좌",
+        "locations": ("astral_passage", "shattered_sanctum", "void_throne"),
+        "unlock_flag": "star_rift_closed", "unlock_description": "별의 균열 봉쇄 필요",
+    },
+]
+LOCATION_REGION = {
+    location_id: region["id"]
+    for region in MAP_REGIONS
+    for location_id in region["locations"]
+}
+
+
+def region_for_location(location_id: str) -> dict:
+    region_id = LOCATION_REGION[location_id]
+    return next(region for region in MAP_REGIONS if region["id"] == region_id)
+
+
 def star_chapter_epilogue(flags: dict) -> list[str]:
     """균열을 닫은 뒤 첫 처치 때만 보여줄 마을의 후일담."""
     lines = ["검은 별이 사라지고 낙하지 위로 새벽빛이 번진다."]

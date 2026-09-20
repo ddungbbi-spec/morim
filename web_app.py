@@ -31,7 +31,8 @@ from quests import QuestLog, QUESTS
 from shop import SELL_RATIO
 from advancement import ADVANCEMENT_LEVEL, advance, options_for
 from world import (
-    build_world, complete_tower_challenge, create_scaled_tower_guardian,
+    MAP_REGIONS, build_world, complete_tower_challenge, create_scaled_tower_guardian,
+    region_for_location,
     reset_tower_challenge, tower_challenge_tier, tower_clear_count,
 )
 
@@ -841,6 +842,89 @@ class WebGame:
             "enhancement_level": item.enhancement_level,
         }
 
+    def _map_state(self) -> dict:
+        """전체 권역 지도와 현재 권역의 세부 지도를 분리해 구성한다."""
+        current_region = region_for_location(self.game_map.current_id)
+        world_regions = []
+        for region in MAP_REGIONS:
+            visited_count = sum(
+                location_id in self.game_map.visited
+                for location_id in region["locations"]
+            )
+            unlock_flag = region.get("unlock_flag", "")
+            world_regions.append({
+                "id": region["id"],
+                "name": region["name"],
+                "description": region["description"],
+                "current": region["id"] == current_region["id"],
+                "visited": visited_count > 0,
+                "visited_count": visited_count,
+                "total_count": len(region["locations"]),
+                "locked": bool(unlock_flag and not self.flags.get(unlock_flag)),
+                "lock_reason": region.get("unlock_description", ""),
+            })
+
+        region_ids = set(current_region["locations"])
+        visible_ids = set(self.game_map.visited) & region_ids
+        links = []
+        seen_links = set()
+        inbound_locks = {location_id: [] for location_id in region_ids}
+        for origin_id in current_region["locations"]:
+            origin = self.game_map.locations[origin_id]
+            for label, target_id in origin.exits.items():
+                if target_id not in region_ids:
+                    continue
+                requirement = origin.flag_requirements.get(label)
+                flag_locked = bool(requirement and not requirement.is_met(self.flags))
+                item_locked = label in origin.locked_exits and label not in origin.unlocked_labels
+                locked = flag_locked or item_locked
+                reason = (
+                    requirement.description if flag_locked
+                    else origin.locked_exits.get(label, "") if item_locked else ""
+                )
+                if origin_id in self.game_map.visited or target_id in self.game_map.visited:
+                    visible_ids.update((origin_id, target_id))
+                    edge_key = tuple(sorted((origin_id, target_id)))
+                    if edge_key not in seen_links:
+                        links.append({
+                            "from": origin_id, "to": target_id,
+                            "locked": locked, "lock_reason": reason,
+                        })
+                        seen_links.add(edge_key)
+                if origin_id in self.game_map.visited:
+                    inbound_locks[target_id].append((locked, reason))
+
+        local_locations = []
+        for location_id in current_region["locations"]:
+            location = self.game_map.locations[location_id]
+            routes = inbound_locks[location_id]
+            locked_routes = bool(routes and all(route[0] for route in routes))
+            lock_reason = next((reason for locked, reason in routes if locked and reason), "")
+            local_locations.append({
+                "id": location_id,
+                "name": location.name if location_id in visible_ids else "미발견 장소",
+                "current": location_id == self.game_map.current_id,
+                "visited": location_id in self.game_map.visited,
+                "visible": location_id in visible_ids,
+                "locked": locked_routes,
+                "lock_reason": lock_reason,
+                "boss_defeated": location.boss_defeated,
+            })
+
+        return {
+            "current_region_id": current_region["id"],
+            "world": world_regions,
+            "region": {
+                "id": current_region["id"],
+                "name": current_region["name"],
+                "description": current_region["description"],
+                "visited_count": sum(item["visited"] for item in local_locations),
+                "total_count": len(local_locations),
+                "locations": local_locations,
+                "links": links,
+            },
+        }
+
     def state(self) -> dict:
         actor = self.current_actor
         location = self.game_map.current
@@ -1011,6 +1095,7 @@ class WebGame:
                     if loc_id in self.game_map.visited
                 ],
             },
+            "maps": self._map_state(),
             "dialogue": dialogue_state,
             "story_flags": dict(self.flags),
             "quests": [

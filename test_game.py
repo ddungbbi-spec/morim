@@ -24,7 +24,7 @@ from models import Party, StatusEffect
 from shop import _sell_menu
 from shop import Shop
 from world import (
-    build_world, complete_tower_challenge, create_scaled_tower_guardian,
+    MAP_REGIONS, build_world, complete_tower_challenge, create_scaled_tower_guardian,
     reset_tower_challenge,
 )
 
@@ -672,6 +672,13 @@ class GameTests(unittest.TestCase):
         for location in game_map.locations.values():
             for target in location.exits.values():
                 self.assertIn(target, game_map.locations)
+
+    def test_world_regions_cover_every_location_once(self):
+        game_map = build_world()
+        grouped = [location_id for region in MAP_REGIONS for location_id in region["locations"]]
+        self.assertEqual(len(MAP_REGIONS), 8)
+        self.assertEqual(len(grouped), len(set(grouped)))
+        self.assertEqual(set(grouped), set(game_map.locations))
 
     def test_console_defeated_boss_can_be_rechallenged(self):
         game_map = build_world()

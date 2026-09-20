@@ -174,10 +174,16 @@ function renderWorld() {
   locationPanel.classList.toggle("hidden", !worldVisible || gameState.phase === "dialogue");
   if (worldVisible) {
     const statuses = {available: "미수락", active: "진행 중", ready: "보상 가능", completed: "완료", locked: "미발견"};
+    const region = gameState.maps.region;
     locationPanel.innerHTML = `
       <p class="location-copy">${escapeHtml(gameState.location.description)}</p>
-      <p class="map-caption">발견한 장소</p>
-      <div class="map-chips">${gameState.location.visited.map((place) => `<span class="map-chip${place.current ? " current" : ""}">${escapeHtml(place.name)}</span>`).join("")}</div>
+      <div class="map-summary">
+        <div><span>현재 지역</span><strong>${escapeHtml(region.name)}</strong><small>${region.visited_count}/${region.total_count} 장소 발견</small></div>
+        <div class="map-shortcuts">
+          <button onclick="openUtility('region_map')">지역 맵</button>
+          <button onclick="openUtility('world_map')">전체 맵</button>
+        </div>
+      </div>
       <div class="quest-strip">${gameState.quests.filter((quest) => quest.status !== "locked").map((quest) => `<div class="quest-line"><strong>${escapeHtml(quest.title)}</strong><span>${escapeHtml(statuses[quest.status] || quest.status)}</span></div>`).join("")}</div>`;
   }
 
@@ -239,7 +245,44 @@ function renderCommands() {
 function renderUtilityPanel() {
   const panel = $("#choicePanel");
   panel.classList.remove("hidden");
-  if (utilityMode === "shop") {
+  if (utilityMode === "world_map") {
+    const regions = gameState.maps.world.map((region) => {
+      const state = region.current ? "현재 지역"
+        : region.locked ? `🔒 ${region.lock_reason}`
+        : region.visited ? `${region.visited_count}/${region.total_count} 발견`
+        : "미발견";
+      return `<article class="world-map-card${region.current ? " current" : ""}${region.locked ? " locked" : ""}">
+        <span class="map-status">${escapeHtml(state)}</span>
+        <strong>${escapeHtml(region.name)}</strong>
+        <p>${escapeHtml(region.description)}</p>
+      </article>`;
+    }).join("");
+    panel.innerHTML = utilityShell("전체 맵", `
+      <p class="stat-line">세계의 권역별 탐험 진행과 해금 상태입니다. 지도에서 바로 이동하지는 않습니다.</p>
+      <div class="world-map-grid">${regions}</div>`);
+  } else if (utilityMode === "region_map") {
+    const region = gameState.maps.region;
+    const byId = Object.fromEntries(region.locations.map((location) => [location.id, location]));
+    const nodes = region.locations.map((location) => {
+      const state = location.current ? "현재 위치"
+        : location.locked ? `🔒 ${location.lock_reason || "잠긴 경로"}`
+        : location.visited ? (location.boss_defeated ? "방문 · 위험 제거" : "방문")
+        : location.visible ? "인접 미발견" : "미발견";
+      return `<article class="region-map-node${location.current ? " current" : ""}${location.visited ? " visited" : ""}${location.locked ? " locked" : ""}">
+        <i></i><div><strong>${escapeHtml(location.name)}</strong><span>${escapeHtml(state)}</span></div>
+      </article>`;
+    }).join("");
+    const links = region.links.map((link) => {
+      const from = byId[link.from];
+      const to = byId[link.to];
+      if (!from || !to) return "";
+      return `<div class="region-map-link"><span>${escapeHtml(from.name)}</span><b>→</b><span>${escapeHtml(to.name)}</span>${link.locked ? `<em>🔒 ${escapeHtml(link.lock_reason)}</em>` : ""}</div>`;
+    }).join("");
+    panel.innerHTML = utilityShell(`${region.name} · 지역 맵`, `
+      <p class="stat-line">${escapeHtml(region.description)} · ${region.visited_count}/${region.total_count} 장소 발견</p>
+      <div class="region-map-layout"><div class="region-map-nodes">${nodes}</div>
+      <div class="region-map-routes"><p>확인된 연결 경로</p>${links || `<span class="muted-copy">아직 확인된 경로가 없습니다.</span>`}</div></div>`);
+  } else if (utilityMode === "shop") {
     if (!gameState.shop) return clearUtility();
     if (shopIndex === null || !gameState.shop.shops[shopIndex]) {
       const shops = gameState.shop.shops.map((shop) => shop.available

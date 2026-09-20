@@ -512,6 +512,34 @@ class WebGameTests(unittest.TestCase):
         self.assertIn("forest_entrance", self.game.game_map.visited)
         self.assertEqual(self.game.phase, "explore")
 
+    def test_world_and_region_maps_are_separate_and_track_progress(self):
+        state = self.game.state()
+        self.assertEqual(state["maps"]["current_region_id"], "village")
+        self.assertEqual(len(state["maps"]["world"]), 8)
+        astral = next(region for region in state["maps"]["world"] if region["id"] == "astral")
+        self.assertTrue(astral["locked"])
+        village_nodes = {node["id"]: node for node in state["maps"]["region"]["locations"]}
+        self.assertTrue(village_nodes["village"]["current"])
+        self.assertTrue(village_nodes["elder_armory"]["visible"])
+        self.assertTrue(village_nodes["elder_armory"]["locked"])
+
+        self.game.advance_dialogue(0)
+        self.game.advance_dialogue()
+        state = self.game.state()
+        village_nodes = {node["id"]: node for node in state["maps"]["region"]["locations"]}
+        self.assertFalse(village_nodes["elder_armory"]["locked"])
+        with patch("web_app.random.random", return_value=0.99):
+            self.assertTrue(self.game.move("숲으로 향한다")["ok"])
+        state = self.game.state()
+        self.assertEqual(state["maps"]["current_region_id"], "forest")
+        self.assertEqual(state["maps"]["region"]["visited_count"], 1)
+        forest_nodes = {node["id"]: node for node in state["maps"]["region"]["locations"]}
+        self.assertTrue(forest_nodes["forest_entrance"]["current"])
+        self.assertTrue(forest_nodes["deep_forest"]["visible"])
+        self.assertFalse(forest_nodes["deep_forest"]["visited"])
+        world_forest = next(region for region in state["maps"]["world"] if region["id"] == "forest")
+        self.assertEqual(world_forest["visited_count"], 1)
+
     def test_village_inn_fully_restores_party(self):
         self.finish_intro()
         for member in self.game.party.members:
