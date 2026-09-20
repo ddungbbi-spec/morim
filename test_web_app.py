@@ -21,25 +21,25 @@ class WebGameTests(unittest.TestCase):
         self.game.party.gold = 9999
         self.game.equipment_inventory = [data.IRON_SWORD, data.IRON_SWORD]
         self.game.inventory = [data.STAR_ORE] * 3
-        self.assertFalse(self.game.blacksmith_action(0, "star_ore")["ok"])
+        self.assertFalse(self.forge(0, "star_ore")["ok"])
         self.assertEqual(len(self.game.inventory), 3)
         self.game.flags["star_rift_closed"] = True
         state = self.game.state()["blacksmith"]
         self.assertTrue(state["star_unlocked"])
         self.assertEqual(state["star_ore_count"], 3)
         self.assertTrue(state["equipment"][0]["can_star_upgrade"])
-        self.assertTrue(self.game.blacksmith_action(0, "star_ore")["ok"])
+        self.assertTrue(self.forge(0, "star_ore")["ok"])
         self.assertEqual(len(self.game.equipment_inventory), 2)
         self.assertEqual(len(self.game.inventory), 2)
-        self.assertTrue(self.game.blacksmith_action(0)["ok"])
+        self.assertTrue(self.forge(0)["ok"])
         self.assertEqual(len(self.game.equipment_inventory), 1)
         self.assertEqual(len(self.game.inventory), 2)
         before = self.game.party.gold
-        self.assertFalse(self.game.blacksmith_action(0, "star_ore")["ok"])
+        self.assertFalse(self.forge(0, "star_ore")["ok"])
         self.assertEqual(self.game.party.gold, before)
-        self.assertFalse(self.game.blacksmith_action(0, ["star_ore"])["ok"])
+        self.assertFalse(self.forge(0, ["star_ore"])["ok"])
         self.game.game_map.move_to("star_rift")
-        self.assertFalse(self.game.blacksmith_action(0, "star_ore")["ok"])
+        self.assertFalse(self.forge(0, "star_ore")["ok"])
 
     def test_web_star_boss_material_reward_once_per_victory(self):
         self.finish_intro()
@@ -96,6 +96,77 @@ class WebGameTests(unittest.TestCase):
         self.assertTrue(self.game.quest_action("claim", "fallen_star")["ok"])
         self.assertEqual(self.game.party.gold, before + 110)
         self.assertFalse(self.game.quest_action("claim", "fallen_star")["ok"])
+
+    def forge(self, index, material="duplicate"):
+        return self.game.blacksmith_action(index, material,
+                                          self.game._forge_quote(index, material))
+
+    def test_forge_quote_rejects_replay_shifted_target_and_changed_resources(self):
+        self.finish_intro()
+        self.game.party.gold = 9999
+        self.game.flags["star_rift_closed"] = True
+        self.game.inventory = [data.STAR_ORE] * 10
+        self.game.equipment_inventory = [data.IRON_SWORD, data.IRON_SWORD,
+                                         data.LEATHER_ARMOR, data.LEATHER_ARMOR]
+        quote = self.game.state()["blacksmith"]["equipment"][1]["quote"]
+        self.assertTrue(self.game.blacksmith_action(1, quote=quote)["ok"])
+        before = (self.game.party.gold, list(self.game.equipment_inventory))
+        self.assertFalse(self.game.blacksmith_action(1, quote=quote)["ok"])
+        self.assertEqual(before, (self.game.party.gold, self.game.equipment_inventory))
+        quote = self.game.state()["blacksmith"]["equipment"][0]["star_quote"]
+        self.assertTrue(self.game.blacksmith_action(0, "star_ore", quote)["ok"])
+        before = (self.game.party.gold, list(self.game.inventory))
+        self.assertFalse(self.game.blacksmith_action(0, "star_ore", quote)["ok"])
+        self.assertEqual(before, (self.game.party.gold, self.game.inventory))
+        quote = self.game._forge_quote(0, "star_ore")
+        self.game.party.gold += 1
+        self.assertFalse(self.game.blacksmith_action(0, "star_ore", quote)["ok"])
+        self.assertFalse(self.game.blacksmith_action(0, "star_ore")["ok"])
+        self.assertFalse(self.game.blacksmith_action(0, "star_ore", {})["ok"])
+        quote = self.game._forge_quote(0, "star_ore")
+        self.assertFalse(self.game.blacksmith_action(1, "star_ore", quote)["ok"])
+        self.assertFalse(self.game.blacksmith_action(0, "duplicate", quote)["ok"])
+
+    def test_equipment_state_uses_current_bonus_fields(self):
+        from blacksmith import preview_upgrade
+        sword = preview_upgrade(preview_upgrade(data.IRON_SWORD))
+        state = self.game._equipment_state(sword)
+        self.assertIn("공격력 +9", state["description"])
+        self.assertNotIn("공격력 +5", state["description"])
+
+    def test_rift_forge_equip_save_reload_and_repeat_reward(self):
+        import tempfile
+        self.finish_intro()
+        with tempfile.TemporaryDirectory() as directory:
+            self.game.save_dir = directory
+            self.game.party.gold = 9999
+            self.game.inventory = []
+            self.game.game_map.move_to("star_rift")
+            self.game.game_map.current.dialogue_played = True
+            self.game._begin_battle([data.create_slime()], "boss", "통합 검증")
+            with patch("web_app.random.random", return_value=0.99):
+                self.game._victory()
+            self.assertEqual(sum(i.name == "성운석" for i in self.game.inventory), 3)
+            self.game.game_map.move_to("village")
+            index = next(i for i, item in enumerate(self.game.equipment_inventory)
+                         if item.name == data.STARWARD_CHARM.name)
+            self.assertTrue(self.forge(index, "star_ore")["ok"])
+            self.assertTrue(self.game.equipment_action("equip", 0, index)["ok"])
+            gold = self.game.party.gold
+            self.assertTrue(self.game.save_action("save", 1)["ok"])
+            self.assertTrue(self.game.save_action("load", 1)["ok"])
+            self.assertEqual(self.game.party.gold, gold)
+            self.assertEqual(sum(i.name == "성운석" for i in self.game.inventory), 2)
+            self.assertEqual(self.game.party.members[0].equipment["accessory"].enhancement_level, 1)
+            self.assertTrue(self.game.flags["star_rift_closed"])
+            self.game.game_map.move_to("star_rift")
+            self.assertTrue(self.game.boss_action("retry")["ok"])
+            with patch("web_app.random.random", return_value=0.99):
+                self.game._victory()
+                self.game._victory()
+            self.assertEqual(sum(i.name == "성운석" for i in self.game.inventory), 5)
+            self.assertFalse(any(i.name == data.STARWARD_CHARM.name
+                                 for i in self.game.equipment_inventory))
 
     def setUp(self):
         self.game = WebGame()
@@ -549,14 +620,14 @@ class WebGameTests(unittest.TestCase):
         self.assertIn("공격력", state["blacksmith"]["equipment"][0]["preview"])
         self.assertIn("→", state["blacksmith"]["equipment"][0]["preview"])
 
-        result = self.game.blacksmith_action(0)
+        result = self.forge(0)
         self.assertTrue(result["ok"])
         self.assertEqual(len(self.game.equipment_inventory), 1)
         self.assertEqual(self.game.equipment_inventory[0].enhancement_level, 1)
         self.assertIn("+1", result["state"]["equipment_inventory"][0]["display_name"])
 
         self.game.game_map.current_id = "forest_entrance"
-        blocked = self.game.blacksmith_action(0)
+        blocked = self.forge(0)
         self.assertFalse(blocked["ok"])
 
     def test_web_equipment_equip_swap_and_unequip(self):

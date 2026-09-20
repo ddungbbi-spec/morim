@@ -70,7 +70,7 @@ def run_shop(
         print("\n[구매 - 장비]")
         for i, eq in enumerate(shop_equipment, 1):
             price = _discounted_price(eq.price, discount_rate)
-            print(f"  {item_count + i}) {eq.display_name}  {price} G  - {eq.description}")
+            print(f"  {item_count + i}) {eq.display_name}  {price} G  - {eq.display_description}")
 
         equip_count = len(shop_equipment)
         sell_option = item_count + equip_count + 1

@@ -30,6 +30,38 @@ from world import (
 
 
 class GameTests(unittest.TestCase):
+    def test_enhanced_material_is_protected_and_plain_material_is_selected(self):
+        from blacksmith import matching_material_indices
+        party = Party([data.create_warrior("보호")], gold=9999)
+        high = data.IRON_SWORD
+        for _ in range(5):
+            high = preview_upgrade(high)
+        equipment = [data.IRON_SWORD, high]
+        before = (party.gold, list(equipment))
+        with self.assertRaisesRegex(ValueError, "보호"):
+            enhance_equipment(party, equipment, 0)
+        self.assertEqual(before, (party.gold, equipment))
+        equipment.append(data.IRON_SWORD)
+        self.assertEqual(matching_material_indices(equipment, 0), [2])
+        enhance_equipment(party, equipment, 0)
+        self.assertIs(equipment[1], high)
+
+    def test_equipment_changes_never_heal_or_revive(self):
+        member = data.create_warrior("착용")
+        member.hp, member.mp = 10, 0
+        for _ in range(3):
+            member.equip(data.LEATHER_ARMOR)
+            member.equip(data.OAK_STAFF)
+            member.unequip("armor")
+            member.unequip("weapon")
+        self.assertEqual((member.hp, member.mp), (10, 0))
+        member.hp = 0
+        member.equip(data.LEATHER_ARMOR)
+        self.assertEqual(member.hp, 0)
+        member.hp = member.effective_max_hp
+        member.unequip("armor")
+        self.assertEqual(member.hp, member.effective_max_hp)
+
     def test_upgrade_preview_matches_both_materials_without_mutation(self):
         for base in (data.IRON_SWORD, data.LEATHER_ARMOR, data.SWIFT_CHARM):
             for material in ("duplicate", "star_ore"):

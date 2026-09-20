@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hmac
 import json
 import mimetypes
 import os
@@ -71,6 +72,7 @@ class WebGame:
         self.reset()
 
     def reset(self) -> None:
+        self._forge_key = secrets.token_bytes(32)
         self.party = Party([])
         self.inventory: List[Item] = []
         self.equipment_inventory = []
@@ -257,19 +259,32 @@ class WebGame:
         self._begin_battle(enemies, "boss_retry", title)
         return {"ok": True, "state": self.state()}
 
-    def blacksmith_action(self, equipment_index, material="duplicate") -> dict:
+    def _forge_quote(self, index, material):
+        """Bind confirmation to this session, exact inventory order and resources."""
+        snapshot = repr((index, material, self.party.gold,
+                         bool(self.flags.get("star_rift_closed")),
+                         [(id(item), item) for item in self.equipment_inventory],
+                         [item.name for item in self.inventory]))
+        return hmac.new(self._forge_key, snapshot.encode(), "sha256").hexdigest()
+
+    def blacksmith_action(self, equipment_index, material="duplicate", quote=None) -> dict:
         if self.phase != "explore" or self.game_map.current_id != "village":
             return self._error("대장간은 시작 마을에서 이용할 수 있습니다.")
         try:
             index = self._index(
                 equipment_index, len(self.equipment_inventory), "강화 장비"
             )
+            if not isinstance(quote, str) or not secrets.compare_digest(
+                quote, self._forge_quote(index, material)
+            ):
+                raise ValueError("장비 또는 재료 상태가 변경되었습니다. 새 목록에서 강화 내용을 다시 확인하세요.")
             upgraded, cost = enhance_equipment(
                 self.party, self.equipment_inventory, index,
                 self.inventory, self.flags, material,
             )
         except (IndexError, TypeError, ValueError) as error:
             return self._error(str(error))
+        self._forge_key = secrets.token_bytes(32)
         self._log(f"대장간 강화 성공! {upgraded.display_name} ({cost}G 사용)")
         return {"ok": True, "state": self.state()}
 
@@ -365,6 +380,7 @@ class WebGame:
                     self.party, self.inventory, self.game_map, self.flags,
                     self.equipment_inventory, self.quest_log,
                 ) = game_save.load_game(path)
+                self._forge_key = secrets.token_bytes(32)
                 self.enemies = []
                 self.turn = 0
                 self.current_actor = None
@@ -810,7 +826,7 @@ class WebGame:
             "display_name": item.display_name,
             "slot": item.slot,
             "slot_name": SLOT_NAMES_KR[item.slot],
-            "description": item.description,
+            "description": item.display_description,
             "special_effect": item.special_effect,
             "price": item.price,
             "rarity": item.rarity,
@@ -933,6 +949,8 @@ class WebGame:
                     )),
                     "can_upgrade": allowed,
                     "preview": upgrade_preview_text(item),
+                    "quote": self._forge_quote(index, "duplicate"),
+                    "star_quote": self._forge_quote(index, "star_ore"),
                     "reason": reason,
                     "star_ore_cost": star_ore_cost(item),
                     "can_star_upgrade": star_allowed,
@@ -1180,7 +1198,7 @@ class GameHandler(BaseHTTPRequestHandler):
             elif self.path == "/api/inn":
                 result = game.inn_action()
             elif self.path == "/api/blacksmith":
-                result = game.blacksmith_action(payload.get("equipment"), payload.get("material", "duplicate"))
+                result = game.blacksmith_action(payload.get("equipment"), payload.get("material", "duplicate"), payload.get("quote"))
             elif self.path == "/api/tower":
                 result = game.tower_action(payload.get("operation", ""))
             elif self.path == "/api/boss":
@@ -1226,7 +1244,7 @@ class GameHandler(BaseHTTPRequestHandler):
             mime = f"{mime}; charset=utf-8"
         self.send_header("Content-Type", mime)
         cache_control = (
-            "no-cache" if candidate.name in {"index.html", "sw.js", "manifest.webmanifest"}
+            "no-cache" if candidate.name in {"index.html", "app.js", "styles.css", "sw.js", "manifest.webmanifest"}
             else "public, max-age=3600"
         )
         self.send_header("Cache-Control", cache_control)

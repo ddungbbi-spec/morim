@@ -118,6 +118,27 @@ class Equipment:
     enhancement_level: int = 0
 
     @property
+    def stat_text(self) -> str:
+        labels = {"attack_bonus": "공격력", "defense_bonus": "방어력",
+                  "speed_bonus": "속도", "max_hp_bonus": "최대 HP",
+                  "max_mp_bonus": "최대 MP"}
+        parts = [f"{label} {getattr(self, field):+d}"
+                 for field, label in labels.items() if getattr(self, field)]
+        for field, label in (("critical_rate_bonus", "치명타율"),
+                             ("evasion_rate_bonus", "회피율"),
+                             ("damage_reduction_bonus", "피해 감소")):
+            value = getattr(self, field)
+            if value:
+                parts.append(f"{label} {value * 100:+g}%")
+        return " / ".join(parts) or "능력치 보너스 없음"
+
+    @property
+    def display_description(self) -> str:
+        # Old saves may contain pre-enhancement numbers in description.
+        # Keep that flavor text stored, but derive displayed stats from fields.
+        return self.stat_text
+
+    @property
     def display_name(self) -> str:
         enhancement = f" +{self.enhancement_level}" if self.enhancement_level else ""
         return f"[{RARITY_NAMES_KR.get(self.rarity, self.rarity)}] {self.name}{enhancement}"
@@ -165,8 +186,8 @@ class Character:
         """장비를 착용합니다. 같은 슬롯에 이미 있던 장비가 있으면 반환합니다(교체됨)."""
         previous = self.equipment.get(item.slot)
         self.equipment[item.slot] = item
-        self.hp = min(self.effective_max_hp, self.hp + max(0, item.max_hp_bonus))
-        self.mp = min(self.effective_max_mp, self.mp + max(0, item.max_mp_bonus))
+        self.hp = min(self.effective_max_hp, self.hp)
+        self.mp = min(self.effective_max_mp, self.mp)
         return previous
 
     def unequip(self, slot: str) -> Optional[Equipment]:

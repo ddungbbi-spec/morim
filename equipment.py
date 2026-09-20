@@ -48,7 +48,7 @@ def _manage_member_equipment(member: PlayerCharacter, equipment_inventory: List[
             print("  (보유한 장비가 없습니다)")
         for i, item in enumerate(equipment_inventory, 1):
             effect = f" / {item.special_effect}" if item.special_effect else ""
-            print(f"  {i}) [{SLOT_NAMES_KR[item.slot]}] {item.display_name} - {item.description}{effect}")
+            print(f"  {i}) [{SLOT_NAMES_KR[item.slot]}] {item.display_name} - {item.display_description}{effect}")
         back_option = len(equipment_inventory) + 1
         print(f"  {back_option}) 뒤로 가기")
 

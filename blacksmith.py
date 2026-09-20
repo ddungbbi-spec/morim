@@ -37,13 +37,13 @@ def upgrade_cost(item: Equipment) -> int:
 def matching_material_indices(
     equipment_inventory: List[Equipment], target_index: int,
 ) -> List[int]:
-    """대상과 이름이 같은 장비를 낮은 강화 단계 순으로 반환한다."""
+    """대상과 이름이 같고 강화되지 않은 장비만 재료로 반환한다."""
     if not 0 <= target_index < len(equipment_inventory):
         return []
     target = equipment_inventory[target_index]
     matches = [
         index for index, item in enumerate(equipment_inventory)
-        if index != target_index and item.name == target.name
+        if index != target_index and item.name == target.name and item.enhancement_level == 0
     ]
     return sorted(matches, key=lambda index: equipment_inventory[index].enhancement_level)
 
@@ -66,7 +66,7 @@ def can_upgrade(
         if count < star_ore_cost(target):
             return False, f"성운석이 부족합니다. ({star_ore_cost(target)}개 필요)"
     elif not matching_material_indices(equipment_inventory, target_index):
-        return False, "같은 이름의 장비가 재료로 하나 더 필요합니다."
+        return False, "같은 이름의 미강화(+0) 장비가 하나 더 필요합니다. 강화된 장비는 보호됩니다."
     cost = upgrade_cost(target)
     if party.gold < cost:
         return False, f"골드가 부족합니다. ({cost}G 필요)"
@@ -165,7 +165,7 @@ def run_blacksmith(party: Party, equipment_inventory: List[Equipment], inventory
             return
         material = "duplicate"
         if (flags or {}).get("star_rift_closed"):
-            print("  1) 동일 장비 1개 사용  2) 성운석 사용  3) 취소")
+            print("  1) 동일한 미강화(+0) 장비 1개 사용  2) 성운석 사용  3) 취소")
             choice = prompt_index("> ", 3)
             if choice == 2:
                 continue
@@ -177,7 +177,7 @@ def run_blacksmith(party: Party, equipment_inventory: List[Equipment], inventory
         target = equipment_inventory[selected]
         print(f"강화 미리보기: {upgrade_preview_text(target)}")
         material_text = (f"성운석 {star_ore_cost(target)}개" if material == "star_ore"
-                         else "동일 장비 1개")
+                         else "동일한 미강화(+0) 장비 1개")
         if not prompt_yes_no(
             f"{target.display_name}을(를) {material_text}와 {upgrade_cost(target)}G로 강화할까요? (y/n)> "
         ):
