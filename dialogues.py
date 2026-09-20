@@ -91,6 +91,54 @@ def star_rift_dialogue() -> Dialogue:
     ])], start_id="rift")
 
 
+def astral_passage_dialogue() -> Dialogue:
+    """검은 별의 발신지를 발견하고 귀환 표식을 남길지 선택한다."""
+    def light_beacon(flags: dict):
+        flags["astral_route_found"] = True
+        flags["astral_beacon_lit"] = True
+
+    def press_forward(flags: dict):
+        flags["astral_route_found"] = True
+        flags["astral_beacon_lit"] = False
+
+    return Dialogue(nodes=[
+        DialogueNode("arrival", [
+            "닫힌 균열 너머에서 한 줄기 별빛 길이 다시 열린다.",
+            "리제: \"검은 별은 우연히 떨어진 게 아니야. 누군가 이 길 건너에서 보냈어.\"",
+            "셀린: \"마을로 돌아갈 표식을 남길까? 적이 눈치챌 수도 있어.\"",
+        ], choices=[
+            ("별빛 봉화를 밝혀 귀환로를 확보한다", "beacon"),
+            ("발각되기 전에 봉화 없이 전진한다", "advance"),
+        ]),
+        DialogueNode("beacon", [
+            "성운석 조각이 푸른 봉화로 타오르며 마을과 별길을 잇는다.",
+            "레온: \"돌아갈 길을 지켰다. 이제 근원을 끊으러 가자.\"",
+        ], effect=light_beacon),
+        DialogueNode("advance", [
+            "파티는 흔적을 남기지 않고 무너진 별길 안쪽으로 발걸음을 재촉한다.",
+            "레온: \"한 번에 끝낸다. 돌아갈 길은 우리가 만들면 돼.\"",
+        ], effect=press_forward),
+    ], start_id="arrival")
+
+
+def shattered_sanctum_dialogue() -> Dialogue:
+    return Dialogue(nodes=[DialogueNode("sanctum", [
+        "부서진 천문판마다 마을과 봉인의 방이 같은 별자리 위에 새겨져 있다.",
+        "리제: \"공허의 관측자가 마왕의 봉인을 실험하고 있었어. 검은 별은 다음 관측 신호였고.\"",
+        "셀린: \"왕좌에서 이 통로를 닫지 않으면 다른 균열이 계속 열릴 거야.\"",
+    ])], start_id="sanctum")
+
+
+def void_throne_dialogue() -> Dialogue:
+    return Dialogue(nodes=[DialogueNode("throne", lambda flags: [
+        "별이 없는 왕좌에서 거대한 눈동자가 파티를 내려다본다.",
+        "공허의 관측자: \"봉인을 부순 세계의 생존 가능성을 직접 확인하겠다.\"",
+        ("레온: \"봉화가 우리 세계를 비추고 있다. 이 문은 여기서 닫는다!\""
+         if flags.get("astral_beacon_lit") else
+         "레온: \"퇴로는 없다. 네가 만든 문과 함께 여기서 끝낸다!\""),
+    ])], start_id="throne")
+
+
 def moonlit_spring_dialogue() -> Dialogue:
     """달빛 샘에서 약초꾼 세아를 발견하고 호위 여부를 정한다."""
 

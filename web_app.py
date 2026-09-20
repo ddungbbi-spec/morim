@@ -654,6 +654,12 @@ class WebGame:
                     from world import star_chapter_epilogue
                     for line in star_chapter_epilogue(self.flags):
                         self._log(line)
+            if location.id == "void_throne":
+                self.flags["void_observer_defeated"] = True
+                if first_clear:
+                    from world import astral_chapter_epilogue
+                    for line in astral_chapter_epilogue(self.flags):
+                        self._log(line)
             self.quest_log.refresh_from_world(self.game_map, self.flags)
             if first_clear:
                 self._log(f"{location.name}의 위험이 사라졌습니다.")

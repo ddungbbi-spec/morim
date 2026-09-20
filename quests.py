@@ -78,6 +78,14 @@ QUESTS: Dict[str, QuestDefinition] = {
         bonus_flag="star_signal_reported", bonus_gold_reward=20,
         unlock_flag="star_signal_found",
     ),
+    "beyond_stars": QuestDefinition(
+        quest_id="beyond_stars", title="별 너머의 문",
+        description="검은 별이 건너온 항로를 따라가 균열의 근원을 끊는다.",
+        target_location_id="void_throne", objective="공허의 왕좌에서 공허의 관측자 처치",
+        gold_reward=130, item_rewards=(("달빛 영약", 2),), main_quest=True,
+        bonus_flag="astral_beacon_lit", bonus_gold_reward=30,
+        unlock_flag="astral_route_found",
+    ),
 }
 
 
@@ -116,6 +124,8 @@ class QuestLog:
             self.accept("seals_echo")
         if flags.get("star_signal_found") is True:
             self.accept("fallen_star", flags)
+        if flags.get("astral_route_found") is True:
+            self.accept("beyond_stars", flags)
 
     def refresh_from_world(self, game_map, flags: dict | None = None) -> None:
         """활성 퀘스트의 보스와 대화 플래그 완료 조건을 확인한다."""

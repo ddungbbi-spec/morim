@@ -203,6 +203,19 @@ LAST_JUDGMENT = Skill(
     name="최후의 심판", mp_cost=0, power=10, kind="attack", aoe=True,
     description="남은 마력을 폭발시켜 파티 전체에 최후의 심판을 내린다.",
 )
+STARFALL = Skill(
+    name="별무리 낙하", mp_cost=14, power=9, kind="attack", aoe=True,
+    description="균열 너머의 별 조각을 떨어뜨려 파티 전체를 공격한다.",
+)
+VOID_COLLAPSE = Skill(
+    name="공허 붕괴", mp_cost=0, power=13, kind="attack", aoe=True,
+    description="접힌 공간을 붕괴시켜 파티 전체에 큰 피해를 준다.",
+)
+ASTRAL_BARRIER = Skill(
+    name="성계 장막", mp_cost=0, power=0, kind="buff",
+    description="별빛으로 된 장막을 둘러 방어력을 크게 높인다.",
+    buff_stat="defense", buff_amount=7, buff_duration=4, buff_name="성계 장막",
+)
 
 
 JOB_SKILL_GROWTH_BY_JOB = {
@@ -566,6 +579,44 @@ def create_star_remnant() -> Enemy:
     )
 
 
+def create_nebula_devourer() -> Enemy:
+    """별빛 회랑을 떠도는 빠른 포식자."""
+    return Enemy(
+        name="성운 포식자", job="몬스터", level=7,
+        max_hp=68, max_mp=18, attack=16, defense=7, speed=11,
+        skills=[PARALYZE_STRIKE, STARFALL], exp_reward=42, gold_reward=25,
+        weakness="ice", resistance="thunder",
+        loot_pool=[(ETHER, 0.2)],
+    )
+
+
+def create_void_sentinel() -> Enemy:
+    """부서진 천문성소를 지키는 방어형 적."""
+    return Enemy(
+        name="공허 파수꾼", job="몬스터", level=8,
+        max_hp=86, max_mp=22, attack=17, defense=11, speed=6,
+        skills=[HEAVY_SMASH, CURSE_WHISPER], exp_reward=50, gold_reward=30,
+        smart_ai=True, weakness="fire", resistance="ice",
+        loot_pool=[(MOONLIGHT_TONIC, 0.12)],
+    )
+
+
+def create_void_observer() -> Enemy:
+    """두 번째 후일담 챕터의 보스. 검은 별을 보낸 성계의 관측자."""
+    return Enemy(
+        name="공허의 관측자", job="최종보스", level=10,
+        max_hp=190, max_mp=58, attack=20, defense=12, speed=10,
+        skills=[STARFALL, CURSE_WHISPER, APOCALYPSE_STRIKE],
+        exp_reward=165, gold_reward=120, smart_ai=True,
+        weakness="fire", resistance="thunder",
+        action_pattern=[CURSE_WHISPER, STARFALL, APOCALYPSE_STRIKE, None],
+        boss_phases=[
+            BossPhase(0.70, ASTRAL_BARRIER, "공허의 관측자가 수천 개의 별눈을 열어 성계 장막을 펼친다!"),
+            BossPhase(0.30, VOID_COLLAPSE, "왕좌의 별자리가 무너지며 공허가 전장을 집어삼킨다!"),
+        ],
+    )
+
+
 # ---------------------------------------------------------------------------
 # 아이템
 # ---------------------------------------------------------------------------
@@ -662,6 +713,14 @@ STARWARD_CHARM = Equipment(
     description="검은 별의 잔재를 잠재운 뒤 얻은 부적. 방어력 +3, 최대 HP +10",
     price=95, rarity="rare", damage_reduction_bonus=0.06,
     special_effect="받는 피해 6% 감소",
+)
+
+CONSTELLATION_SPEAR = Equipment(
+    name="성좌의 창", slot="weapon", weapon_family="spear",
+    attack_bonus=12, defense_bonus=3, speed_bonus=1,
+    description="공허의 관측자가 지키던 별길의 열쇠. 공격력 +12, 방어력 +3, 속도 +1",
+    price=150, rarity="legendary", critical_rate_bonus=0.10,
+    special_effect="치명타율 +10%",
 )
 
 
@@ -801,6 +860,7 @@ SKILLS_BY_NAME = {
         RUSTY_STRIKE, CURSE_WHISPER, FLAME_BREATH,
         APOCALYPSE_STRIKE, CHAOS_WAVE, ROCK_COUNTER,
         DARK_RAMPAGE, MIST_BARRIER, DEEP_MIST, ABYSSAL_BARRIER, LAST_JUDGMENT,
+        STARFALL, VOID_COLLAPSE, ASTRAL_BARRIER,
         GUARD_STANCE, BRAVER_SLASH, SPINNING_SLASH,
         AERO, FIRAGA, BLIZZAGA,
         HEALING_WIND, CURA, HOLY_LIGHT,
@@ -820,6 +880,6 @@ EQUIPMENT_BY_NAME = {
         MIST_CLOAK,
         ELDER_GUARDIAN_SIGIL,
         ARCHIVE_LANTERN,
-        STARWARD_CHARM,
+        STARWARD_CHARM, CONSTELLATION_SPEAR,
     ]
 }

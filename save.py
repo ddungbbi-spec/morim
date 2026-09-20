@@ -304,6 +304,8 @@ def load_game(path: str = DEFAULT_SAVE_PATH):
         flags["demon_lord_defeated"] = True
     if game_map.locations["star_rift"].boss_defeated:
         flags["star_rift_closed"] = True
+    if game_map.locations["void_throne"].boss_defeated:
+        flags["void_observer_defeated"] = True
     from quests import QuestLog
     quest_log = QuestLog(payload.get("quest_states", {}))
     quest_log.sync_story_flags(flags)

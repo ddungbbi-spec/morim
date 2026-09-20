@@ -99,6 +99,42 @@ class WebGameTests(unittest.TestCase):
         self.assertEqual(self.game.party.gold, before + 110)
         self.assertFalse(self.game.quest_action("claim", "fallen_star")["ok"])
 
+    def test_web_beyond_stars_full_mission_flow(self):
+        self.finish_intro()
+        label = "별빛 항로로 향한다"
+        self.assertFalse(self.game.move(label)["ok"])
+        self.game.flags["star_rift_closed"] = True
+        with patch("web_app.random.random", return_value=0.99):
+            self.assertTrue(self.game.move(label)["ok"])
+        self.assertEqual(self.game.game_map.current_id, "astral_passage")
+        self.assertEqual(self.game.phase, "dialogue")
+        self.game.advance_dialogue(0)
+        self.game.advance_dialogue()
+        self.assertTrue(self.game.flags["astral_beacon_lit"])
+        self.assertEqual(self.game.quest_log.status("beyond_stars"), "active")
+        with patch("web_app.random.random", return_value=0.99):
+            self.assertTrue(self.game.move("부서진 천문성소로 향한다")["ok"])
+        self.game.advance_dialogue()
+        with patch("web_app.random.random", return_value=0.99):
+            self.assertTrue(self.game.move("공허의 왕좌로 들어간다")["ok"])
+        self.game.advance_dialogue()
+        self.assertEqual(self.game.phase, "battle")
+        self.assertEqual(self.game.enemies[0].name, "공허의 관측자")
+        with patch("web_app.random.random", return_value=0.99):
+            self.game._victory()
+        self.assertTrue(self.game.flags["void_observer_defeated"])
+        self.assertEqual(self.game.quest_log.status("beyond_stars"), "ready")
+        self.assertEqual(
+            sum(item.name == "성좌의 창" for item in self.game.equipment_inventory), 1,
+        )
+        self.assertTrue(any("통로가 닫히기 시작한다" in line for line in self.game.logs))
+        self.game.game_map.move_to("village")
+        self.game.phase = "explore"
+        before = self.game.party.gold
+        self.assertTrue(self.game.quest_action("claim", "beyond_stars")["ok"])
+        self.assertEqual(self.game.party.gold, before + 160)
+        self.assertEqual(sum(item.name == "달빛 영약" for item in self.game.inventory), 2)
+
     def forge(self, index, material="duplicate"):
         return self.game.blacksmith_action(index, material,
                                           self.game._forge_quote(index, material))

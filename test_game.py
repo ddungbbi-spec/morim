@@ -198,6 +198,46 @@ class GameTests(unittest.TestCase):
             self.assertEqual(new_equipment[0].name, "별의 수호 부적")
             self.assertEqual(new_quests.status("fallen_star"), "completed")
 
+    def test_beyond_stars_chapter_gate_choice_boss_reward_and_save(self):
+        game_map = build_world()
+        label = "별빛 항로로 향한다"
+        requirement = game_map.locations["village"].flag_requirements[label]
+        self.assertFalse(requirement.is_met({}))
+        self.assertTrue(requirement.is_met({"star_rift_closed": True}))
+        self.assertEqual(game_map.locations["village"].exits[label], "astral_passage")
+        self.assertEqual(game_map.locations["void_throne"].boss()[0].name, "공허의 관측자")
+        self.assertIs(data.EQUIPMENT_BY_NAME["성좌의 창"], data.CONSTELLATION_SPEAR)
+
+        for choice, beacon, reward in (("1", True, 160), ("2", False, 130)):
+            with self.subTest(choice=choice):
+                flags = {"star_rift_closed": True}
+                with patch.object(builtins, "input", return_value=choice), redirect_stdout(io.StringIO()):
+                    dialogues.astral_passage_dialogue().run(flags)
+                self.assertTrue(flags["astral_route_found"])
+                self.assertEqual(flags["astral_beacon_lit"], beacon)
+                quests = QuestLog()
+                quests.sync_story_flags(flags)
+                self.assertEqual(quests.status("beyond_stars"), "active")
+                game_map.locations["void_throne"].boss_defeated = True
+                quests.refresh_from_world(game_map, flags)
+                self.assertEqual(quests.status("beyond_stars"), "ready")
+                party = Party([data.create_warrior("별길잡이")])
+                inventory = []
+                self.assertTrue(quests.claim("beyond_stars", party, inventory, flags))
+                self.assertEqual(party.gold, reward)
+                self.assertEqual([item.name for item in inventory], ["달빛 영약", "달빛 영약"])
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "slot1.json")
+            game_map.locations["void_throne"].boss_defeated = True
+            game_map.move_to("void_throne")
+            save.save_game(party, [], game_map, {}, [data.CONSTELLATION_SPEAR], path)
+            _, _, loaded_map, loaded_flags, loaded_equipment, loaded_quests = save.load_game(path)
+        self.assertEqual(loaded_map.current_id, "void_throne")
+        self.assertTrue(loaded_flags["void_observer_defeated"])
+        self.assertEqual(loaded_equipment[0].weapon_family, "spear")
+        self.assertEqual(loaded_quests.status("beyond_stars"), "available")
+
     def test_console_star_boss_closes_rift_once(self):
         game_map = build_world()
         game_map.move_to("star_rift")
@@ -653,7 +693,7 @@ class GameTests(unittest.TestCase):
 
     def test_mist_marsh_expansion_is_connected_and_reward_registered(self):
         game_map = build_world()
-        self.assertEqual(len(game_map.locations), 28)
+        self.assertEqual(len(game_map.locations), 31)
         self.assertEqual(
             game_map.locations["deep_forest"].exits["안개 습지로 들어간다"],
             "mist_marsh",

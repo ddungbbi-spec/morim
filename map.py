@@ -213,6 +213,11 @@ def explore(
                 from world import star_chapter_epilogue
                 for line in star_chapter_epilogue(flags):
                     print(line)
+            if loc.id == "void_throne":
+                flags["void_observer_defeated"] = True
+                from world import astral_chapter_epilogue
+                for line in astral_chapter_epilogue(flags):
+                    print(line)
             print(f"\n{loc.name}의 위험이 사라졌다. 계속 진행할 수 있다.")
             if loc.id == "final_chamber":
                 _claim_location_loot(loc, inventory, equipment_inventory)

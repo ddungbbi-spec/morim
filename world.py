@@ -25,6 +25,17 @@ def star_chapter_epilogue(flags: dict) -> list[str]:
     return lines
 
 
+def astral_chapter_epilogue(flags: dict) -> list[str]:
+    """공허의 관측자를 처음 처치한 뒤 선택에 맞춰 보여줄 결말."""
+    lines = ["공허의 왕좌가 무너지자 검은 별을 보내던 통로가 닫히기 시작한다."]
+    if flags.get("astral_beacon_lit"):
+        lines.append("푸른 봉화가 마지막까지 빛나며 파티를 안전하게 마을로 이끈다.")
+    else:
+        lines.append("파티는 무너지는 별길을 돌파해 스스로 귀환로를 열어낸다.")
+    lines.append("리제: \"관측은 끝났어. 이제 우리 세계의 운명은 우리가 정해.\"")
+    return lines
+
+
 def tower_clear_count(flags: dict) -> int:
     try:
         return max(0, int(flags.get("tower_clear_count", 0)))
@@ -96,6 +107,7 @@ def build_world() -> GameMap:
             "도전의 탑으로 향한다": "tower_floor_1",
             "장로의 비밀 무기고로 들어간다": "elder_armory",
             "북쪽 관측소로 향한다": "star_observatory",
+            "별빛 항로로 향한다": "astral_passage",
         },
         flag_requirements={
             "북쪽 관측소로 향한다": FlagRequirement(
@@ -107,6 +119,11 @@ def build_world() -> GameMap:
                 flag="promised_elder",
                 description="장로의 신뢰 필요",
                 failure_message="장로의 부탁을 맡은 이에게만 비밀 무기고가 열린다.",
+            ),
+            "별빛 항로로 향한다": FlagRequirement(
+                flag="star_rift_closed",
+                description="별의 균열 봉쇄 필요",
+                failure_message="별의 균열을 먼저 닫아야 별빛 항로의 좌표를 고정할 수 있다.",
             ),
         },
         dialogue=dialogues.village_intro_dialogue(),
@@ -170,6 +187,43 @@ def build_world() -> GameMap:
         boss=lambda: [data.create_star_remnant()],
         dialogue=dialogues.star_rift_dialogue(),
         loot_equipment=data.STARWARD_CHARM,
+    )
+
+    astral_passage = Location(
+        loc_id="astral_passage", name="별빛 회랑",
+        description="검은 별이 지나온 궤적이 길이 되어 공허 속으로 이어진다.",
+        exits={
+            "부서진 천문성소로 향한다": "shattered_sanctum",
+            "별빛 문으로 마을에 돌아간다": "village",
+        },
+        encounter_chance=0.45,
+        encounter_pool=[
+            lambda: [data.create_nebula_devourer()],
+            lambda: [data.create_nebula_devourer(), data.create_nebula_devourer()],
+        ],
+        dialogue=dialogues.astral_passage_dialogue(),
+    )
+    shattered_sanctum = Location(
+        loc_id="shattered_sanctum", name="부서진 천문성소",
+        description="금이 간 천문판과 꺼진 별들이 왕좌로 향하는 길을 가리킨다.",
+        exits={
+            "공허의 왕좌로 들어간다": "void_throne",
+            "별빛 회랑으로 돌아간다": "astral_passage",
+        },
+        encounter_chance=0.60,
+        encounter_pool=[
+            lambda: [data.create_void_sentinel()],
+            lambda: [data.create_void_sentinel(), data.create_nebula_devourer()],
+        ],
+        dialogue=dialogues.shattered_sanctum_dialogue(),
+    )
+    void_throne = Location(
+        loc_id="void_throne", name="공허의 왕좌",
+        description="검은 별의 신호를 내려보내던 존재가 별이 없는 왕좌에서 기다린다.",
+        exits={"부서진 천문성소로 돌아간다": "shattered_sanctum"},
+        boss=lambda: [data.create_void_observer()],
+        dialogue=dialogues.void_throne_dialogue(),
+        loot_equipment=data.CONSTELLATION_SPEAR,
     )
 
     forest_entrance = Location(
@@ -489,6 +543,7 @@ def build_world() -> GameMap:
     return GameMap(
         locations=[
             village, elder_armory, star_observatory, fallen_star_field, star_rift,
+            astral_passage, shattered_sanctum, void_throne,
             forest_entrance, deep_forest,
             mist_marsh, sunken_boardwalk, forgotten_shrine, moonlit_spring,
             drowned_archive, echo_vault,
