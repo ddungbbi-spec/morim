@@ -593,11 +593,11 @@ RUSTY_KEY = Item(
 # 장비 (무기 / 방어구 / 장신구)
 # ---------------------------------------------------------------------------
 IRON_SWORD = Equipment(
-    name="철검", slot="weapon", attack_bonus=5,
+    name="철검", slot="weapon", attack_bonus=5, weapon_family="sword",
     description="흔하지만 튼튼한 검. 공격력 +5", price=50, rarity="common",
 )
 OAK_STAFF = Equipment(
-    name="참나무 지팡이", slot="weapon", attack_bonus=2, max_mp_bonus=8,
+    name="참나무 지팡이", slot="weapon", attack_bonus=2, max_mp_bonus=8, weapon_family="staff",
     description="마력을 담기 좋은 지팡이. 공격력 +2, 최대 MP +8", price=55, rarity="uncommon",
 )
 LEATHER_ARMOR = Equipment(
@@ -610,7 +610,7 @@ SWIFT_CHARM = Equipment(
     rarity="uncommon", evasion_rate_bonus=0.03, special_effect="회피율 +3%",
 )
 MITHRIL_DAGGER = Equipment(
-    name="미스릴 대거", slot="weapon", attack_bonus=7, speed_bonus=2,
+    name="미스릴 대거", slot="weapon", attack_bonus=7, speed_bonus=2, weapon_family="dagger",
     description="동굴 깊은 곳에서만 발견되는 희귀한 단검. 공격력 +7, 속도 +2",
     price=60, rarity="rare", critical_rate_bonus=0.10, special_effect="치명타율 +10%",
 )
@@ -625,7 +625,7 @@ DRAKE_SCALE_ARMOR = Equipment(
     price=85, rarity="rare", damage_reduction_bonus=0.05, special_effect="받는 피해 5% 감소",
 )
 SEALBREAKER_BLADE = Equipment(
-    name="봉인 해방의 검", slot="weapon", attack_bonus=10, defense_bonus=2,
+    name="봉인 해방의 검", slot="weapon", attack_bonus=10, defense_bonus=2, weapon_family="sword",
     description="봉인된 마왕을 쓰러뜨린 자만이 얻을 수 있는 전설의 검. 공격력 +10, 방어력 +2",
     price=100, rarity="legendary", critical_rate_bonus=0.15, special_effect="치명타율 +15%",
 )
@@ -665,6 +665,44 @@ STARWARD_CHARM = Equipment(
 )
 
 
+IRON_DAGGER = Equipment(
+    name="철제 단검", slot="weapon", weapon_family="dagger", attack_bonus=3,
+    speed_bonus=2, evasion_rate_bonus=0.03, price=55,
+    description="빈틈을 노리는 가벼운 단검.",
+)
+GUARD_SPEAR = Equipment(
+    name="수비대 장창", slot="weapon", weapon_family="spear", attack_bonus=4,
+    defense_bonus=2, price=55, description="공격과 방어를 함께 챙기는 장창.",
+)
+HUNTER_BOW = Equipment(
+    name="사냥꾼 장궁", slot="weapon", weapon_family="bow", attack_bonus=4,
+    critical_rate_bonus=0.08, price=60, description="급소를 겨누는 장궁.",
+)
+BATTLE_AXE = Equipment(
+    name="전투 도끼", slot="weapon", weapon_family="axe", attack_bonus=8,
+    speed_bonus=-2, price=60, description="무겁지만 일격이 강력한 도끼.",
+)
+SHOP_WEAPONS = [IRON_SWORD, OAK_STAFF, IRON_DAGGER, GUARD_SPEAR, HUNTER_BOW, BATTLE_AXE]
+RANDOM_WEAPON_BASES = [
+    ("강철검", "sword"), ("여행자 지팡이", "staff"),
+    ("정찰 단검", "dagger"), ("수호 장창", "spear"),
+    ("추적자 장궁", "bow"), ("강철 도끼", "axe"),
+]
+
+
+def infer_weapon_family(name: str, slot: str) -> str:
+    """구버전 장비의 수치는 보존하고 알려진 무기 이름만 분류한다."""
+    if slot != "weapon":
+        return ""
+    known = EQUIPMENT_BY_NAME.get(name)
+    if known:
+        return known.weapon_family
+    for base, family in RANDOM_WEAPON_BASES:
+        if base in name:
+            return family
+    return ""
+
+
 RANDOM_EQUIPMENT_BASES = [
     ("강철검", "weapon"),
     ("여행자 지팡이", "weapon"),
@@ -690,6 +728,9 @@ def generate_random_equipment(level: int) -> Equipment:
         ["common", "uncommon", "rare", "legendary"], weights=RARITY_WEIGHTS, k=1,
     )[0]
     base_name, slot = random.choice(RANDOM_EQUIPMENT_BASES)
+    family = ""
+    if slot == "weapon":
+        base_name, family = random.choice(RANDOM_WEAPON_BASES)
     bonuses = {
         "attack_bonus": 0, "defense_bonus": 0, "speed_bonus": 0,
         "max_hp_bonus": 0, "max_mp_bonus": 0,
@@ -698,6 +739,20 @@ def generate_random_equipment(level: int) -> Equipment:
     }
     if slot == "weapon":
         bonuses["attack_bonus"] = 2 + level
+        if family == "staff":
+            bonuses["attack_bonus"] = max(1, level)
+            bonuses["max_mp_bonus"] = 6 + level * 2
+        elif family == "dagger":
+            bonuses["attack_bonus"] = 1 + level
+            bonuses["speed_bonus"] = 2
+            bonuses["evasion_rate_bonus"] = 0.03
+        elif family == "spear":
+            bonuses["defense_bonus"] = 1 + level // 3
+        elif family == "bow":
+            bonuses["critical_rate_bonus"] = 0.08
+        elif family == "axe":
+            bonuses["attack_bonus"] = 5 + level
+            bonuses["speed_bonus"] = -2
     elif slot == "armor":
         bonuses["defense_bonus"] = 1 + level
         bonuses["max_hp_bonus"] = 3 + level * 2
@@ -718,14 +773,14 @@ def generate_random_equipment(level: int) -> Equipment:
     }
     for field, label in stat_labels.items():
         if bonuses[field]:
-            stat_parts.append(f"{label} +{bonuses[field]}")
+            stat_parts.append(f"{label} {bonuses[field]:+d}")
     if bonuses["critical_rate_bonus"]:
         stat_parts.append(f"치명타율 +{bonuses['critical_rate_bonus']:.0%}")
     if bonuses["evasion_rate_bonus"]:
         stat_parts.append(f"회피율 +{bonuses['evasion_rate_bonus']:.0%}")
 
     return Equipment(
-        name=f"Lv.{level} {base_name}{suffix}", slot=slot,
+        name=f"Lv.{level} {base_name}{suffix}", slot=slot, weapon_family=family,
         description=", ".join(stat_parts),
         price=int((18 + level * 9) * RARITY_PRICE_MULTIPLIERS[rarity]),
         rarity=rarity, special_effect="/".join(affix_names), generated=True,
@@ -760,6 +815,7 @@ ITEMS_BY_NAME = {it.name: it for it in [POTION, ETHER, ANTIDOTE, MOONLIGHT_TONIC
 EQUIPMENT_BY_NAME = {
     e.name: e for e in [
         IRON_SWORD, OAK_STAFF, LEATHER_ARMOR, SWIFT_CHARM,
+        IRON_DAGGER, GUARD_SPEAR, HUNTER_BOW, BATTLE_AXE,
         MITHRIL_DAGGER, LEGENDARY_ARMOR, DRAKE_SCALE_ARMOR, SEALBREAKER_BLADE, LUCKY_RING,
         MIST_CLOAK,
         ELDER_GUARDIAN_SIGIL,

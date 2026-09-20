@@ -118,8 +118,8 @@ def build_world() -> GameMap:
             ),
             Shop(
                 "바람칼 무기점",
-                equipment=[data.IRON_SWORD, data.OAK_STAFF],
-                description="전사와 마법사를 위한 무기를 취급한다.",
+                equipment=list(data.SHOP_WEAPONS),
+                description="검·지팡이·단검·창·활·도끼, 여섯 계열의 무기를 취급한다.",
             ),
             Shop(
                 "철벽 방어구점",

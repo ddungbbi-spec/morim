@@ -826,6 +826,8 @@ class WebGame:
             "display_name": item.display_name,
             "slot": item.slot,
             "slot_name": SLOT_NAMES_KR[item.slot],
+            "weapon_family": item.weapon_family,
+            "family_label": item.family_label,
             "description": item.display_description,
             "special_effect": item.special_effect,
             "price": item.price,

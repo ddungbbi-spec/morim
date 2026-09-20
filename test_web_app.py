@@ -90,9 +90,10 @@ class WebGameTests(unittest.TestCase):
         self.assertTrue(self.game.flags["star_rift_closed"])
         self.assertEqual(self.game.quest_log.status("fallen_star"), "ready")
         self.assertEqual(sum(item.name == "별의 수호 부적" for item in self.game.equipment_inventory), 1)
-        self.assertTrue(self.game.move("유성 낙하지로 돌아간다")["ok"])
-        self.assertTrue(self.game.move("관측소로 돌아간다")["ok"])
-        self.assertTrue(self.game.move("마을로 돌아간다")["ok"])
+        with patch("web_app.random.random", return_value=0.99):
+            self.assertTrue(self.game.move("유성 낙하지로 돌아간다")["ok"])
+            self.assertTrue(self.game.move("관측소로 돌아간다")["ok"])
+            self.assertTrue(self.game.move("마을로 돌아간다")["ok"])
         before = self.game.party.gold
         self.assertTrue(self.game.quest_action("claim", "fallen_star")["ok"])
         self.assertEqual(self.game.party.gold, before + 110)

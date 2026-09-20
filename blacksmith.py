@@ -44,6 +44,7 @@ def matching_material_indices(
     matches = [
         index for index, item in enumerate(equipment_inventory)
         if index != target_index and item.name == target.name and item.enhancement_level == 0
+        and item.slot == target.slot and item.weapon_family == target.weapon_family
     ]
     return sorted(matches, key=lambda index: equipment_inventory[index].enhancement_level)
 

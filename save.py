@@ -15,7 +15,7 @@ from typing import List, Optional, Tuple
 
 from models import (
     PlayerCharacter, Party, Item, Equipment, StatusEffect,
-    EQUIPMENT_SLOTS, EQUIPMENT_RARITIES,
+    EQUIPMENT_SLOTS, EQUIPMENT_RARITIES, WEAPON_FAMILIES,
 )
 from map import GameMap
 import data
@@ -63,6 +63,7 @@ def _equipment_to_dict(eq: Equipment) -> dict:
         "special_effect": eq.special_effect,
         "generated": eq.generated,
         "enhancement_level": eq.enhancement_level,
+        "weapon_family": eq.weapon_family,
     }
 
 
@@ -87,8 +88,14 @@ def _equipment_from_data(record):
     if rarity not in EQUIPMENT_RARITIES:
         raise SaveGameError(f"알 수 없는 장비 등급입니다: {rarity}")
 
+    family = record.get("weapon_family", data.infer_weapon_family(record["name"], record["slot"]))
+    if not isinstance(family, str) or (family and family not in WEAPON_FAMILIES):
+        raise SaveGameError("알 수 없는 무기 계열입니다.")
+    if record["slot"] != "weapon" and family:
+        raise SaveGameError("무기 이외의 장비에는 무기 계열을 지정할 수 없습니다.")
     return Equipment(
         name=record["name"], slot=record["slot"],
+        weapon_family=family,
         attack_bonus=record.get("attack_bonus", 0),
         defense_bonus=record.get("defense_bonus", 0),
         speed_bonus=record.get("speed_bonus", 0),

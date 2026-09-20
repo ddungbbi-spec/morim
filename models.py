@@ -97,6 +97,12 @@ class StatusEffect:
     description: str = ""
 
 
+WEAPON_FAMILIES = {
+    "sword": "검", "staff": "지팡이", "dagger": "단검",
+    "spear": "창", "bow": "활", "axe": "도끼",
+}
+
+
 @dataclass
 class Equipment:
     """장비 아이템 (무기/방어구/장신구). 착용하면 스탯 보너스를 준다."""
@@ -116,6 +122,11 @@ class Equipment:
     special_effect: str = ""
     generated: bool = False
     enhancement_level: int = 0
+    weapon_family: str = ""
+
+    @property
+    def family_label(self) -> str:
+        return WEAPON_FAMILIES.get(self.weapon_family, "기타 무기") if self.slot == "weapon" else ""
 
     @property
     def stat_text(self) -> str:
@@ -136,7 +147,7 @@ class Equipment:
     def display_description(self) -> str:
         # Old saves may contain pre-enhancement numbers in description.
         # Keep that flavor text stored, but derive displayed stats from fields.
-        return self.stat_text
+        return f"{self.family_label} 계열 · {self.stat_text}" if self.slot == "weapon" else self.stat_text
 
     @property
     def display_name(self) -> str:
