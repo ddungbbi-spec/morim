@@ -168,7 +168,7 @@ h2 { font-size: 1.3rem; }
 .encounter strong { display: block; margin-bottom: 7px; }
 .encounter span { color: var(--muted); font-size: .73rem; line-height: 1.5; }
 
-.command-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 9px; margin-top: 16px; }
+.command-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 9px; margin-top: 16px; }
 .command-button, .choice-button, .ghost {
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -177,7 +177,7 @@ h2 { font-size: 1.3rem; }
   cursor: pointer;
   transition: background .15s ease, border-color .15s ease, transform .15s ease;
 }
-.command-button { padding: 13px 8px; font-weight: 800; }
+.command-button { padding: 13px 10px; font-weight: 800; line-height: 1.4; word-break: keep-all; overflow-wrap: anywhere; }
 .command-button:hover, .choice-button:hover, .ghost:hover { border-color: var(--cyan); background: #20314e; }
 .command-button:active, .choice-button:active { transform: scale(.98); }
 .command-button.danger { color: #ffb0b4; }
@@ -263,7 +263,7 @@ footer { border-top: 1px solid var(--line); margin-top: 8px; }
   .encounters { grid-template-columns: 1fr; }
   .setup-members { grid-template-columns: 1fr; }
   .setup-member input, .setup-member select { min-height: 44px; font-size: 16px; }
-  .command-grid { grid-template-columns: repeat(3, 1fr); }
+  .command-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .log { height: 240px; }
   footer { font-size: .68rem; }
 }
