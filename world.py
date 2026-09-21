@@ -51,6 +51,11 @@ MAP_REGIONS = [
         "locations": ("astral_passage", "shattered_sanctum", "void_throne"),
         "unlock_flag": "star_rift_closed", "unlock_description": "별의 균열 봉쇄 필요",
     },
+    {
+        "id": "abyss", "name": "심연 변이 던전", "description": "위험 변이가 무작위로 겹치는 4층 반복 원정",
+        "locations": ("abyss_dungeon",),
+        "unlock_flag": "demon_lord_defeated", "unlock_description": "봉인된 마왕 처치 필요",
+    },
 ]
 LOCATION_REGION = {
     location_id: region["id"]
@@ -158,6 +163,7 @@ def build_world() -> GameMap:
             "장로의 비밀 무기고로 들어간다": "elder_armory",
             "북쪽 관측소로 향한다": "star_observatory",
             "별빛 항로로 향한다": "astral_passage",
+            "심연 변이 던전에 도전한다": "abyss_dungeon",
         },
         flag_requirements={
             "북쪽 관측소로 향한다": FlagRequirement(
@@ -174,6 +180,11 @@ def build_world() -> GameMap:
                 flag="star_rift_closed",
                 description="별의 균열 봉쇄 필요",
                 failure_message="별의 균열을 먼저 닫아야 별빛 항로의 좌표를 고정할 수 있다.",
+            ),
+            "심연 변이 던전에 도전한다": FlagRequirement(
+                flag="demon_lord_defeated",
+                description="봉인된 마왕 처치 필요",
+                failure_message="봉인된 마왕을 처치한 원정대만 심연의 입구를 견딜 수 있다.",
             ),
         },
         dialogue=dialogues.village_intro_dialogue(),
@@ -443,6 +454,12 @@ def build_world() -> GameMap:
         dialogue=dialogues.final_confrontation_dialogue(),
         loot_equipment=data.SEALBREAKER_BLADE,
     )
+    abyss_dungeon = Location(
+        loc_id="abyss_dungeon",
+        name="심연 변이 던전",
+        description="진입할 때마다 적 조합과 위험 변이가 달라진다. 층을 더 내려갈수록 누적 보상이 커진다.",
+        exits={"누적 보상을 확정하고 마을로 귀환한다": "village"},
+    )
 
     cave = Location(
         loc_id="cave",
@@ -596,7 +613,7 @@ def build_world() -> GameMap:
         forest_entrance, deep_forest,
         mist_marsh, sunken_boardwalk, forgotten_shrine, moonlit_spring,
         drowned_archive, echo_vault,
-        shadow_valley, ruins, seal_gate, final_chamber,
+        shadow_valley, ruins, seal_gate, final_chamber, abyss_dungeon,
         cave, cave_treasure, cave_vault, ending,
         tower_floor_1, tower_floor_2, tower_floor_3, tower_summit,
         mine_entrance, mine_deep, mine_depths,

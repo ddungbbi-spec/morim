@@ -213,18 +213,23 @@ function renderCommands() {
       <button class="command-button danger" onclick="sendAction({type:'flee'})">도주</button>`;
     renderChoicePanel();
   } else if (exploreEnabled) {
-    $("#commandTitle").textContent = "이동";
+    $("#commandTitle").textContent = gameState.location.id === "abyss_dungeon"
+      ? `심연 ${gameState.dungeon.depth}/${gameState.dungeon.max_depth} · ${gameState.dungeon.modifier}`
+      : "이동";
     const moves = gameState.location.exits.map((exit) => {
       const encoded = encodeURIComponent(exit.label);
       const lock = exit.locked ? ` · 🔒 ${escapeHtml(exit.lock_reason || exit.required_item)}` : "";
       const returnClass = exit.target_id === "village" && gameState.location.id !== "village" ? " utility" : "";
-      return `<button class="command-button${returnClass}" onclick="moveTo('${encoded}')">${escapeHtml(exit.label)}${lock}</button>`;
+      const action = exit.target_id === "abyss_dungeon" && !exit.locked
+        ? "dungeonRequest('enter')" : `moveTo('${encoded}')`;
+      return `<button class="command-button${returnClass}" onclick="${action}">${escapeHtml(exit.label)}${lock}</button>`;
     }).join("");
     const utilities = `${gameState.shop ? `<button class="command-button utility" onclick="openUtility('shop')">상점</button>` : ""}
       ${gameState.inn ? `<button class="command-button utility" onclick="innRequest()">여관 · 전원 회복</button>` : ""}
       ${gameState.blacksmith ? `<button class="command-button utility" onclick="openUtility('blacksmith')">대장간 · 장비 강화</button>` : ""}
       ${gameState.boss_retry?.available ? `<button class="command-button danger" onclick="bossRetry()">보스에게 다시 도전</button>` : ""}
       ${gameState.tower?.can_retry ? `<button class="command-button utility" onclick="towerRetry()">도전의 탑 ${gameState.tower.next_tier}단계 개방</button>` : ""}
+      ${gameState.location.id === "abyss_dungeon" && gameState.dungeon.active ? `<button class="command-button danger" onclick="dungeonRequest('advance')">다음 층 도전 · ${gameState.dungeon.depth + 1}/${gameState.dungeon.max_depth}</button>` : ""}
       <button class="command-button utility" onclick="openUtility('equipment')">장비</button>
       ${gameState.location.id === "village" ? `<button class="command-button utility" onclick="openUtility('quest')">의뢰 게시판</button>` : ""}
       ${gameState.location.id === "village" ? `<button class="command-button utility" onclick="openUtility('advancement')">전직 교관 · 2차 직업</button>` : ""}
@@ -441,6 +446,14 @@ function towerRetry() {
     request("/api/tower", {operation: "reset"});
   }
 }
+function dungeonRequest(operation) {
+  const messages = {
+    enter: `입장 준비금 ${gameState.dungeon.entry_fee}G를 내고 심연 원정을 시작할까요?`,
+    advance: "다음 층으로 내려갈까요? 전멸하면 누적 보상을 잃습니다.",
+    retreat: `${gameState.dungeon.reward_bank}G를 확정하고 마을로 귀환할까요?`,
+  };
+  if (confirm(messages[operation])) request("/api/dungeon", {operation});
+}
 function bossRetry() {
   if (confirm(`${gameState.boss_retry.location_name}의 보스에게 다시 도전할까요?`)) {
     request("/api/boss", {operation: "retry"});
@@ -536,7 +549,7 @@ function playResponseTone(path, before, after) {
   if (after === "battle" && before !== "battle") return playTone("battle");
   if (after === "victory" || after === "ending") return playTone("victory");
   if (after === "dialogue" && before !== "dialogue") return playTone("dialogue");
-  if (["/api/action", "/api/shop", "/api/inn", "/api/blacksmith", "/api/tower", "/api/boss", "/api/equipment", "/api/quest", "/api/advancement", "/api/save"].includes(path)) return playTone("confirm");
+  if (["/api/action", "/api/shop", "/api/inn", "/api/blacksmith", "/api/tower", "/api/dungeon", "/api/boss", "/api/equipment", "/api/quest", "/api/advancement", "/api/save"].includes(path)) return playTone("confirm");
   if (path === "/api/move") return playTone("move");
 }
 

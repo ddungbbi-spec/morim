@@ -690,7 +690,7 @@ class GameTests(unittest.TestCase):
     def test_world_regions_cover_every_location_once(self):
         game_map = build_world()
         grouped = [location_id for region in MAP_REGIONS for location_id in region["locations"]]
-        self.assertEqual(len(MAP_REGIONS), 8)
+        self.assertEqual(len(MAP_REGIONS), 9)
         self.assertEqual(len(grouped), len(set(grouped)))
         self.assertEqual(set(grouped), set(game_map.locations))
 
@@ -714,7 +714,7 @@ class GameTests(unittest.TestCase):
 
     def test_mist_marsh_expansion_is_connected_and_reward_registered(self):
         game_map = build_world()
-        self.assertEqual(len(game_map.locations), 31)
+        self.assertEqual(len(game_map.locations), 32)
         self.assertEqual(
             game_map.locations["deep_forest"].exits["안개 습지로 들어간다"],
             "mist_marsh",

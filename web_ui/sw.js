@@ -1,4 +1,4 @@
-const CACHE_NAME = "undefined-legend-v27";
+const CACHE_NAME = "undefined-legend-v28";
 const APP_SHELL = [
   "/",
   "/styles.css",

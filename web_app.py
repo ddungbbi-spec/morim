@@ -35,6 +35,10 @@ from world import (
     region_for_location,
     reset_tower_challenge, tower_challenge_tier, tower_clear_count,
 )
+from dungeon import (
+    DUNGEON_ENTRY_FEE, DUNGEON_LOCATION_ID, DUNGEON_MAX_DEPTH,
+    create_dungeon_floor, dungeon_clear_count, floor_bank_reward,
+)
 
 
 WEB_ROOT = Path(__file__).with_name("web_ui")
@@ -147,6 +151,16 @@ class WebGame:
         if exit_label not in location.exits:
             return self._error("이동할 길을 찾을 수 없습니다.")
 
+        target_id = location.exits[exit_label]
+        if target_id == DUNGEON_LOCATION_ID:
+            return self.dungeon_action("enter")
+        if (
+            location.id == DUNGEON_LOCATION_ID
+            and target_id == "village"
+            and self.flags.get("dungeon_active")
+        ):
+            return self.dungeon_action("retreat")
+
         requirement = location.flag_requirements.get(exit_label)
         if requirement and not requirement.is_met(self.flags):
             return self._error(requirement.failure_message)
@@ -235,6 +249,83 @@ class WebGame:
             f"도전의 탑 {tower_challenge_tier(self.flags)}단계가 열렸습니다. "
             "탑의 수호자가 더욱 강해졌습니다."
         )
+        return {"ok": True, "state": self.state()}
+
+    def _start_dungeon_floor(self) -> None:
+        enemies, modifier = create_dungeon_floor(self.flags)
+        self.flags["dungeon_modifier"] = modifier["id"]
+        self.flags["dungeon_modifier_name"] = modifier["name"]
+        self.flags["dungeon_modifier_description"] = modifier["description"]
+        self.flags["dungeon_modifier_reward"] = modifier["reward"]
+        depth = int(self.flags["dungeon_depth"])
+        self._log(
+            f"심연 {depth}층 위험 변이: {modifier['name']} · {modifier['description']}"
+        )
+        self._begin_battle(enemies, "dungeon", f"심연 변이 던전 · {depth}층")
+
+    def _finish_dungeon_run(self, full_clear: bool) -> None:
+        bank = max(0, int(self.flags.get("dungeon_reward_bank", 0)))
+        self.party.gold += bank
+        if bank:
+            self._log(f"심연 누적 보상 {bank}G를 확정했습니다.")
+        if full_clear:
+            clear_count = dungeon_clear_count(self.flags) + 1
+            self.flags["dungeon_clear_count"] = clear_count
+            party_level = max((member.level for member in self.party.members), default=1)
+            equipment = data.generate_random_equipment(
+                max(party_level + 2, DUNGEON_MAX_DEPTH + clear_count + 1)
+            )
+            self.equipment_inventory.append(equipment)
+            self._log(f"심연 완주 보상: {equipment.display_name}")
+        self.flags["dungeon_active"] = False
+        self.flags["dungeon_reward_bank"] = 0
+        self.flags["dungeon_cleared_depth"] = 0
+        self.game_map.move_to("village")
+        self.enemies = []
+        self.phase = "explore"
+        self.current_actor = None
+        self.result_message = "심연 원정을 마치고 시작 마을로 귀환했습니다."
+
+    def dungeon_action(self, operation: str) -> dict:
+        if operation == "enter":
+            if self.phase != "explore" or self.game_map.current_id != "village":
+                return self._error("심연 원정은 시작 마을에서 준비할 수 있습니다.")
+            if not self.flags.get("demon_lord_defeated"):
+                return self._error("봉인된 마왕을 처치한 뒤에 입장할 수 있습니다.")
+            if self.party.gold < DUNGEON_ENTRY_FEE:
+                return self._error(f"입장 준비금 {DUNGEON_ENTRY_FEE}G가 필요합니다.")
+            self.party.gold -= DUNGEON_ENTRY_FEE
+            self.flags.update({
+                "dungeon_active": True, "dungeon_depth": 1,
+                "dungeon_cleared_depth": 0, "dungeon_reward_bank": 0,
+            })
+            self.game_map.move_to(DUNGEON_LOCATION_ID)
+            self._log(f"{DUNGEON_ENTRY_FEE}G를 사용해 심연 변이 던전에 진입했습니다.")
+            self._start_dungeon_floor()
+        elif operation == "advance":
+            if (
+                self.phase != "explore" or self.game_map.current_id != DUNGEON_LOCATION_ID
+                or not self.flags.get("dungeon_active")
+            ):
+                return self._error("현재 심연 원정을 진행하고 있지 않습니다.")
+            depth = int(self.flags.get("dungeon_depth", 1))
+            if int(self.flags.get("dungeon_cleared_depth", 0)) != depth:
+                return self._error("현재 층의 적을 먼저 처치하세요.")
+            if depth >= DUNGEON_MAX_DEPTH:
+                return self._error("심연 최하층을 이미 돌파했습니다.")
+            self.flags["dungeon_depth"] = depth + 1
+            self._start_dungeon_floor()
+        elif operation == "retreat":
+            if (
+                self.phase != "explore" or self.game_map.current_id != DUNGEON_LOCATION_ID
+                or not self.flags.get("dungeon_active")
+            ):
+                return self._error("확정할 심연 원정 보상이 없습니다.")
+            if int(self.flags.get("dungeon_cleared_depth", 0)) < 1:
+                return self._error("첫 층을 돌파해야 안전하게 귀환할 수 있습니다.")
+            self._finish_dungeon_run(False)
+        else:
+            return self._error("지원하지 않는 심연 원정 행동입니다.")
         return {"ok": True, "state": self.state()}
 
     def boss_action(self, operation: str) -> dict:
@@ -598,6 +689,24 @@ class WebGame:
             self._victory()
             return True
         if self.party.is_wiped_out:
+            if self.battle_context == "dungeon":
+                lost = max(0, int(self.flags.get("dungeon_reward_bank", 0)))
+                self.flags["dungeon_active"] = False
+                self.flags["dungeon_reward_bank"] = 0
+                self.flags["dungeon_cleared_depth"] = 0
+                for member in self.party.members:
+                    member.hp = max(1, member.effective_max_hp // 4)
+                    member.mp = 0
+                    member.status_effects = []
+                    member.guarding = False
+                self.game_map.move_to("village")
+                self.enemies = []
+                self.phase = "explore"
+                self.battle_context = ""
+                self.current_actor = None
+                self.result_message = "심연에서 구조되어 시작 마을로 돌아왔습니다."
+                self._log(f"심연 원정 실패. 누적 보상 {lost}G를 잃었습니다.")
+                return True
             self.phase = "defeat"
             self.result_message = "파티가 전멸했습니다."
             self.current_actor = None
@@ -688,6 +797,21 @@ class WebGame:
                     self.result_message = "최종 보스를 처치하고 시작 마을로 귀환했습니다."
         elif context == "random":
             self._enter_current_location()
+        elif context == "dungeon":
+            depth = int(self.flags.get("dungeon_depth", 1))
+            modifier = {
+                "reward": float(self.flags.get("dungeon_modifier_reward", 1.0)),
+            }
+            earned = floor_bank_reward(depth, modifier, dungeon_clear_count(self.flags))
+            self.flags["dungeon_reward_bank"] = int(
+                self.flags.get("dungeon_reward_bank", 0)
+            ) + earned
+            self.flags["dungeon_cleared_depth"] = depth
+            self.phase = "explore"
+            self.result_message = f"심연 {depth}층 돌파 · 누적 보상 {self.flags['dungeon_reward_bank']}G"
+            self._log(f"심연 {depth}층 보상 {earned}G가 임시 보관되었습니다.")
+            if depth >= DUNGEON_MAX_DEPTH:
+                self._finish_dungeon_run(True)
         else:
             self.phase = "victory"
             self.result_message = "전투에서 승리했습니다. 다음 전투를 선택할 수 있습니다."
@@ -762,6 +886,9 @@ class WebGame:
 
     def _attempt_flee(self) -> bool:
         alive_enemies = [enemy for enemy in self.enemies if enemy.is_alive]
+        if self.battle_context == "dungeon":
+            self._log("심연 변이 던전에서는 전투 중 도망칠 수 없습니다.")
+            return False
         if any(enemy.job in BOSS_JOBS for enemy in alive_enemies):
             self._log("보스 전투에서는 도망칠 수 없습니다.")
             return False
@@ -1147,6 +1274,18 @@ class WebGame:
                 ),
                 "active": bool(self.flags.get("tower_challenge_active")),
             },
+            "dungeon": {
+                "unlocked": bool(self.flags.get("demon_lord_defeated")),
+                "entry_fee": DUNGEON_ENTRY_FEE,
+                "active": bool(self.flags.get("dungeon_active")),
+                "depth": int(self.flags.get("dungeon_depth", 0)),
+                "max_depth": DUNGEON_MAX_DEPTH,
+                "cleared_depth": int(self.flags.get("dungeon_cleared_depth", 0)),
+                "reward_bank": int(self.flags.get("dungeon_reward_bank", 0)),
+                "modifier": self.flags.get("dungeon_modifier_name", ""),
+                "modifier_description": self.flags.get("dungeon_modifier_description", ""),
+                "clear_count": dungeon_clear_count(self.flags),
+            },
             "equipment_inventory": [
                 {"index": index, **self._equipment_state(item)}
                 for index, item in enumerate(self.equipment_inventory)
@@ -1301,6 +1440,8 @@ class GameHandler(BaseHTTPRequestHandler):
                 )
             elif self.path == "/api/tower":
                 result = game.tower_action(payload.get("operation", ""))
+            elif self.path == "/api/dungeon":
+                result = game.dungeon_action(payload.get("operation", ""))
             elif self.path == "/api/boss":
                 result = game.boss_action(payload.get("operation", ""))
             elif self.path == "/api/equipment":

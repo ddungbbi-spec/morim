@@ -533,7 +533,7 @@ class WebGameTests(unittest.TestCase):
     def test_world_and_region_maps_are_separate_and_track_progress(self):
         state = self.game.state()
         self.assertEqual(state["maps"]["current_region_id"], "village")
-        self.assertEqual(len(state["maps"]["world"]), 8)
+        self.assertEqual(len(state["maps"]["world"]), 9)
         astral = next(region for region in state["maps"]["world"] if region["id"] == "astral")
         self.assertTrue(astral["locked"])
         village_nodes = {node["id"]: node for node in state["maps"]["region"]["locations"]}
@@ -557,6 +557,88 @@ class WebGameTests(unittest.TestCase):
         self.assertFalse(forest_nodes["deep_forest"]["visited"])
         world_forest = next(region for region in state["maps"]["world"] if region["id"] == "forest")
         self.assertEqual(world_forest["visited_count"], 1)
+
+    def test_high_risk_dungeon_unlock_entry_and_safe_extraction(self):
+        self.finish_intro()
+        self.game.party.gold = 200
+        locked = self.game.dungeon_action("enter")
+        self.assertFalse(locked["ok"])
+        self.game.flags["demon_lord_defeated"] = True
+        with patch("dungeon.random.choice", side_effect=lambda values: values[0]):
+            entered = self.game.dungeon_action("enter")
+        self.assertTrue(entered["ok"])
+        self.assertEqual(self.game.party.gold, 150)
+        self.assertEqual(self.game.game_map.current_id, "abyss_dungeon")
+        self.assertEqual(self.game.phase, "battle")
+        self.assertEqual(self.game.state()["dungeon"]["modifier"], "광폭화")
+
+        with patch("web_app.random.random", return_value=0.99):
+            self.game._victory()
+        bank = self.game.state()["dungeon"]["reward_bank"]
+        self.assertGreater(bank, 0)
+        self.assertEqual(self.game.phase, "explore")
+        gold_before_extract = self.game.party.gold
+        result = self.game.move("누적 보상을 확정하고 마을로 귀환한다")
+        self.assertTrue(result["ok"])
+        self.assertEqual(self.game.party.gold, gold_before_extract + bank)
+        self.assertEqual(self.game.game_map.current_id, "village")
+        self.assertFalse(self.game.flags["dungeon_active"])
+
+    def test_high_risk_dungeon_full_clear_grants_equipment_and_scales(self):
+        self.finish_intro()
+        self.game.party.gold = 500
+        self.game.flags["demon_lord_defeated"] = True
+        with patch("dungeon.random.choice", side_effect=lambda values: values[-1]):
+            self.assertTrue(self.game.dungeon_action("enter")["ok"])
+            first_floor_hp = self.game.enemies[0].max_hp
+            with patch("web_app.random.random", return_value=0.99):
+                self.game._victory()
+            for expected_depth in (2, 3, 4):
+                self.assertTrue(self.game.dungeon_action("advance")["ok"])
+                self.assertEqual(self.game.flags["dungeon_depth"], expected_depth)
+                if expected_depth == 2:
+                    self.assertGreater(self.game.enemies[0].max_hp, first_floor_hp)
+                with patch("web_app.random.random", return_value=0.99), patch(
+                    "web_app.data.generate_random_equipment", return_value=data.IRON_SWORD
+                ):
+                    self.game._victory()
+        self.assertEqual(self.game.game_map.current_id, "village")
+        self.assertEqual(self.game.flags["dungeon_clear_count"], 1)
+        self.assertIn(data.IRON_SWORD, self.game.equipment_inventory)
+        self.assertFalse(self.game.flags["dungeon_active"])
+
+    def test_high_risk_dungeon_wipe_loses_bank_but_run_continues(self):
+        self.finish_intro()
+        self.game.flags.update({
+            "demon_lord_defeated": True,
+            "dungeon_active": True,
+            "dungeon_reward_bank": 120,
+            "dungeon_cleared_depth": 2,
+            "dungeon_depth": 3,
+        })
+        self.game.game_map.move_to("abyss_dungeon")
+        self.game._begin_battle([data.create_void_sentinel()], "dungeon", "전멸 시험")
+        for member in self.game.party.members:
+            member.hp = 0
+        self.assertTrue(self.game._finish_if_needed())
+        self.assertEqual(self.game.game_map.current_id, "village")
+        self.assertEqual(self.game.phase, "explore")
+        self.assertEqual(self.game.flags["dungeon_reward_bank"], 0)
+        self.assertTrue(all(member.hp >= 1 for member in self.game.party.members))
+        self.assertTrue(any("120G" in message for message in self.game.logs))
+
+    def test_high_risk_dungeon_blocks_flee(self):
+        self.finish_intro()
+        self.game.flags["demon_lord_defeated"] = True
+        self.game.party.gold = 100
+        with patch("dungeon.random.choice", side_effect=lambda values: values[0]):
+            self.game.dungeon_action("enter")
+        actor = self.game.current_actor
+        result = self.game.act({"type": "flee"})
+        self.assertTrue(result["ok"])
+        self.assertEqual(self.game.phase, "battle")
+        self.assertTrue(any("도망칠 수 없습니다" in message for message in self.game.logs))
+        self.assertIsNot(self.game.current_actor, actor)
 
     def test_village_inn_fully_restores_party(self):
         self.finish_intro()
