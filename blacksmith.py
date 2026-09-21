@@ -8,7 +8,8 @@ from models import Equipment, Party
 
 MAX_ENHANCEMENT = 5
 RARITY_COST_MULTIPLIERS = {
-    "common": 1.0, "uncommon": 1.2, "rare": 1.5, "legendary": 2.0,
+    "common": 1.0, "uncommon": 1.2, "rare": 1.5,
+    "epic": 1.8, "legendary": 2.2,
 }
 
 STAR_ORE_NAME = "성운석"

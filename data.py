@@ -4,7 +4,10 @@ data.py
 새로운 스토리/던전/보스를 추가할 때는 주로 이 파일을 편집하면 됩니다.
 """
 
-from models import BossPhase, Skill, SkillGrowth, Item, Equipment, PlayerCharacter, Enemy
+from models import (
+    BossPhase, Skill, SkillGrowth, Item, Equipment, PlayerCharacter, Enemy,
+    EQUIPMENT_RARITIES,
+)
 import random
 
 
@@ -938,16 +941,20 @@ RANDOM_AFFIXES = [
     ("신속", {"speed_bonus": 2, "evasion_rate_bonus": 0.03}),
     ("집중", {"critical_rate_bonus": 0.05}),
 ]
-RARITY_WEIGHTS = [0.55, 0.30, 0.12, 0.03]
-RARITY_AFFIX_COUNTS = {"common": 0, "uncommon": 1, "rare": 2, "legendary": 3}
-RARITY_PRICE_MULTIPLIERS = {"common": 1.0, "uncommon": 1.4, "rare": 2.0, "legendary": 3.2}
+RARITY_WEIGHTS = [0.54, 0.28, 0.12, 0.05, 0.01]
+RARITY_AFFIX_COUNTS = {
+    "common": 0, "uncommon": 1, "rare": 2, "epic": 3, "legendary": 4,
+}
+RARITY_PRICE_MULTIPLIERS = {
+    "common": 1.0, "uncommon": 1.4, "rare": 2.0, "epic": 2.8, "legendary": 4.0,
+}
 
 
 def generate_random_equipment(level: int) -> Equipment:
     """몬스터가 떨어뜨릴 레벨 비례 장비와 무작위 등급·옵션을 생성한다."""
     level = max(1, level)
     rarity = random.choices(
-        ["common", "uncommon", "rare", "legendary"], weights=RARITY_WEIGHTS, k=1,
+        EQUIPMENT_RARITIES, weights=RARITY_WEIGHTS, k=1,
     )[0]
     base_name, slot = random.choice(RANDOM_EQUIPMENT_BASES)
     family = ""

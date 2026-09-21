@@ -236,6 +236,10 @@ class WebGameTests(unittest.TestCase):
             {icon["sizes"] for icon in manifest["icons"]},
             {"192x192", "512x512", "any"},
         )
+        with open(Path(WEB_ROOT) / "app.js", encoding="utf-8") as stream:
+            self.assertIn("function rarityClass", stream.read())
+        with open(Path(WEB_ROOT) / "styles.css", encoding="utf-8") as stream:
+            self.assertIn(".utility-card.rarity-epic", stream.read())
 
     def test_boss_phase_transition_is_reported_once_per_event(self):
         self.finish_intro()

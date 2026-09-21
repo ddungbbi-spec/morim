@@ -71,9 +71,10 @@ class Item:
 
 
 EQUIPMENT_SLOTS = ["weapon", "armor", "accessory"]
-EQUIPMENT_RARITIES = ["common", "uncommon", "rare", "legendary"]
+EQUIPMENT_RARITIES = ["common", "uncommon", "rare", "epic", "legendary"]
 RARITY_NAMES_KR = {
-    "common": "일반", "uncommon": "고급", "rare": "희귀", "legendary": "전설",
+    "common": "일반", "uncommon": "고급", "rare": "희귀",
+    "epic": "영웅", "legendary": "전설",
 }
 
 STATUS_KINDS = [

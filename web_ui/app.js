@@ -304,7 +304,7 @@ function renderUtilityPanel() {
       `${item.name} · ${item.price}G`, item.description,
       `shopRequest('buy_item',${item.index})`
     )).join("");
-    const buyEquipment = shop.equipment.map((item) => utilityButton(
+    const buyEquipment = shop.equipment.map((item) => equipmentButton(item,
       `${item.display_name} · ${item.price}G`, item.description,
       `shopRequest('buy_equipment',${item.index})`
     )).join("");
@@ -312,7 +312,7 @@ function renderUtilityPanel() {
       `${item.name} 판매 · ${item.price}G`, item.description,
       `shopRequest('sell_item',${item.index})`
     )).join("");
-    const sellEquipment = gameState.shop.sell_equipment.map((item) => utilityButton(
+    const sellEquipment = gameState.shop.sell_equipment.map((item) => equipmentButton(item,
       `${item.display_name} 판매 · ${item.price}G`, item.description,
       `shopRequest('sell_equipment',${item.index})`
     )).join("");
@@ -330,15 +330,15 @@ function renderUtilityPanel() {
         : `${item.preview} · ${item.cost}G · 미강화 재료 ${item.materials}개 보유${item.reason ? ` · ${item.reason}` : ""}`;
       const action = item.can_upgrade ? `blacksmithRequest(${item.index})` : "";
       const duplicate = action
-        ? utilityButton(`${item.display_name} · 동일 장비 강화`, detail, action)
-        : `<div class="utility-card disabled"><strong>${escapeHtml(item.display_name)}</strong><span>${escapeHtml(detail)}</span></div>`;
+        ? equipmentButton(item, `${item.display_name} · 동일 장비 강화`, detail, action)
+        : equipmentDisabledCard(item, item.display_name, detail);
       if (!gameState.blacksmith.star_unlocked) return duplicate;
       const starDetail = item.enhancement_level >= gameState.blacksmith.max_level
         ? "최대 강화 단계"
         : `${item.preview} · ${item.cost}G · 성운석 ${item.star_ore_cost}개 소비${item.star_reason ? ` · ${item.star_reason}` : ""}`;
       const star = item.can_star_upgrade
-        ? utilityButton(`${item.display_name} · 성운석 강화`, starDetail, `blacksmithRequest(${item.index},'star_ore')`)
-        : `<div class="utility-card disabled"><strong>${escapeHtml(item.display_name)} · 성운석 강화</strong><span>${escapeHtml(starDetail)}</span></div>`;
+        ? equipmentButton(item, `${item.display_name} · 성운석 강화`, starDetail, `blacksmithRequest(${item.index},'star_ore')`)
+        : equipmentDisabledCard(item, `${item.display_name} · 성운석 강화`, starDetail);
       return duplicate + star;
     }).join("");
     panel.innerHTML = utilityShell("마을 대장간", `
@@ -353,7 +353,7 @@ function renderUtilityPanel() {
     const memberTabs = gameState.party.map((character, index) => `
       <button class="mini-tab${index === equipmentMember ? " selected" : ""}" onclick="selectEquipmentMember(${index})">${escapeHtml(character.name)}</button>`).join("");
     const worn = Object.entries(member.equipment).map(([slot, item]) => item
-      ? utilityButton(`${item.slot_name}: ${item.display_name}`, item.description, `equipmentRequest('unequip',${equipmentMember},null,'${slot}')`)
+      ? equipmentButton(item, `${item.slot_name}: ${item.display_name}`, item.description, `equipmentRequest('unequip',${equipmentMember},null,'${slot}')`)
       : `<div class="empty-slot">${{weapon:"무기",armor:"방어구",accessory:"장신구"}[slot]}: 없음</div>`).join("");
     const allowedWeapons = member.allowed_weapon_families || [];
     const allowedIds = new Set(allowedWeapons.map((family) => family.id));
@@ -362,8 +362,8 @@ function renderUtilityPanel() {
       const detail = [item.description, item.special_effect, compatible ? "" : `${member.base_job || member.job} 장착 불가`]
         .filter(Boolean).join(" · ");
       return compatible
-        ? utilityButton(`${item.slot_name}: ${item.display_name}`, detail, `equipmentRequest('equip',${equipmentMember},${item.index},null)`)
-        : `<div class="utility-card disabled"><strong>${escapeHtml(item.slot_name)}: ${escapeHtml(item.display_name)}</strong><span>${escapeHtml(detail)}</span></div>`;
+        ? equipmentButton(item, `${item.slot_name}: ${item.display_name}`, detail, `equipmentRequest('equip',${equipmentMember},${item.index},null)`)
+        : equipmentDisabledCard(item, `${item.slot_name}: ${item.display_name}`, detail);
     }).join("");
     panel.innerHTML = utilityShell("장비 관리", `
       <div class="mini-tabs">${memberTabs}</div>
@@ -416,6 +416,18 @@ function utilitySection(title, content) {
 
 function utilityButton(title, detail, onclick) {
   return `<button class="utility-card" onclick="${onclick}"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(detail)}</span></button>`;
+}
+
+function rarityClass(rarity) {
+  return ["common", "uncommon", "rare", "epic", "legendary"].includes(rarity) ? `rarity-${rarity}` : "";
+}
+
+function equipmentButton(item, title, detail, onclick) {
+  return `<button class="utility-card ${rarityClass(item.rarity)}" onclick="${onclick}"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(detail)}</span></button>`;
+}
+
+function equipmentDisabledCard(item, title, detail) {
+  return `<div class="utility-card disabled ${rarityClass(item.rarity)}"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(detail)}</span></div>`;
 }
 
 function openUtility(mode) { utilityMode = mode; if (mode === "shop") shopIndex = null; renderUtilityPanel(); }

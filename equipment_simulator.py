@@ -10,7 +10,7 @@ from collections import Counter, defaultdict
 from statistics import mean
 
 import data
-from models import RARITY_NAMES_KR
+from models import EQUIPMENT_RARITIES, RARITY_NAMES_KR
 
 
 def run_analysis(samples_per_level: int = 5000, seed: int = 20260914):
@@ -29,7 +29,7 @@ def run_analysis(samples_per_level: int = 5000, seed: int = 20260914):
 
     rows = []
     for level in range(1, 9):
-        for rarity in ("common", "uncommon", "rare", "legendary"):
+        for rarity in EQUIPMENT_RARITIES:
             items = grouped[(level, rarity)]
             rows.append({
                 "level": level,
@@ -58,7 +58,7 @@ def write_outputs(output_dir: str, samples_per_level: int, seed: int) -> None:
 
     total = samples_per_level * 8
     expected = dict(zip(
-        ("common", "uncommon", "rare", "legendary"), data.RARITY_WEIGHTS,
+        EQUIPMENT_RARITIES, data.RARITY_WEIGHTS,
     ))
     lines = [
         "# 무작위 장비 분포 분석",
@@ -72,7 +72,7 @@ def write_outputs(output_dir: str, samples_per_level: int, seed: int) -> None:
         "| 등급 | 설정 확률 | 관측 확률 | 평균 옵션 수 |",
         "|---|---:|---:|---:|",
     ]
-    for rarity in ("common", "uncommon", "rare", "legendary"):
+    for rarity in EQUIPMENT_RARITIES:
         selected = [row for row in rows if row["rarity"] == rarity]
         lines.append(
             f"| {RARITY_NAMES_KR[rarity]} | {expected[rarity]:.1%} | "
@@ -91,7 +91,7 @@ def write_outputs(output_dir: str, samples_per_level: int, seed: int) -> None:
         lines.append(f"| {affix} | {count:,} |")
     lines += [
         "",
-        "등급은 설정 확률에 따라 결정되며 일반 0개, 고급 1개, 희귀 2개, 전설 3개의 서로 다른 옵션이 붙음.",
+        "등급은 설정 확률에 따라 결정되며 일반 0개, 고급 1개, 희귀 2개, 영웅 3개, 전설 4개의 서로 다른 옵션이 붙음.",
     ]
 
     report_path = os.path.join(output_dir, "equipment_distribution_report.md")

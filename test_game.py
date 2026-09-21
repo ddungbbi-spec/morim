@@ -7,6 +7,7 @@ import os
 import tempfile
 import unittest
 from contextlib import redirect_stdout
+from dataclasses import replace
 from unittest.mock import patch
 
 import data
@@ -20,7 +21,7 @@ from quests import QuestLog
 from combat import Battle
 from input_utils import prompt_index
 from map import explore
-from models import Party, StatusEffect
+from models import EQUIPMENT_RARITIES, Party, StatusEffect
 from shop import _sell_menu
 from shop import Shop
 from world import (
@@ -343,7 +344,7 @@ class GameTests(unittest.TestCase):
 
     def test_equipment_simulator_smoke(self):
         rows, rarity_counts, _ = equipment_simulator.run_analysis(samples_per_level=2, seed=7)
-        self.assertEqual(len(rows), 8 * 4)
+        self.assertEqual(len(rows), 8 * 5)
         self.assertEqual(sum(rarity_counts.values()), 8 * 2)
 
     def test_healer_has_free_attack_skill(self):
@@ -618,7 +619,13 @@ class GameTests(unittest.TestCase):
         self.assertEqual(warrior.receive_damage(10), 9)
 
     def test_random_equipment_rarity_and_affixes(self):
-        affixes = data.RANDOM_AFFIXES[:3]
+        self.assertEqual(
+            EQUIPMENT_RARITIES,
+            ["common", "uncommon", "rare", "epic", "legendary"],
+        )
+        self.assertEqual(len(data.RARITY_WEIGHTS), 5)
+        self.assertAlmostEqual(sum(data.RARITY_WEIGHTS), 1.0)
+        affixes = data.RANDOM_AFFIXES[:4]
         with patch.object(data.random, "choices", return_value=["legendary"]), \
              patch.object(data.random, "choice", return_value=("강철검", "weapon")), \
              patch.object(data.random, "sample", return_value=affixes):
@@ -628,6 +635,12 @@ class GameTests(unittest.TestCase):
         self.assertEqual(equipment.attack_bonus, 7)
         self.assertEqual(equipment.defense_bonus, 2)
         self.assertEqual(equipment.max_hp_bonus, 8)
+        self.assertEqual(len(equipment.special_effect.split("/")), 4)
+
+        epic = replace(data.IRON_SWORD, rarity="epic")
+        restored = save._equipment_from_data(save._equipment_to_dict(epic))
+        self.assertEqual(restored.display_name, "[영웅] 철검")
+        self.assertGreater(upgrade_cost(restored), upgrade_cost(data.IRON_SWORD))
 
     def test_enemy_can_drop_random_equipment(self):
         party = Party([data.create_warrior("수집가")])
