@@ -343,6 +343,19 @@ class WebGameTests(unittest.TestCase):
                 self.assertFalse(replay["ok"])
                 self.assertIn("다시 확인", replay["error"])
 
+                craft_item = result["state"]["crafting"]["dismantle"][0]
+                craft_body = {
+                    "operation": "dismantle", "equipment": craft_item["index"],
+                    "quote": craft_item["quote"],
+                }
+                with urllib.request.urlopen(
+                    request("/api/crafting", craft_body), timeout=2
+                ) as response:
+                    craft_result = json.load(response)
+                self.assertTrue(craft_result["ok"])
+                self.assertEqual(craft_result["state"]["equipment_count"], 0)
+                self.assertEqual(craft_result["state"]["crafting"]["shards"], 3)
+
                 with self.assertRaises(urllib.error.HTTPError) as shape_error:
                     urllib.request.urlopen(request("/api/new", []), timeout=2)
                 self.assertEqual(shape_error.exception.code, 400)
@@ -862,6 +875,65 @@ class WebGameTests(unittest.TestCase):
         self.game.game_map.current_id = "forest_entrance"
         blocked = self.forge(0)
         self.assertFalse(blocked["ok"])
+
+    def test_web_crafting_state_atomic_actions_and_location_gate(self):
+        self.finish_intro()
+        self.game.party.gold = 999
+        self.game.flags["equipment_shards"] = 100
+        self.game.equipment_inventory = [data.IRON_SWORD, data.OAK_STAFF]
+        state = self.game.state()["crafting"]
+        self.assertEqual(len(state["families"]), 7)
+        self.assertEqual(len(state["recipes"]), 5)
+
+        dismantle_quote = state["dismantle"][0]["quote"]
+        result = self.game.crafting_action(
+            "dismantle", equipment_index=0, quote=dismantle_quote,
+        )
+        self.assertTrue(result["ok"])
+        self.assertEqual(self.game.equipment_inventory, [data.OAK_STAFF])
+        self.assertEqual(self.game.flags["equipment_shards"], 101)
+        before = (
+            self.game.party.gold, self.game.flags["equipment_shards"],
+            list(self.game.equipment_inventory),
+        )
+        self.assertFalse(self.game.crafting_action(
+            "dismantle", equipment_index=0, quote=dismantle_quote,
+        )["ok"])
+        self.assertEqual(before, (
+            self.game.party.gold, self.game.flags["equipment_shards"],
+            self.game.equipment_inventory,
+        ))
+
+        recipe = next(
+            item for item in self.game.state()["crafting"]["recipes"]
+            if item["rarity"] == "epic"
+        )
+        synth_quote = recipe["quotes"]["spear"]
+        result = self.game.crafting_action(
+            "synthesize", rarity="epic", family="spear", quote=synth_quote,
+        )
+        self.assertTrue(result["ok"])
+        item = self.game.equipment_inventory[-1]
+        self.assertEqual((item.rarity, item.weapon_family), ("epic", "spear"))
+        self.assertEqual((self.game.flags["equipment_shards"], self.game.party.gold),
+                         (46, 819))
+        before = (
+            self.game.party.gold, self.game.flags["equipment_shards"],
+            list(self.game.equipment_inventory),
+        )
+        self.assertFalse(self.game.crafting_action(
+            "synthesize", rarity="epic", family="spear", quote=synth_quote,
+        )["ok"])
+        self.assertEqual(before, (
+            self.game.party.gold, self.game.flags["equipment_shards"],
+            self.game.equipment_inventory,
+        ))
+
+        self.game.game_map.current_id = "forest_entrance"
+        self.assertIsNone(self.game.state()["crafting"])
+        self.assertFalse(self.game.crafting_action(
+            "synthesize", rarity="common", family="sword", quote="invalid",
+        )["ok"])
 
     def test_web_equipment_equip_swap_and_unequip(self):
         self.finish_intro()

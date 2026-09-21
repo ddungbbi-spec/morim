@@ -251,6 +251,7 @@ def explore(
             options.append(("의뢰 게시판", "quest_board", None))
             options.append(("전직 교관 · 2차 직업", "advancement", None))
             options.append(("대장간에서 장비 강화", "blacksmith", None))
+            options.append(("장비 분해·무기 합성", "crafting", None))
             tower_summit = game_map.locations.get("tower_summit")
             if tower_summit and tower_summit.boss_defeated:
                 from world import tower_challenge_tier
@@ -369,6 +370,11 @@ def explore(
         if action == "blacksmith":
             from blacksmith import run_blacksmith
             run_blacksmith(party, equipment_inventory, inventory, flags)
+            continue
+
+        if action == "crafting":
+            from crafting import run_crafting
+            run_crafting(party, equipment_inventory, flags)
             continue
 
         if action == "inn":

@@ -950,16 +950,31 @@ RARITY_PRICE_MULTIPLIERS = {
 }
 
 
-def generate_random_equipment(level: int) -> Equipment:
+def generate_random_equipment(
+    level: int, forced_rarity: str = None, forced_slot: str = None,
+    forced_family: str = None,
+) -> Equipment:
     """몬스터가 떨어뜨릴 레벨 비례 장비와 무작위 등급·옵션을 생성한다."""
     level = max(1, level)
-    rarity = random.choices(
+    if forced_rarity is not None and forced_rarity not in EQUIPMENT_RARITIES:
+        raise ValueError("올바른 장비 등급을 선택하세요.")
+    if forced_slot is not None and forced_slot not in {slot for _, slot in RANDOM_EQUIPMENT_BASES}:
+        raise ValueError("올바른 장비 슬롯을 선택하세요.")
+    if forced_family is not None and forced_family not in {family for _, family in RANDOM_WEAPON_BASES}:
+        raise ValueError("올바른 무기 계열을 선택하세요.")
+    if forced_family is not None and forced_slot != "weapon":
+        raise ValueError("무기 계열 지정 합성은 무기 슬롯에서만 가능합니다.")
+    rarity = forced_rarity or random.choices(
         EQUIPMENT_RARITIES, weights=RARITY_WEIGHTS, k=1,
     )[0]
-    base_name, slot = random.choice(RANDOM_EQUIPMENT_BASES)
+    available_bases = [base for base in RANDOM_EQUIPMENT_BASES
+                       if forced_slot is None or base[1] == forced_slot]
+    base_name, slot = random.choice(available_bases)
     family = ""
     if slot == "weapon":
-        base_name, family = random.choice(RANDOM_WEAPON_BASES)
+        weapon_bases = [base for base in RANDOM_WEAPON_BASES
+                        if forced_family is None or base[1] == forced_family]
+        base_name, family = random.choice(weapon_bases)
     bonuses = {
         "attack_bonus": 0, "defense_bonus": 0, "speed_bonus": 0,
         "max_hp_bonus": 0, "max_mp_bonus": 0,

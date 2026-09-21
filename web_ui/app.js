@@ -1,8 +1,10 @@
 let gameState = null;
 let pending = null;
 let forgeBusy = false;
+let craftingBusy = false;
 let utilityMode = null;
 let equipmentMember = 0;
+let craftingFamily = "sword";
 let shopIndex = null;
 let installPrompt = null;
 let phaseAnnouncementTimer = null;
@@ -227,6 +229,7 @@ function renderCommands() {
     const utilities = `${gameState.shop ? `<button class="command-button utility" onclick="openUtility('shop')">상점</button>` : ""}
       ${gameState.inn ? `<button class="command-button utility" onclick="innRequest()">여관 · 전원 회복</button>` : ""}
       ${gameState.blacksmith ? `<button class="command-button utility" onclick="openUtility('blacksmith')">대장간 · 장비 강화</button>` : ""}
+      ${gameState.crafting ? `<button class="command-button utility" onclick="openUtility('crafting')">분해 · 무기 합성</button>` : ""}
       ${gameState.boss_retry?.available ? `<button class="command-button danger" onclick="bossRetry()">보스에게 다시 도전</button>` : ""}
       ${gameState.tower?.can_retry ? `<button class="command-button utility" onclick="towerRetry()">도전의 탑 ${gameState.tower.next_tier}단계 개방</button>` : ""}
       ${gameState.location.id === "abyss_dungeon" && gameState.dungeon.active ? `<button class="command-button danger" onclick="dungeonRequest('advance')">다음 층 도전 · ${gameState.dungeon.depth + 1}/${gameState.dungeon.max_depth}</button>` : ""}
@@ -347,6 +350,32 @@ function renderUtilityPanel() {
         ? `별빛 강화 개방 · 성운석 ${gameState.blacksmith.star_ore_count}개 보유. 동일 장비 대신 다음 강화 단계만큼의 성운석을 사용할 수 있습니다. 별의 균열 보스 승리마다 3개를 얻습니다.`
         : "검은 별의 잔재를 처치하면 동일 장비가 필요 없는 별빛 강화가 열립니다."}</p>
       ${utilitySection("강화할 장비", equipment)}`);
+  } else if (utilityMode === "crafting") {
+    if (!gameState.crafting) return clearUtility();
+    const familyIds = gameState.crafting.families.map((family) => family.id);
+    if (!familyIds.includes(craftingFamily)) craftingFamily = familyIds[0] || "sword";
+    const family = gameState.crafting.families.find((entry) => entry.id === craftingFamily);
+    const familyTabs = gameState.crafting.families.map((entry) => `
+      <button class="mini-tab${entry.id === craftingFamily ? " selected" : ""}" onclick="selectCraftingFamily('${entry.id}')">${escapeHtml(entry.name)}</button>`).join("");
+    const recipes = gameState.crafting.recipes.map((recipe) => {
+      const detail = `장비 조각 ${recipe.shard_cost}개 · ${recipe.gold_cost}G${recipe.reason ? ` · ${recipe.reason}` : ""}`;
+      const item = {rarity: recipe.rarity};
+      return recipe.can_synthesize
+        ? equipmentButton(item, `${recipe.rarity_name} ${family?.name || "무기"} 합성`, detail,
+            `craftingRequest('synthesize',null,'${recipe.rarity}','${craftingFamily}','${recipe.quotes[craftingFamily]}')`)
+        : equipmentDisabledCard(item, `${recipe.rarity_name} ${family?.name || "무기"} 합성`, detail);
+    }).join("");
+    const dismantle = gameState.crafting.dismantle.map((item) => equipmentButton(
+      item, `${item.display_name} 분해 · 조각 ${item.shard_yield}개`,
+      [item.description, item.special_effect, "분해한 장비는 복구할 수 없습니다."].filter(Boolean).join(" · "),
+      `craftingRequest('dismantle',${item.index},null,null,'${item.quote}')`
+    )).join("");
+    panel.innerHTML = utilityShell("분해 · 무기 합성 공방", `
+      <p class="stat-line">보유 장비 조각 ${gameState.crafting.shards}개 · ${gameState.gold}G</p>
+      <p class="stat-line">미착용 장비를 조각으로 분해하거나, 무기 계열과 등급을 지정해 실패 없이 합성합니다.</p>
+      <div class="mini-tabs">${familyTabs}</div>
+      ${utilitySection(`${family?.name || "무기"} 합성`, recipes)}
+      ${utilitySection("미착용 장비 분해", dismantle)}`);
   } else if (utilityMode === "equipment") {
     equipmentMember = Math.max(0, Math.min(equipmentMember, gameState.party.length - 1));
     const member = gameState.party[equipmentMember];
@@ -434,6 +463,7 @@ function openUtility(mode) { utilityMode = mode; if (mode === "shop") shopIndex 
 function clearUtility() { utilityMode = null; shopIndex = null; $("#choicePanel").classList.add("hidden"); }
 function selectShop(index) { shopIndex = index; renderUtilityPanel(); }
 function selectEquipmentMember(index) { equipmentMember = index; renderUtilityPanel(); }
+function selectCraftingFamily(family) { craftingFamily = family; renderUtilityPanel(); }
 function shopRequest(operation, index) { request("/api/shop", {operation, index, shop: shopIndex}); }
 async function blacksmithRequest(equipment, material = "duplicate") {
   if (forgeBusy) return;
@@ -452,6 +482,31 @@ async function blacksmithRequest(equipment, material = "duplicate") {
       forgeBusy = false;
       render();
     }
+  }
+}
+async function craftingRequest(operation, equipment, rarity, family, quote) {
+  if (craftingBusy) return;
+  let message;
+  if (operation === "dismantle") {
+    const item = gameState.crafting?.dismantle.find((entry) => entry.index === equipment);
+    if (!item) return;
+    message = `${item.display_name}\n장비 조각 ${item.shard_yield}개로 분해할까요?\n분해한 장비는 복구할 수 없습니다.`;
+  } else {
+    const recipe = gameState.crafting?.recipes.find((entry) => entry.rarity === rarity);
+    const familyName = gameState.crafting?.families.find((entry) => entry.id === family)?.name;
+    if (!recipe || !familyName) return;
+    message = `${recipe.rarity_name} ${familyName}\n장비 조각 ${recipe.shard_cost}개와 ${recipe.gold_cost}G를 사용해 합성할까요?`;
+  }
+  if (!confirm(message)) return;
+  craftingBusy = true;
+  document.querySelectorAll('#choicePanel button').forEach(button => button.disabled = true);
+  try {
+    await request("/api/crafting", {operation, equipment, rarity, family, quote});
+  } catch (_error) {
+    showError("처리 결과를 확인하지 못했습니다. 목록을 새로고침한 뒤 확인하세요.");
+  } finally {
+    craftingBusy = false;
+    render();
   }
 }
 function innRequest() { request("/api/inn", {}); }
@@ -568,7 +623,7 @@ function playResponseTone(path, before, after) {
   if (after === "battle" && before !== "battle") return playTone("battle");
   if (after === "victory" || after === "ending") return playTone("victory");
   if (after === "dialogue" && before !== "dialogue") return playTone("dialogue");
-  if (["/api/action", "/api/shop", "/api/inn", "/api/blacksmith", "/api/tower", "/api/dungeon", "/api/boss", "/api/equipment", "/api/quest", "/api/advancement", "/api/save"].includes(path)) return playTone("confirm");
+  if (["/api/action", "/api/shop", "/api/inn", "/api/blacksmith", "/api/crafting", "/api/tower", "/api/dungeon", "/api/boss", "/api/equipment", "/api/quest", "/api/advancement", "/api/save"].includes(path)) return playTone("confirm");
   if (path === "/api/move") return playTone("move");
 }
 

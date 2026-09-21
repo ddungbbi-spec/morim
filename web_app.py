@@ -24,9 +24,16 @@ from blacksmith import (
     matching_material_indices, upgrade_cost, upgrade_preview_text,
     STAR_ORE_NAME, star_ore_cost, award_star_ore,
 )
+from crafting import (
+    SYNTHESIS_RECIPES, can_synthesize, dismantle_equipment, dismantle_value,
+    shard_count, synthesize_weapon,
+)
 from combat import _describe_skill_result
 from equipment import SLOT_NAMES_KR
-from models import Enemy, Item, Party, PlayerCharacter, Skill, WEAPON_FAMILIES
+from models import (
+    EQUIPMENT_RARITIES, RARITY_NAMES_KR, WEAPON_FAMILIES,
+    Enemy, Item, Party, PlayerCharacter, Skill,
+)
 from quests import QuestLog, QUESTS
 from shop import SELL_RATIO
 from advancement import ADVANCEMENT_LEVEL, advance, options_for
@@ -78,6 +85,7 @@ class WebGame:
 
     def reset(self) -> None:
         self._forge_key = secrets.token_bytes(32)
+        self._craft_key = secrets.token_bytes(32)
         self.party = Party([])
         self.inventory: List[Item] = []
         self.equipment_inventory = []
@@ -378,6 +386,59 @@ class WebGame:
             return self._error(str(error))
         self._forge_key = secrets.token_bytes(32)
         self._log(f"대장간 강화 성공! {upgraded.display_name} ({cost}G 사용)")
+        return {"ok": True, "state": self.state()}
+
+    def _craft_quote(self, operation, target):
+        """Bind a crafting confirmation to the exact resources and inventory."""
+        snapshot = repr((
+            operation, target, self.party.gold, shard_count(self.flags),
+            [member.level for member in self.party.members],
+            [(id(item), item) for item in self.equipment_inventory],
+        ))
+        return hmac.new(self._craft_key, snapshot.encode(), "sha256").hexdigest()
+
+    def crafting_action(
+        self, operation, equipment_index=None, rarity=None, family=None, quote=None,
+    ) -> dict:
+        if self.phase != "explore" or self.game_map.current_id != "village":
+            return self._error("분해·합성 공방은 시작 마을에서 이용할 수 있습니다.")
+        try:
+            if operation == "dismantle":
+                index = self._index(
+                    equipment_index, len(self.equipment_inventory), "분해 장비"
+                )
+                if not isinstance(quote, str) or not secrets.compare_digest(
+                    quote, self._craft_quote("dismantle", index)
+                ):
+                    raise ValueError(
+                        "장비 또는 재료 상태가 변경되었습니다. 새 목록에서 분해 내용을 다시 확인하세요."
+                    )
+                item, gained = dismantle_equipment(
+                    self.equipment_inventory, index, self.flags
+                )
+                self._log(
+                    f"{item.display_name} 분해 완료! 장비 조각 {gained}개를 얻었습니다."
+                )
+            elif operation == "synthesize":
+                target = (rarity, family)
+                if not isinstance(quote, str) or not secrets.compare_digest(
+                    quote, self._craft_quote("synthesize", target)
+                ):
+                    raise ValueError(
+                        "등급 또는 재료 상태가 변경되었습니다. 새 목록에서 합성 내용을 다시 확인하세요."
+                    )
+                item, used_shards, gold = synthesize_weapon(
+                    self.party, self.equipment_inventory, self.flags, rarity, family,
+                )
+                self._log(
+                    f"무기 합성 성공! {item.display_name} "
+                    f"(장비 조각 {used_shards}개 / {gold}G 사용)"
+                )
+            else:
+                return self._error("지원하지 않는 분해·합성 행동입니다.")
+        except (IndexError, TypeError, ValueError) as error:
+            return self._error(str(error))
+        self._craft_key = secrets.token_bytes(32)
         return {"ok": True, "state": self.state()}
 
     def equipment_action(self, operation: str, member_index, equipment_index=None, slot=None) -> dict:
@@ -1154,6 +1215,7 @@ class WebGame:
                 ],
             }
         blacksmith_state = None
+        crafting_state = None
         if location.id == "village":
             blacksmith_equipment = []
             for index, item in enumerate(self.equipment_inventory):
@@ -1188,6 +1250,41 @@ class WebGame:
                 "equipment": blacksmith_equipment,
                 "star_unlocked": bool(self.flags.get("star_rift_closed")),
                 "star_ore_count": sum(item.name == STAR_ORE_NAME for item in self.inventory),
+            }
+            crafting_recipes = []
+            for rarity in EQUIPMENT_RARITIES:
+                shard_cost, gold_cost = SYNTHESIS_RECIPES[rarity]
+                allowed, reason = can_synthesize(
+                    self.party, self.flags, rarity, next(iter(WEAPON_FAMILIES))
+                )
+                crafting_recipes.append({
+                    "rarity": rarity,
+                    "rarity_name": RARITY_NAMES_KR[rarity],
+                    "shard_cost": shard_cost,
+                    "gold_cost": gold_cost,
+                    "can_synthesize": allowed,
+                    "reason": reason,
+                    "quotes": {
+                        family: self._craft_quote("synthesize", (rarity, family))
+                        for family in WEAPON_FAMILIES
+                    },
+                })
+            crafting_state = {
+                "shards": shard_count(self.flags),
+                "families": [
+                    {"id": family, "name": name}
+                    for family, name in WEAPON_FAMILIES.items()
+                ],
+                "dismantle": [
+                    {
+                        "index": index,
+                        **self._equipment_state(item),
+                        "shard_yield": dismantle_value(item),
+                        "quote": self._craft_quote("dismantle", index),
+                    }
+                    for index, item in enumerate(self.equipment_inventory)
+                ],
+                "recipes": crafting_recipes,
             }
         slots = [
             {"slot": number, "exists": exists, "summary": summary}
@@ -1264,6 +1361,7 @@ class WebGame:
             ],
             "shop": shop_state,
             "blacksmith": blacksmith_state,
+            "crafting": crafting_state,
             "inn": location.has_inn,
             "boss_retry": {
                 "available": (
@@ -1444,6 +1542,12 @@ class GameHandler(BaseHTTPRequestHandler):
                 result = game.blacksmith_action(
                     payload.get("equipment"),
                     payload.get("material", "duplicate"),
+                    payload.get("quote"),
+                )
+            elif self.path == "/api/crafting":
+                result = game.crafting_action(
+                    payload.get("operation", ""), payload.get("equipment"),
+                    payload.get("rarity"), payload.get("family"),
                     payload.get("quote"),
                 )
             elif self.path == "/api/tower":
