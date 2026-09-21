@@ -18,6 +18,7 @@ class WeaponFamilyTests(unittest.TestCase):
         game.party.gold = 9999
         shop = next(i for i, s in enumerate(game.game_map.current.shops)
                     if data.IRON_SWORD in s.equipment)
+        self.assertIn("권갑, 일곱 계열", game.game_map.current.shops[shop].description)
         self.assertEqual({w.weapon_family for w in data.SHOP_WEAPONS}, set(WEAPON_FAMILIES))
         compatible_creators = {
             "sword": data.create_warrior,
