@@ -512,6 +512,24 @@ class WebGameTests(unittest.TestCase):
         self.assertIn("forest_entrance", self.game.game_map.visited)
         self.assertEqual(self.game.phase, "explore")
 
+    def test_direct_village_return_is_available_from_remote_regions(self):
+        self.finish_intro()
+        self.game.game_map.move_to("echo_vault")
+        self.game.game_map.current.dialogue_played = True
+        self.game.game_map.current.boss_defeated = True
+        self.game.phase = "explore"
+        state = self.game.state()
+        direct = next(
+            exit_data for exit_data in state["location"]["exits"]
+            if exit_data["target_id"] == "village"
+        )
+        self.assertEqual(direct["label"], "마을로 바로 이동한다")
+        self.assertFalse(direct["locked"])
+        result = self.game.move(direct["label"])
+        self.assertTrue(result["ok"])
+        self.assertEqual(self.game.game_map.current_id, "village")
+        self.assertEqual(self.game.phase, "explore")
+
     def test_world_and_region_maps_are_separate_and_track_progress(self):
         state = self.game.state()
         self.assertEqual(state["maps"]["current_region_id"], "village")

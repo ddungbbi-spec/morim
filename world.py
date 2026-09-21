@@ -590,17 +590,23 @@ def build_world() -> GameMap:
         loot_equipment=data.DRAKE_SCALE_ARMOR,
     )
 
-    return GameMap(
-        locations=[
-            village, elder_armory, star_observatory, fallen_star_field, star_rift,
-            astral_passage, shattered_sanctum, void_throne,
-            forest_entrance, deep_forest,
-            mist_marsh, sunken_boardwalk, forgotten_shrine, moonlit_spring,
-            drowned_archive, echo_vault,
-            shadow_valley, ruins, seal_gate, final_chamber,
-            cave, cave_treasure, cave_vault, ending,
-            tower_floor_1, tower_floor_2, tower_floor_3, tower_summit,
-            mine_entrance, mine_deep, mine_depths,
-        ],
-        start_id="village",
-    )
+    locations = [
+        village, elder_armory, star_observatory, fallen_star_field, star_rift,
+        astral_passage, shattered_sanctum, void_throne,
+        forest_entrance, deep_forest,
+        mist_marsh, sunken_boardwalk, forgotten_shrine, moonlit_spring,
+        drowned_archive, echo_vault,
+        shadow_valley, ruins, seal_gate, final_chamber,
+        cave, cave_treasure, cave_vault, ending,
+        tower_floor_1, tower_floor_2, tower_floor_3, tower_summit,
+        mine_entrance, mine_deep, mine_depths,
+    ]
+    for location in locations:
+        if (
+            location.id != "village"
+            and not location.is_ending
+            and "village" not in location.exits.values()
+        ):
+            location.exits["마을로 바로 이동한다"] = "village"
+
+    return GameMap(locations=locations, start_id="village")

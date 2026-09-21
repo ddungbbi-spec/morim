@@ -217,7 +217,8 @@ function renderCommands() {
     const moves = gameState.location.exits.map((exit) => {
       const encoded = encodeURIComponent(exit.label);
       const lock = exit.locked ? ` · 🔒 ${escapeHtml(exit.lock_reason || exit.required_item)}` : "";
-      return `<button class="command-button" onclick="moveTo('${encoded}')">${escapeHtml(exit.label)}${lock}</button>`;
+      const returnClass = exit.target_id === "village" && gameState.location.id !== "village" ? " utility" : "";
+      return `<button class="command-button${returnClass}" onclick="moveTo('${encoded}')">${escapeHtml(exit.label)}${lock}</button>`;
     }).join("");
     const utilities = `${gameState.shop ? `<button class="command-button utility" onclick="openUtility('shop')">상점</button>` : ""}
       ${gameState.inn ? `<button class="command-button utility" onclick="innRequest()">여관 · 전원 회복</button>` : ""}

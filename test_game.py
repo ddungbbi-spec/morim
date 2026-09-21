@@ -142,7 +142,7 @@ class GameTests(unittest.TestCase):
         game_map.current.loot_claimed = True
         flags = {}
         with patch.object(Battle, "run", return_value=True), patch(
-            "map.prompt_index", side_effect=[5, 8]
+            "map.prompt_index", side_effect=[6, 9]
         ), patch("map.prompt_yes_no", return_value=True), redirect_stdout(io.StringIO()):
             explore(game_map, party, inventory, flags, equipment)
         self.assertEqual([item.name for item in inventory], ["성운석"] * 3)
@@ -673,6 +673,20 @@ class GameTests(unittest.TestCase):
             for target in location.exits.values():
                 self.assertIn(target, game_map.locations)
 
+    def test_every_exploration_location_can_return_directly_to_village(self):
+        game_map = build_world()
+        for location in game_map.locations.values():
+            if location.id == "village" or location.is_ending:
+                continue
+            with self.subTest(location=location.id):
+                self.assertIn("village", location.exits.values())
+        self.assertEqual(
+            list(game_map.locations["forest_entrance"].exits.values()).count("village"), 1,
+        )
+        self.assertEqual(
+            game_map.locations["echo_vault"].exits["마을로 바로 이동한다"], "village",
+        )
+
     def test_world_regions_cover_every_location_once(self):
         game_map = build_world()
         grouped = [location_id for region in MAP_REGIONS for location_id in region["locations"]]
@@ -688,7 +702,7 @@ class GameTests(unittest.TestCase):
         party = Party([data.create_warrior("재도전자")])
 
         with patch("map.Battle") as battle_type, patch.object(
-            builtins, "input", side_effect=["6", "9", "y"]
+            builtins, "input", side_effect=["7", "10", "y"]
         ), redirect_stdout(io.StringIO()):
             battle_type.return_value.run.return_value = True
             result = explore(game_map, party, [], {}, [])
@@ -774,7 +788,7 @@ class GameTests(unittest.TestCase):
         party = Party([data.create_warrior("메아리 수호자")])
         equipment = []
         with patch("map.Battle") as battle_type, patch.object(
-            builtins, "input", side_effect=["9", "y"]
+            builtins, "input", side_effect=["10", "y"]
         ), redirect_stdout(io.StringIO()):
             battle_type.return_value.run.return_value = True
             result = explore(game_map, party, [], flags, equipment)
@@ -880,7 +894,7 @@ class GameTests(unittest.TestCase):
         game_map.current.boss_defeated = True
         game_map.current.dialogue_played = True
         before = (party.members[0].max_hp, party.members[0].attack, party.members[0].defense)
-        answers = iter(["9", "y"])
+        answers = iter(["10", "y"])
         with patch.object(builtins, "input", side_effect=lambda _="": next(answers)):
             self.assertFalse(explore(game_map, party, [], {"embraced_power": True}, []))
         after = (party.members[0].max_hp, party.members[0].attack, party.members[0].defense)
@@ -913,7 +927,7 @@ class GameTests(unittest.TestCase):
         chamber.dialogue_played = chamber.boss_defeated = chamber.loot_claimed = True
         game_map.locations["village"].dialogue_played = True
         equipment = [data.SEALBREAKER_BLADE]
-        selections = iter([5])
+        selections = iter([6])
         with patch.object(Battle, "run", return_value=True), patch(
             "map.prompt_index", side_effect=lambda _, count: next(selections, count - 1)
         ), patch("map.prompt_yes_no", return_value=True), redirect_stdout(io.StringIO()):
