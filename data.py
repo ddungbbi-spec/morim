@@ -176,6 +176,51 @@ SUMMON_RAMUH_EX = Skill(
     name="소환: 라무 EX", mp_cost=18, power=11, kind="attack", aoe=True, element="thunder",
     description="성장한 라무의 번개로 모든 적을 공격한다. (뇌 속성)",
 )
+SHIELD_BASH = Skill(
+    name="방패 강타", mp_cost=4, power=6, kind="attack",
+    description="방패로 적을 가격해 낮은 확률로 마비시킨다.",
+    inflict_status="paralysis", status_name="마비", status_duration=1, status_chance=0.25,
+)
+PROVOKING_SHOUT = Skill(
+    name="도발의 외침", mp_cost=4, power=0, kind="debuff",
+    description="적의 공격 의지를 꺾어 공격력을 낮춘다.",
+    buff_stat="attack", buff_amount=3, buff_duration=3, buff_name="공격력 약화",
+)
+FORTRESS_STANCE = Skill(
+    name="요새 태세", mp_cost=5, power=0, kind="buff",
+    description="방패를 세워 방어력을 크게 높인다.",
+    buff_stat="defense", buff_amount=6, buff_duration=3, buff_name="요새 태세",
+)
+SHIELD_BREAK = Skill(
+    name="파성추", mp_cost=6, power=10, kind="attack",
+    description="방패에 힘을 모아 적 하나를 강하게 밀어붙인다.",
+)
+HOLY_WAVE = Skill(
+    name="수호의 파동", mp_cost=9, power=6, kind="attack", aoe=True,
+    description="방패에서 수호의 파동을 펼쳐 적 전체를 공격한다.",
+)
+COMBO_FIST = Skill(
+    name="연환권", mp_cost=3, power=7, kind="attack",
+    description="끊김 없는 연속 타격으로 적 하나를 몰아붙인다.",
+)
+QI_FOCUS = Skill(
+    name="기 집중", mp_cost=4, power=0, kind="buff",
+    description="호흡을 가다듬어 공격력을 높인다.",
+    buff_stat="attack", buff_amount=4, buff_duration=3, buff_name="기 집중",
+)
+FLOWING_STEP = Skill(
+    name="유수보", mp_cost=4, power=0, kind="buff",
+    description="물처럼 흐르는 보법으로 속도를 높인다.",
+    buff_stat="speed", buff_amount=4, buff_duration=3, buff_name="유수보",
+)
+IRON_FIST = Skill(
+    name="철산고", mp_cost=5, power=11, kind="attack",
+    description="전신의 힘을 실어 적 하나를 강하게 타격한다.",
+)
+QI_BURST = Skill(
+    name="기공폭발", mp_cost=8, power=6, kind="attack", aoe=True,
+    description="응축한 기를 폭발시켜 적 전체를 공격한다.",
+)
 ROCK_COUNTER = Skill(
     name="암석 반격", mp_cost=0, power=5, kind="attack", aoe=True,
     description="몸의 균열에서 암석 파편을 폭발시켜 파티 전체에 반격한다.",
@@ -249,6 +294,16 @@ JOB_SKILL_GROWTH_BY_JOB = {
         3: [SkillGrowth(SUMMON_IFRIT_EX, replaces="소환: 이프리트")],
         4: [SkillGrowth(SUMMON_RAMUH_EX, replaces="소환: 라무")],
     },
+    "기사": {
+        2: [SkillGrowth(FORTRESS_STANCE)],
+        3: [SkillGrowth(SHIELD_BREAK, replaces="방패 강타")],
+        4: [SkillGrowth(HOLY_WAVE)],
+    },
+    "무도가": {
+        2: [SkillGrowth(FLOWING_STEP)],
+        3: [SkillGrowth(IRON_FIST, replaces="연환권")],
+        4: [SkillGrowth(QI_BURST)],
+    },
 }
 
 
@@ -310,6 +365,25 @@ def create_summoner(name: str) -> PlayerCharacter:
     )
 
 
+def create_knight(name: str) -> PlayerCharacter:
+    return PlayerCharacter(
+        name=name, job="기사", level=1,
+        max_hp=48, max_mp=11, attack=9, defense=10, speed=4,
+        skills=[SHIELD_BASH, PROVOKING_SHOUT],
+        skill_progression=JOB_SKILL_GROWTH_BY_JOB["기사"],
+    )
+
+
+def create_monk(name: str) -> PlayerCharacter:
+    return PlayerCharacter(
+        name=name, job="무도가", level=1,
+        max_hp=39, max_mp=13, attack=11, defense=6, speed=9,
+        skills=[COMBO_FIST, QI_FOCUS],
+        critical_rate=0.10, evasion_rate=0.08,
+        skill_progression=JOB_SKILL_GROWTH_BY_JOB["무도가"],
+    )
+
+
 # 직업 선택 메뉴(main.py)에서 사용하는 조회 테이블. 새 직업을 추가하면 여기에도 등록하세요.
 JOB_CREATORS = {
     "warrior": create_warrior,
@@ -318,6 +392,8 @@ JOB_CREATORS = {
     "rogue": create_rogue,
     "archer": create_archer,
     "summoner": create_summoner,
+    "knight": create_knight,
+    "monk": create_monk,
 }
 JOB_LABELS = {
     "warrior": "전사 - 체력·방어력이 높은 근접 딜러 (파워 슬래시, 전투 함성)",
@@ -326,6 +402,8 @@ JOB_LABELS = {
     "rogue": "도적 - 빠른 회피와 치명타, 추가 골드 획득에 특화 (훔치기)",
     "archer": "궁수 - 공수 균형이 좋은 딜러 (정밀 사격)",
     "summoner": "소환술사 - HP가 매우 낮은 대신 소환수로 강력한 단일/전체 공격 (소환: 이프리트/라무)",
+    "knight": "기사 - 높은 체력과 방어력으로 적의 공격을 약화하는 수호형 (방패 강타/도발의 외침)",
+    "monk": "무도가 - 빠른 연속 공격과 자기 강화에 특화된 근접형 (연환권/기 집중)",
 }
 
 
@@ -867,6 +945,8 @@ SKILLS_BY_NAME = {
         VENOM_KNIFE, MASTER_STEAL, SHADOW_SLASH,
         MULTI_SHOT, PIERCING_SHOT, HAWKEYE,
         SUMMON_SHIVA, SUMMON_IFRIT_EX, SUMMON_RAMUH_EX,
+        SHIELD_BASH, PROVOKING_SHOUT, FORTRESS_STANCE, SHIELD_BREAK, HOLY_WAVE,
+        COMBO_FIST, QI_FOCUS, FLOWING_STEP, IRON_FIST, QI_BURST,
     ]
 }
 from advancement import ADVANCED_JOBS

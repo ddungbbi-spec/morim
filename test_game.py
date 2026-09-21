@@ -253,9 +253,12 @@ class GameTests(unittest.TestCase):
         self.assertEqual([item.name for item in equipment], ["별의 수호 부적"])
 
     def test_all_second_jobs_unlock_at_level_five_and_preserve_growth(self):
-        self.assertEqual(len(ADVANCED_JOBS), 12)
+        self.assertEqual(len(data.JOB_CREATORS), 8)
+        self.assertEqual(len(ADVANCED_JOBS), 24)
         for creator in data.JOB_CREATORS.values():
-            for choice in options_for(creator("검증")):
+            choices = options_for(creator("검증"))
+            self.assertEqual(len(choices), 3)
+            for choice in choices:
                 member = creator("검증")
                 with self.assertRaises(ValueError):
                     advance(member, choice.id)
@@ -309,8 +312,27 @@ class GameTests(unittest.TestCase):
     def test_balance_simulator_smoke(self):
         battle_rows = balance_simulator.run_analysis(trials=1, seed=7)
         route_rows = balance_simulator.run_route_analysis(trials=1, seed=7)
-        self.assertEqual(len(battle_rows), 56 * len(balance_simulator.SCENARIOS))
-        self.assertEqual(len(route_rows), 56 * len(balance_simulator.ROUTES))
+        self.assertEqual(len(battle_rows), 120 * len(balance_simulator.SCENARIOS))
+        self.assertEqual(len(route_rows), 120 * len(balance_simulator.ROUTES))
+
+    def test_new_base_jobs_and_advanced_paths_survive_save_roundtrip(self):
+        knight = data.create_knight("방벽")
+        monk = data.create_monk("유수")
+        for member in (knight, monk):
+            member.level = 5
+            member.sync_skills_for_level()
+        advance(knight, "fortress")
+        advance(monk, "ascetic")
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "slot1.json")
+            save.save_game(Party([knight, monk]), [], build_world(), {}, [], path)
+            loaded_party, *_ = save.load_game(path)
+        self.assertEqual(
+            [(member.base_job, member.job, member.advanced_job_id) for member in loaded_party.members],
+            [("기사", "철벽기사", "fortress"), ("무도가", "수행승", "ascetic")],
+        )
+        self.assertIn("불퇴의 성벽", [skill.name for skill in loaded_party.members[0].skills])
+        self.assertIn("금강의 호흡", [skill.name for skill in loaded_party.members[1].skills])
 
     def test_equipment_simulator_smoke(self):
         rows, rarity_counts, _ = equipment_simulator.run_analysis(samples_per_level=2, seed=7)

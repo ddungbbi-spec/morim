@@ -389,7 +389,7 @@ function renderUtilityPanel() {
           member.eligible ? `<div class="utility-list">${choices}</div>` :
           `<span class="muted-copy">Lv.${member.required_level}부터 전직 가능</span>`}</section>`;
     }).join("");
-    panel.innerHTML = utilityShell("전직 교관", `<p class="stat-line">5레벨 이상 파티원마다 2가지 계열 중 하나를 선택합니다. 전직은 되돌릴 수 없습니다.</p>${members}`);
+    panel.innerHTML = utilityShell("전직 교관", `<p class="stat-line">5레벨 이상 파티원마다 공격·방어·지원 성향의 3가지 계열 중 하나를 선택합니다. 전직은 되돌릴 수 없습니다.</p>${members}`);
   } else if (utilityMode === "save") {
     const slots = gameState.save_slots.map((slot) => `<div class="save-row">
       <div><strong>슬롯 ${slot.slot}</strong><span>${escapeHtml(slot.summary || (slot.exists ? "손상된 저장" : "비어 있음"))}</span></div>

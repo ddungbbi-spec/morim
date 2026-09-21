@@ -22,6 +22,8 @@ JOB_NAMES = {
     "rogue": "도적",
     "archer": "궁수",
     "summoner": "소환술사",
+    "knight": "기사",
+    "monk": "무도가",
 }
 
 

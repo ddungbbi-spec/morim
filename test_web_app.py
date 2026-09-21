@@ -222,7 +222,7 @@ class WebGameTests(unittest.TestCase):
         self.assertEqual(state["location"]["name"], "시작 마을")
         self.assertIsNone(state["dialogue"])
         self.assertEqual(len(state["party"]), 0)
-        self.assertEqual(len(state["setup"]["jobs"]), 6)
+        self.assertEqual(len(state["setup"]["jobs"]), 8)
         self.assertEqual(len(state["encounters"]), 3)
         for filename in (
             "index.html", "styles.css", "app.js", "manifest.webmanifest", "sw.js",
@@ -260,7 +260,7 @@ class WebGameTests(unittest.TestCase):
         member = self.game.party.members[0]
         self.assertFalse(self.game.advancement_action(0, "swordmaster")["ok"])
         member.level = 5
-        self.assertEqual(len(self.game.state()["advancement"][0]["options"]), 2)
+        self.assertEqual(len(self.game.state()["advancement"][0]["options"]), 3)
         self.assertFalse(self.game.advancement_action(0, "pyromancer")["ok"])
         self.assertFalse(self.game.advancement_action(0, {"id": "swordmaster"})["ok"])
         self.assertFalse(self.game.advancement_action(99, "swordmaster")["ok"])
@@ -435,13 +435,13 @@ class WebGameTests(unittest.TestCase):
     def test_custom_party_setup_supports_all_jobs_and_names(self):
         game = WebGame()
         result = game.configure_party([
-            {"name": "청명", "job": "rogue"},
-            {"name": "설화", "job": "archer"},
+            {"name": "청명", "job": "knight"},
+            {"name": "설화", "job": "monk"},
             {"name": "무진", "job": "summoner"},
         ])
         self.assertTrue(result["ok"])
         self.assertEqual([member.name for member in game.party.members], ["청명", "설화", "무진"])
-        self.assertEqual([member.job for member in game.party.members], ["도적", "궁수", "소환술사"])
+        self.assertEqual([member.job for member in game.party.members], ["기사", "무도가", "소환술사"])
         self.assertEqual(game.phase, "dialogue")
 
     def test_party_setup_rejects_duplicate_or_invalid_data(self):
