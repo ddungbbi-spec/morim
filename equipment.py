@@ -6,7 +6,7 @@ equipment.py
 
 from typing import List
 
-from models import PlayerCharacter, Party, Equipment, EQUIPMENT_SLOTS
+from models import PlayerCharacter, Party, Equipment, EQUIPMENT_SLOTS, WEAPON_FAMILIES
 from input_utils import prompt_index
 
 SLOT_NAMES_KR = {"weapon": "무기", "armor": "방어구", "accessory": "장신구"}
@@ -39,6 +39,8 @@ def manage_equipment(party: Party, equipment_inventory: List[Equipment]) -> None
 def _manage_member_equipment(member: PlayerCharacter, equipment_inventory: List[Equipment]) -> None:
     while True:
         print(f"\n--- {member.name}의 장비 ---")
+        allowed = " · ".join(WEAPON_FAMILIES[item] for item in member.allowed_weapon_families)
+        print(f"  사용 가능 무기 계열: {allowed or '없음'}")
         for slot in EQUIPMENT_SLOTS:
             current = member.equipment.get(slot)
             print(f"  {SLOT_NAMES_KR[slot]}: {current.display_name if current else '없음'}")
@@ -60,8 +62,13 @@ def _manage_member_equipment(member: PlayerCharacter, equipment_inventory: List[
             print("잘못된 입력입니다.")
             continue
 
-        item = equipment_inventory.pop(idx)
-        previous = member.equip(item)
+        item = equipment_inventory[idx]
+        try:
+            previous = member.equip(item)
+        except ValueError as error:
+            print(error)
+            continue
+        equipment_inventory.pop(idx)
         print(f"{member.name}이(가) {item.display_name}을(를) 착용했다!")
         if previous:
             equipment_inventory.append(previous)

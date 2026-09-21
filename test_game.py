@@ -47,7 +47,7 @@ class GameTests(unittest.TestCase):
         self.assertIs(equipment[1], high)
 
     def test_equipment_changes_never_heal_or_revive(self):
-        member = data.create_warrior("착용")
+        member = data.create_mage("착용")
         member.hp, member.mp = 10, 0
         for _ in range(3):
             member.equip(data.LEATHER_ARMOR)
@@ -253,8 +253,8 @@ class GameTests(unittest.TestCase):
         self.assertEqual([item.name for item in equipment], ["별의 수호 부적"])
 
     def test_all_second_jobs_unlock_at_level_five_and_preserve_growth(self):
-        self.assertEqual(len(data.JOB_CREATORS), 8)
-        self.assertEqual(len(ADVANCED_JOBS), 24)
+        self.assertEqual(len(data.JOB_CREATORS), 10)
+        self.assertEqual(len(ADVANCED_JOBS), 30)
         for creator in data.JOB_CREATORS.values():
             choices = options_for(creator("검증"))
             self.assertEqual(len(choices), 3)
@@ -312,27 +312,34 @@ class GameTests(unittest.TestCase):
     def test_balance_simulator_smoke(self):
         battle_rows = balance_simulator.run_analysis(trials=1, seed=7)
         route_rows = balance_simulator.run_route_analysis(trials=1, seed=7)
-        self.assertEqual(len(battle_rows), 120 * len(balance_simulator.SCENARIOS))
-        self.assertEqual(len(route_rows), 120 * len(balance_simulator.ROUTES))
+        self.assertEqual(len(battle_rows), 220 * len(balance_simulator.SCENARIOS))
+        self.assertEqual(len(route_rows), 220 * len(balance_simulator.ROUTES))
 
     def test_new_base_jobs_and_advanced_paths_survive_save_roundtrip(self):
         knight = data.create_knight("방벽")
         monk = data.create_monk("유수")
-        for member in (knight, monk):
+        lancer = data.create_lancer("창끝")
+        arcanist = data.create_arcanist("비전")
+        for member in (knight, monk, lancer, arcanist):
             member.level = 5
             member.sync_skills_for_level()
         advance(knight, "fortress")
         advance(monk, "ascetic")
+        advance(lancer, "spear_saint")
+        advance(arcanist, "spellblade")
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "slot1.json")
-            save.save_game(Party([knight, monk]), [], build_world(), {}, [], path)
+            save.save_game(Party([knight, monk, lancer, arcanist]), [], build_world(), {}, [], path)
             loaded_party, *_ = save.load_game(path)
         self.assertEqual(
             [(member.base_job, member.job, member.advanced_job_id) for member in loaded_party.members],
-            [("기사", "철벽기사", "fortress"), ("무도가", "수행승", "ascetic")],
+            [("기사", "철벽기사", "fortress"), ("무도가", "수행승", "ascetic"),
+             ("창술가", "창성", "spear_saint"), ("마도사", "마검사", "spellblade")],
         )
         self.assertIn("불퇴의 성벽", [skill.name for skill in loaded_party.members[0].skills])
         self.assertIn("금강의 호흡", [skill.name for skill in loaded_party.members[1].skills])
+        self.assertIn("무극천창", [skill.name for skill in loaded_party.members[2].skills])
+        self.assertIn("마검 공명", [skill.name for skill in loaded_party.members[3].skills])
 
     def test_equipment_simulator_smoke(self):
         rows, rarity_counts, _ = equipment_simulator.run_analysis(samples_per_level=2, seed=7)

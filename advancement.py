@@ -51,6 +51,12 @@ ADVANCED_JOBS: Dict[str, AdvancedJob] = {
         AdvancedJob("fistking", "무도가", "권왕", "압도적인 단일 연타 계열", Skill("백열신권", 9, 22, description="보이지 않을 만큼 빠른 연타를 퍼붓는다."), hp=8, attack=5, critical_rate=0.06),
         AdvancedJob("qigongmaster", "무도가", "기공사", "원거리 기공과 광역 공격 계열", Skill("뇌명기공", 12, 10, aoe=True, element="thunder", description="번개의 기를 방출해 적 전체를 공격한다."), mp=10, attack=3),
         AdvancedJob("ascetic", "무도가", "수행승", "파티 회복과 생존 지원 계열", Skill("금강의 호흡", 12, 14, kind="heal", aoe=True, description="깊은 호흡으로 파티 전체의 HP를 회복한다."), hp=12, mp=7, defense=3),
+        AdvancedJob("spear_saint", "창술가", "창성", "치명적인 단일 관통 계열", Skill("무극천창", 10, 23, description="한 점에 모든 힘을 모아 적 하나를 꿰뚫는다."), attack=5, speed=2, critical_rate=0.06),
+        AdvancedJob("dragon_lancer", "창술가", "용창기병", "기동력 높은 광역 돌격 계열", Skill("비룡강하", 13, 10, aoe=True, description="전장을 가로질러 적 전체를 창으로 휩쓴다."), hp=8, attack=4, speed=4),
+        AdvancedJob("spear_guard", "창술가", "파수창병", "방어와 전장 통제 계열", Skill("불침창진", 9, 0, kind="buff", description="빈틈없는 창진으로 방어력을 크게 높인다.", buff_stat="defense", buff_amount=9, buff_duration=4, buff_name="불침창진"), hp=18, defense=5),
+        AdvancedJob("archmage", "마도사", "비전술사", "순수 마력의 광역 폭발 계열", Skill("성운 파열", 16, 12, aoe=True, description="성운처럼 팽창한 마력을 폭발시킨다."), mp=12, attack=4),
+        AdvancedJob("hexer", "마도사", "주술사", "적의 공격을 봉쇄하는 약화 계열", Skill("혼백 구속", 10, 0, kind="debuff", description="적의 혼백을 붙잡아 공격력을 크게 낮춘다.", buff_stat="attack", buff_amount=7, buff_duration=4, buff_name="혼백 구속"), mp=8, defense=3),
+        AdvancedJob("spellblade", "마도사", "마검사", "검과 마력을 결합한 근접 계열", Skill("마검 공명", 10, 21, description="검날에 마력을 공명시켜 적 하나를 벤다."), hp=10, attack=6, speed=2),
     )
 }
 

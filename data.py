@@ -221,6 +221,50 @@ QI_BURST = Skill(
     name="기공폭발", mp_cost=8, power=6, kind="attack", aoe=True,
     description="응축한 기를 폭발시켜 적 전체를 공격한다.",
 )
+GALE_THRUST = Skill(
+    name="질풍 찌르기", mp_cost=4, power=8, kind="attack",
+    description="긴 창끝에 바람을 실어 적 하나를 꿰뚫는다.",
+)
+SPEAR_WALL = Skill(
+    name="창벽", mp_cost=4, power=0, kind="buff",
+    description="창대를 세워 방어력을 높인다.",
+    buff_stat="defense", buff_amount=4, buff_duration=3, buff_name="창벽",
+)
+WHIRLWIND_SPEAR = Skill(
+    name="선풍창", mp_cost=7, power=6, kind="attack", aoe=True,
+    description="창을 크게 휘둘러 적 전체를 공격한다.",
+)
+DRAGON_THRUST = Skill(
+    name="용린 관통", mp_cost=6, power=13, kind="attack",
+    description="질풍 찌르기를 단련한 묵직한 관통 공격이다.",
+)
+SPEARHEAD_FORMATION = Skill(
+    name="선봉 진형", mp_cost=5, power=0, kind="buff",
+    description="선봉에 서서 속도를 크게 높인다.",
+    buff_stat="speed", buff_amount=5, buff_duration=3, buff_name="선봉 진형",
+)
+MANA_BOLT = Skill(
+    name="마력탄", mp_cost=4, power=9, kind="attack",
+    description="응축한 순수 마력을 적 하나에 발사한다.",
+)
+ARCANE_EROSION = Skill(
+    name="마력 침식", mp_cost=5, power=0, kind="debuff",
+    description="적의 방어 결계를 침식해 방어력을 낮춘다.",
+    buff_stat="defense", buff_amount=4, buff_duration=3, buff_name="마력 침식",
+)
+MANA_BARRIER = Skill(
+    name="마력 장막", mp_cost=5, power=0, kind="buff",
+    description="마력을 둘러 방어력을 높인다.",
+    buff_stat="defense", buff_amount=5, buff_duration=3, buff_name="마력 장막",
+)
+ARCANE_LANCE = Skill(
+    name="비전창", mp_cost=7, power=14, kind="attack",
+    description="마력탄을 날카로운 창으로 압축한 고위 주문이다.",
+)
+ARCANE_BURST = Skill(
+    name="비전 폭발", mp_cost=11, power=8, kind="attack", aoe=True,
+    description="불안정한 마력을 폭발시켜 적 전체를 공격한다.",
+)
 ROCK_COUNTER = Skill(
     name="암석 반격", mp_cost=0, power=5, kind="attack", aoe=True,
     description="몸의 균열에서 암석 파편을 폭발시켜 파티 전체에 반격한다.",
@@ -304,6 +348,16 @@ JOB_SKILL_GROWTH_BY_JOB = {
         3: [SkillGrowth(IRON_FIST, replaces="연환권")],
         4: [SkillGrowth(QI_BURST)],
     },
+    "창술가": {
+        2: [SkillGrowth(WHIRLWIND_SPEAR)],
+        3: [SkillGrowth(DRAGON_THRUST, replaces="질풍 찌르기")],
+        4: [SkillGrowth(SPEARHEAD_FORMATION)],
+    },
+    "마도사": {
+        2: [SkillGrowth(MANA_BARRIER)],
+        3: [SkillGrowth(ARCANE_LANCE, replaces="마력탄")],
+        4: [SkillGrowth(ARCANE_BURST)],
+    },
 }
 
 
@@ -384,6 +438,25 @@ def create_monk(name: str) -> PlayerCharacter:
     )
 
 
+def create_lancer(name: str) -> PlayerCharacter:
+    return PlayerCharacter(
+        name=name, job="창술가", level=1,
+        max_hp=40, max_mp=12, attack=12, defense=6, speed=8,
+        skills=[GALE_THRUST, SPEAR_WALL],
+        critical_rate=0.08,
+        skill_progression=JOB_SKILL_GROWTH_BY_JOB["창술가"],
+    )
+
+
+def create_arcanist(name: str) -> PlayerCharacter:
+    return PlayerCharacter(
+        name=name, job="마도사", level=1,
+        max_hp=30, max_mp=28, attack=7, defense=4, speed=6,
+        skills=[MANA_BOLT, ARCANE_EROSION],
+        skill_progression=JOB_SKILL_GROWTH_BY_JOB["마도사"],
+    )
+
+
 # 직업 선택 메뉴(main.py)에서 사용하는 조회 테이블. 새 직업을 추가하면 여기에도 등록하세요.
 JOB_CREATORS = {
     "warrior": create_warrior,
@@ -394,6 +467,8 @@ JOB_CREATORS = {
     "summoner": create_summoner,
     "knight": create_knight,
     "monk": create_monk,
+    "lancer": create_lancer,
+    "arcanist": create_arcanist,
 }
 JOB_LABELS = {
     "warrior": "전사 - 체력·방어력이 높은 근접 딜러 (파워 슬래시, 전투 함성)",
@@ -404,6 +479,8 @@ JOB_LABELS = {
     "summoner": "소환술사 - HP가 매우 낮은 대신 소환수로 강력한 단일/전체 공격 (소환: 이프리트/라무)",
     "knight": "기사 - 높은 체력과 방어력으로 적의 공격을 약화하는 수호형 (방패 강타/도발의 외침)",
     "monk": "무도가 - 빠른 연속 공격과 자기 강화에 특화된 근접형 (연환권/기 집중)",
+    "lancer": "창술가 - 창의 사거리와 관통력으로 선봉을 지키는 공격형 (질풍 찌르기/창벽)",
+    "arcanist": "마도사 - 순수 마력과 침식 주문을 다루는 제어형 (마력탄/마력 침식)",
 }
 
 
@@ -819,11 +896,19 @@ BATTLE_AXE = Equipment(
     name="전투 도끼", slot="weapon", weapon_family="axe", attack_bonus=8,
     speed_bonus=-2, price=60, description="무겁지만 일격이 강력한 도끼.",
 )
-SHOP_WEAPONS = [IRON_SWORD, OAK_STAFF, IRON_DAGGER, GUARD_SPEAR, HUNTER_BOW, BATTLE_AXE]
+IRON_GAUNTLET = Equipment(
+    name="철제 권갑", slot="weapon", weapon_family="fist", attack_bonus=5,
+    speed_bonus=1, price=58, description="주먹을 보호하며 연타의 위력을 높이는 권갑.",
+)
+SHOP_WEAPONS = [
+    IRON_SWORD, OAK_STAFF, IRON_DAGGER, GUARD_SPEAR,
+    HUNTER_BOW, BATTLE_AXE, IRON_GAUNTLET,
+]
 RANDOM_WEAPON_BASES = [
     ("강철검", "sword"), ("여행자 지팡이", "staff"),
     ("정찰 단검", "dagger"), ("수호 장창", "spear"),
     ("추적자 장궁", "bow"), ("강철 도끼", "axe"),
+    ("투사의 권갑", "fist"),
 ]
 
 
@@ -947,6 +1032,8 @@ SKILLS_BY_NAME = {
         SUMMON_SHIVA, SUMMON_IFRIT_EX, SUMMON_RAMUH_EX,
         SHIELD_BASH, PROVOKING_SHOUT, FORTRESS_STANCE, SHIELD_BREAK, HOLY_WAVE,
         COMBO_FIST, QI_FOCUS, FLOWING_STEP, IRON_FIST, QI_BURST,
+        GALE_THRUST, SPEAR_WALL, WHIRLWIND_SPEAR, DRAGON_THRUST, SPEARHEAD_FORMATION,
+        MANA_BOLT, ARCANE_EROSION, MANA_BARRIER, ARCANE_LANCE, ARCANE_BURST,
     ]
 }
 from advancement import ADVANCED_JOBS
@@ -955,7 +1042,7 @@ ITEMS_BY_NAME = {it.name: it for it in [POTION, ETHER, ANTIDOTE, MOONLIGHT_TONIC
 EQUIPMENT_BY_NAME = {
     e.name: e for e in [
         IRON_SWORD, OAK_STAFF, LEATHER_ARMOR, SWIFT_CHARM,
-        IRON_DAGGER, GUARD_SPEAR, HUNTER_BOW, BATTLE_AXE,
+        IRON_DAGGER, GUARD_SPEAR, HUNTER_BOW, BATTLE_AXE, IRON_GAUNTLET,
         MITHRIL_DAGGER, LEGENDARY_ARMOR, DRAKE_SCALE_ARMOR, SEALBREAKER_BLADE, LUCKY_RING,
         MIST_CLOAK,
         ELDER_GUARDIAN_SIGIL,

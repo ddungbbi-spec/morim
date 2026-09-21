@@ -5,7 +5,7 @@ from unittest.mock import patch
 import data
 import save
 from blacksmith import enhance_equipment, preview_upgrade
-from models import Party, WEAPON_FAMILIES
+from models import JOB_WEAPON_FAMILIES, Party, WEAPON_FAMILIES
 from web_app import WebGame, DEFAULT_PARTY_SETUP
 
 
@@ -19,10 +19,20 @@ class WeaponFamilyTests(unittest.TestCase):
         shop = next(i for i, s in enumerate(game.game_map.current.shops)
                     if data.IRON_SWORD in s.equipment)
         self.assertEqual({w.weapon_family for w in data.SHOP_WEAPONS}, set(WEAPON_FAMILIES))
+        compatible_creators = {
+            "sword": data.create_warrior,
+            "staff": data.create_mage,
+            "dagger": data.create_rogue,
+            "spear": data.create_lancer,
+            "bow": data.create_archer,
+            "axe": data.create_warrior,
+            "fist": data.create_monk,
+        }
         for index, weapon in enumerate(data.SHOP_WEAPONS):
             with self.subTest(family=weapon.weapon_family):
                 self.assertTrue(game.shop_action("buy_equipment", index, shop)["ok"])
                 target = len(game.equipment_inventory) - 1
+                game.party.members[0] = compatible_creators[weapon.weapon_family]("무기 검증")
                 self.assertTrue(game.equipment_action("equip", 0, target)["ok"])
                 hero = game.party.members[0]
                 self.assertEqual(hero.effective_attack, hero.attack + weapon.attack_bonus)
@@ -34,6 +44,43 @@ class WeaponFamilyTests(unittest.TestCase):
                 state = game._equipment_state(weapon)
                 self.assertIn(weapon.family_label + " 계열", state["description"])
                 self.assertEqual(state["weapon_family"], weapon.weapon_family)
+
+    def test_job_weapon_matrix_rejects_incompatible_items_without_losing_inventory(self):
+        self.assertEqual(set(JOB_WEAPON_FAMILIES), {
+            "전사", "마법사", "힐러", "도적", "궁수",
+            "소환술사", "기사", "무도가", "창술가", "마도사",
+        })
+        game = WebGame()
+        self.assertTrue(game.configure_party([
+            {"name": "창끝", "job": "lancer"},
+            {"name": "비전", "job": "arcanist"},
+            {"name": "철권", "job": "monk"},
+        ])["ok"])
+        game.advance_dialogue(1)
+        game.advance_dialogue()
+        game.equipment_inventory = [data.HUNTER_BOW, data.GUARD_SPEAR, data.IRON_SWORD,
+                                    data.OAK_STAFF, data.IRON_GAUNTLET]
+
+        before = list(game.equipment_inventory)
+        rejected = game.equipment_action("equip", 0, 0)
+        self.assertFalse(rejected["ok"])
+        self.assertIn("사용 가능 무기: 창", rejected["error"])
+        self.assertEqual(game.equipment_inventory, before)
+        self.assertIsNone(game.party.members[0].equipment["weapon"])
+
+        self.assertTrue(game.equipment_action("equip", 0, 1)["ok"])
+        self.assertTrue(game.equipment_action("equip", 1, 1)["ok"])
+        staff_index = game.equipment_inventory.index(data.OAK_STAFF)
+        self.assertTrue(game.equipment_action("equip", 1, staff_index)["ok"])
+        fist_index = game.equipment_inventory.index(data.IRON_GAUNTLET)
+        self.assertTrue(game.equipment_action("equip", 2, fist_index)["ok"])
+
+        state = game.state()
+        self.assertEqual(state["party"][0]["allowed_weapon_families"], [{"id": "spear", "name": "창"}])
+        self.assertEqual(
+            {family["id"] for family in state["party"][1]["allowed_weapon_families"]},
+            {"staff", "sword"},
+        )
 
     def test_all_families_drop_and_save(self):
         for base in data.RANDOM_WEAPON_BASES:

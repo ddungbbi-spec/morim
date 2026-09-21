@@ -24,6 +24,8 @@ JOB_NAMES = {
     "summoner": "소환술사",
     "knight": "기사",
     "monk": "무도가",
+    "lancer": "창술가",
+    "arcanist": "마도사",
 }
 
 

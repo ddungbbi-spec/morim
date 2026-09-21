@@ -355,13 +355,20 @@ function renderUtilityPanel() {
     const worn = Object.entries(member.equipment).map(([slot, item]) => item
       ? utilityButton(`${item.slot_name}: ${item.display_name}`, item.description, `equipmentRequest('unequip',${equipmentMember},null,'${slot}')`)
       : `<div class="empty-slot">${{weapon:"무기",armor:"방어구",accessory:"장신구"}[slot]}: 없음</div>`).join("");
-    const inventory = gameState.equipment_inventory.map((item) => utilityButton(
-      `${item.slot_name}: ${item.display_name}`, [item.description, item.special_effect].filter(Boolean).join(" · "),
-      `equipmentRequest('equip',${equipmentMember},${item.index},null)`
-    )).join("");
+    const allowedWeapons = member.allowed_weapon_families || [];
+    const allowedIds = new Set(allowedWeapons.map((family) => family.id));
+    const inventory = gameState.equipment_inventory.map((item) => {
+      const compatible = item.slot !== "weapon" || !item.weapon_family || allowedIds.has(item.weapon_family);
+      const detail = [item.description, item.special_effect, compatible ? "" : `${member.base_job || member.job} 장착 불가`]
+        .filter(Boolean).join(" · ");
+      return compatible
+        ? utilityButton(`${item.slot_name}: ${item.display_name}`, detail, `equipmentRequest('equip',${equipmentMember},${item.index},null)`)
+        : `<div class="utility-card disabled"><strong>${escapeHtml(item.slot_name)}: ${escapeHtml(item.display_name)}</strong><span>${escapeHtml(detail)}</span></div>`;
+    }).join("");
     panel.innerHTML = utilityShell("장비 관리", `
       <div class="mini-tabs">${memberTabs}</div>
       <p class="stat-line">공격 ${member.stats.attack} · 방어 ${member.stats.defense} · 속도 ${member.stats.speed}</p>
+      <p class="stat-line">사용 가능 무기: ${allowedWeapons.map((family) => escapeHtml(family.name)).join(" · ") || "없음"}</p>
       ${utilitySection("착용 장비 · 누르면 해제", worn)}
       ${utilitySection("보유 장비 · 누르면 착용", inventory)}`);
   } else if (utilityMode === "quest") {

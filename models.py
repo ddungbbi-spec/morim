@@ -99,7 +99,20 @@ class StatusEffect:
 
 WEAPON_FAMILIES = {
     "sword": "검", "staff": "지팡이", "dagger": "단검",
-    "spear": "창", "bow": "활", "axe": "도끼",
+    "spear": "창", "bow": "활", "axe": "도끼", "fist": "권갑",
+}
+
+JOB_WEAPON_FAMILIES = {
+    "전사": ("sword", "axe"),
+    "마법사": ("staff",),
+    "힐러": ("staff",),
+    "도적": ("dagger",),
+    "궁수": ("bow",),
+    "소환술사": ("staff",),
+    "기사": ("sword", "spear"),
+    "무도가": ("fist",),
+    "창술가": ("spear",),
+    "마도사": ("staff", "sword"),
 }
 
 
@@ -433,6 +446,30 @@ class PlayerCharacter(Character):
         self.base_job = self.job
         self.advanced_job_id = ""
         self.last_growth_messages: List[str] = []
+
+    @property
+    def allowed_weapon_families(self) -> Tuple[str, ...]:
+        """기본 직업 기준으로 새로 장착할 수 있는 무기 계열을 반환한다."""
+        return JOB_WEAPON_FAMILIES.get(self.base_job, tuple(WEAPON_FAMILIES))
+
+    def can_equip(self, item: Equipment) -> bool:
+        """방어구·장신구와 계열 정보가 없는 구버전 무기는 호환 처리한다."""
+        return (
+            item.slot != "weapon"
+            or not item.weapon_family
+            or item.weapon_family in self.allowed_weapon_families
+        )
+
+    def equip(self, item: Equipment) -> Optional[Equipment]:
+        if not self.can_equip(item):
+            allowed = " · ".join(
+                WEAPON_FAMILIES[family] for family in self.allowed_weapon_families
+            ) or "없음"
+            raise ValueError(
+                f"{self.base_job}은(는) {item.family_label} 계열을 장착할 수 없습니다. "
+                f"사용 가능 무기: {allowed}"
+            )
+        return super().equip(item)
 
     def sync_skills_for_level(self) -> List[str]:
         """현재 레벨까지의 습득·강화 스킬을 중복 없이 반영한다."""

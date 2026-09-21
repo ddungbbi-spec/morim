@@ -222,7 +222,7 @@ class WebGameTests(unittest.TestCase):
         self.assertEqual(state["location"]["name"], "시작 마을")
         self.assertIsNone(state["dialogue"])
         self.assertEqual(len(state["party"]), 0)
-        self.assertEqual(len(state["setup"]["jobs"]), 8)
+        self.assertEqual(len(state["setup"]["jobs"]), 10)
         self.assertEqual(len(state["encounters"]), 3)
         for filename in (
             "index.html", "styles.css", "app.js", "manifest.webmanifest", "sw.js",
@@ -861,14 +861,14 @@ class WebGameTests(unittest.TestCase):
 
     def test_web_equipment_equip_swap_and_unequip(self):
         self.finish_intro()
-        self.game.equipment_inventory.extend([data.IRON_SWORD, data.OAK_STAFF])
+        self.game.equipment_inventory.extend([data.IRON_SWORD, data.BATTLE_AXE])
         equipped = self.game.equipment_action("equip", 0, 0)
         self.assertTrue(equipped["ok"])
         self.assertIs(self.game.party.members[0].equipment["weapon"], data.IRON_SWORD)
 
         swapped = self.game.equipment_action("equip", 0, 0)
         self.assertTrue(swapped["ok"])
-        self.assertIs(self.game.party.members[0].equipment["weapon"], data.OAK_STAFF)
+        self.assertIs(self.game.party.members[0].equipment["weapon"], data.BATTLE_AXE)
         self.assertIn(data.IRON_SWORD, self.game.equipment_inventory)
 
         removed = self.game.equipment_action("unequip", 0, slot="weapon")

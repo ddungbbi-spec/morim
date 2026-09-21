@@ -26,7 +26,7 @@ from blacksmith import (
 )
 from combat import _describe_skill_result
 from equipment import SLOT_NAMES_KR
-from models import Enemy, Item, Party, PlayerCharacter, Skill
+from models import Enemy, Item, Party, PlayerCharacter, Skill, WEAPON_FAMILIES
 from quests import QuestLog, QUESTS
 from shop import SELL_RATIO
 from advancement import ADVANCEMENT_LEVEL, advance, options_for
@@ -389,8 +389,9 @@ class WebGame:
             ]
             if operation == "equip":
                 index = self._index(equipment_index, len(self.equipment_inventory), "장비")
-                item = self.equipment_inventory.pop(index)
+                item = self.equipment_inventory[index]
                 previous = member.equip(item)
+                self.equipment_inventory.pop(index)
                 if previous:
                     self.equipment_inventory.append(previous)
                 self._log(f"{member.name}이(가) {item.display_name}을(를) 착용했습니다.")
@@ -928,7 +929,7 @@ class WebGame:
 
     @staticmethod
     def _character_state(character) -> dict:
-        return {
+        state = {
             "name": character.name,
             "job": character.job,
             "level": character.level,
@@ -952,6 +953,13 @@ class WebGame:
                 for slot, item in character.equipment.items()
             },
         }
+        if isinstance(character, PlayerCharacter):
+            state["base_job"] = character.base_job
+            state["allowed_weapon_families"] = [
+                {"id": family, "name": WEAPON_FAMILIES[family]}
+                for family in character.allowed_weapon_families
+            ]
+        return state
 
     @staticmethod
     def _equipment_state(item) -> dict:
