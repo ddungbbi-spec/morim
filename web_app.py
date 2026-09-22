@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 import hmac
 import json
 import mimetypes
@@ -29,7 +30,7 @@ from crafting import (
     shard_count, synthesize_weapon,
 )
 from combat import _describe_skill_result
-from equipment import SLOT_NAMES_KR
+from equipment import SLOT_NAMES_KR, protection_warning
 from models import (
     EQUIPMENT_RARITIES, RARITY_NAMES_KR, WEAPON_FAMILIES,
     Enemy, Item, Party, PlayerCharacter, Skill,
@@ -229,6 +230,8 @@ class WebGame:
                 equipment = self.equipment_inventory[
                     self._index(index, len(self.equipment_inventory), "판매 장비")
                 ]
+                if equipment.locked:
+                    raise ValueError("잠금 보호된 장비는 판매할 수 없습니다. 장비 관리에서 잠금을 해제하세요.")
                 price = int(equipment.price * SELL_RATIO)
                 self.equipment_inventory.remove(equipment)
                 self.party.gold += price
@@ -464,6 +467,25 @@ class WebGame:
                     raise ValueError("해제할 장비가 없습니다.")
                 self.equipment_inventory.append(previous)
                 self._log(f"{member.name}이(가) {previous.display_name}을(를) 해제했습니다.")
+            elif operation in {"lock", "unlock"}:
+                desired = operation == "lock"
+                if equipment_index is not None:
+                    index = self._index(equipment_index, len(self.equipment_inventory), "장비")
+                    item = self.equipment_inventory[index]
+                    if item.locked == desired:
+                        raise ValueError("이미 같은 보호 상태입니다.")
+                    self.equipment_inventory[index] = replace(item, locked=desired)
+                    changed = self.equipment_inventory[index]
+                else:
+                    if slot not in member.equipment or member.equipment[slot] is None:
+                        raise ValueError("잠금 상태를 바꿀 장비를 선택하세요.")
+                    item = member.equipment[slot]
+                    if item.locked == desired:
+                        raise ValueError("이미 같은 보호 상태입니다.")
+                    member.equipment[slot] = replace(item, locked=desired)
+                    changed = member.equipment[slot]
+                state_label = "잠금 보호" if desired else "잠금 해제"
+                self._log(f"{changed.display_name}: {state_label}했습니다.")
             else:
                 return self._error("지원하지 않는 장비 행동입니다.")
         except (IndexError, TypeError, ValueError) as error:
@@ -1036,6 +1058,8 @@ class WebGame:
             "price": item.price,
             "rarity": item.rarity,
             "enhancement_level": item.enhancement_level,
+            "locked": item.locked,
+            "protection_warning": protection_warning(item),
         }
 
     def _map_state(self) -> dict:
@@ -1212,6 +1236,7 @@ class WebGame:
                         "price": int(item.price * SELL_RATIO),
                     }
                     for index, item in enumerate(self.equipment_inventory)
+                    if not item.locked
                 ],
             }
         blacksmith_state = None
@@ -1283,6 +1308,7 @@ class WebGame:
                         "quote": self._craft_quote("dismantle", index),
                     }
                     for index, item in enumerate(self.equipment_inventory)
+                    if not item.locked
                 ],
                 "recipes": crafting_recipes,
             }

@@ -28,7 +28,7 @@ SAVE_DIR = os.path.abspath(
     )
 )
 MAX_SLOTS = 3
-SAVE_VERSION = 8
+SAVE_VERSION = 9
 
 
 class SaveGameError(ValueError):
@@ -64,6 +64,7 @@ def _equipment_to_dict(eq: Equipment) -> dict:
         "generated": eq.generated,
         "enhancement_level": eq.enhancement_level,
         "weapon_family": eq.weapon_family,
+        "locked": eq.locked,
     }
 
 
@@ -93,6 +94,14 @@ def _equipment_from_data(record):
         raise SaveGameError("알 수 없는 무기 계열입니다.")
     if record["slot"] != "weapon" and family:
         raise SaveGameError("무기 이외의 장비에는 무기 계열을 지정할 수 없습니다.")
+    legacy_locked = (
+        rarity == "legendary"
+        or record.get("enhancement_level", 0) > 0
+        or record["name"] in data.PROTECTED_EQUIPMENT_NAMES
+    )
+    locked = record.get("locked", legacy_locked)
+    if not isinstance(locked, bool):
+        raise SaveGameError("장비 잠금 상태가 올바르지 않습니다.")
     return Equipment(
         name=record["name"], slot=record["slot"],
         weapon_family=family,
@@ -109,6 +118,7 @@ def _equipment_from_data(record):
         special_effect=record.get("special_effect", ""),
         generated=record.get("generated", False),
         enhancement_level=record.get("enhancement_level", 0),
+        locked=locked,
     )
 
 

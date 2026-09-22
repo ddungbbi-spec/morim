@@ -1005,7 +1005,7 @@ class GameTests(unittest.TestCase):
                 with open(path, "r", encoding="utf-8") as stream:
                     payload = json.load(stream)
                 metadata = payload["metadata"]
-                self.assertEqual(payload["save_version"], 8)
+                self.assertEqual(payload["save_version"], 9)
                 self.assertEqual(metadata["play_time_seconds"], 3661)
                 self.assertEqual(metadata["location_name"], "시작 마을")
                 self.assertEqual(metadata["party_jobs"], ["전사", "마법사"])

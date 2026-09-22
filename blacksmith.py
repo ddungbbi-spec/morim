@@ -46,6 +46,7 @@ def matching_material_indices(
         index for index, item in enumerate(equipment_inventory)
         if index != target_index and item.name == target.name and item.enhancement_level == 0
         and item.slot == target.slot and item.weapon_family == target.weapon_family
+        and not item.locked
     ]
     return sorted(matches, key=lambda index: equipment_inventory[index].enhancement_level)
 
@@ -97,7 +98,7 @@ def preview_upgrade(target: Equipment) -> Equipment:
     return replace(
         target, enhancement_level=next_level,
         description=f"{base_description} · 강화 +{next_level}",
-        price=target.price + max(1, cost // 2), generated=True, **bonuses,
+        price=target.price + max(1, cost // 2), generated=True, locked=True, **bonuses,
     )
 
 

@@ -137,6 +137,7 @@ class Equipment:
     generated: bool = False
     enhancement_level: int = 0
     weapon_family: str = ""
+    locked: bool = False
 
     @property
     def family_label(self) -> str:

@@ -3,6 +3,7 @@
 from typing import List, Tuple
 
 from input_utils import prompt_index, prompt_yes_no
+from equipment import protection_warning
 from models import (
     EQUIPMENT_RARITIES, RARITY_NAMES_KR, WEAPON_FAMILIES,
     Equipment, Party,
@@ -37,6 +38,8 @@ def dismantle_equipment(
 ) -> Tuple[Equipment, int]:
     if not isinstance(index, int) or isinstance(index, bool) or not 0 <= index < len(equipment_inventory):
         raise ValueError("올바른 분해 장비를 선택하세요.")
+    if equipment_inventory[index].locked:
+        raise ValueError("잠금 보호된 장비는 분해할 수 없습니다. 장비 관리에서 잠금을 해제하세요.")
     item = equipment_inventory.pop(index)
     gained = dismantle_value(item)
     flags[SHARD_FLAG] = shard_count(flags) + gained
@@ -96,15 +99,22 @@ def run_crafting(
             if not equipment_inventory:
                 print("분해할 미착용 장비가 없습니다.")
                 continue
-            for index, item in enumerate(equipment_inventory, 1):
-                print(f"  {index}) {item.display_name} → 조각 {dismantle_value(item)}개")
-            print(f"  {len(equipment_inventory) + 1}) 취소")
-            selected = prompt_index("> ", len(equipment_inventory) + 1)
-            if selected == len(equipment_inventory):
+            available = [item for item in equipment_inventory if not item.locked]
+            if not available:
+                print("분해할 수 있는 장비가 없습니다. 잠금 장비는 보호됩니다.")
                 continue
-            item = equipment_inventory[selected]
+            for index, item in enumerate(available, 1):
+                print(f"  {index}) {item.display_name} → 조각 {dismantle_value(item)}개")
+            print(f"  {len(available) + 1}) 취소")
+            selected = prompt_index("> ", len(available) + 1)
+            if selected == len(available):
+                continue
+            item = available[selected]
+            warning = protection_warning(item)
+            if warning:
+                print(f"주의: {warning}")
             if prompt_yes_no(f"{item.display_name}을(를) 분해할까요? (y/n)> "):
-                removed, gained = dismantle_equipment(equipment_inventory, selected, flags)
+                removed, gained = dismantle_equipment(equipment_inventory, equipment_inventory.index(item), flags)
                 print(f"{removed.display_name} 분해 완료! 장비 조각 {gained}개를 얻었습니다.")
             continue
 

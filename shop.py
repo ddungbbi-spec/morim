@@ -132,7 +132,7 @@ def _buy_equipment(
 
 def _sell_menu(party: Party, inventory: List[Item], equipment_inventory: List[Equipment]) -> None:
     combined = [("item", it) for it in inventory if it.sellable] + [
-        ("equipment", eq) for eq in equipment_inventory
+        ("equipment", eq) for eq in equipment_inventory if not eq.locked
     ]
 
     print(f"\n[판매] (정가의 {int(SELL_RATIO * 100)}%로 판매)")

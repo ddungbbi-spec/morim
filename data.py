@@ -822,27 +822,31 @@ MITHRIL_DAGGER = Equipment(
     name="미스릴 대거", slot="weapon", attack_bonus=7, speed_bonus=2, weapon_family="dagger",
     description="동굴 깊은 곳에서만 발견되는 희귀한 단검. 공격력 +7, 속도 +2",
     price=60, rarity="rare", critical_rate_bonus=0.10, special_effect="치명타율 +10%",
+    locked=True,
 )
 LEGENDARY_ARMOR = Equipment(
     name="전설의 갑옷", slot="armor", defense_bonus=8, max_hp_bonus=20,
     description="도전의 탑 정상에서만 얻을 수 있는 전설의 갑옷. 방어력 +8, 최대 HP +20",
     price=120, rarity="legendary", damage_reduction_bonus=0.10, special_effect="받는 피해 10% 감소",
+    locked=True,
 )
 DRAKE_SCALE_ARMOR = Equipment(
     name="드레이크 비늘 갑옷", slot="armor", defense_bonus=6, max_hp_bonus=15,
     description="탄광 드레이크의 비늘로 만든 갑옷. 방어력 +6, 최대 HP +15",
     price=85, rarity="rare", damage_reduction_bonus=0.05, special_effect="받는 피해 5% 감소",
+    locked=True,
 )
 SEALBREAKER_BLADE = Equipment(
     name="봉인 해방의 검", slot="weapon", attack_bonus=10, defense_bonus=2, weapon_family="sword",
     description="봉인된 마왕을 쓰러뜨린 자만이 얻을 수 있는 전설의 검. 공격력 +10, 방어력 +2",
     price=100, rarity="legendary", critical_rate_bonus=0.15, special_effect="치명타율 +15%",
+    locked=True,
 )
 LUCKY_RING = Equipment(
     name="행운의 반지", slot="accessory", attack_bonus=2, speed_bonus=2,
     description="동굴 비밀 금고에서 발견한 반지. 공격력 +2, 속도 +2",
     price=45, rarity="rare", critical_rate_bonus=0.05, evasion_rate_bonus=0.05,
-    special_effect="치명타율·회피율 +5%",
+    special_effect="치명타율·회피율 +5%", locked=True,
 )
 
 
@@ -850,27 +854,28 @@ MIST_CLOAK = Equipment(
     name="안개의 망토", slot="armor", defense_bonus=5, speed_bonus=2, max_hp_bonus=8,
     description="안개의 여왕이 두르던 망토. 방어력 +5, 속도 +2, 최대 HP +8",
     price=95, rarity="rare", evasion_rate_bonus=0.05, special_effect="회피율 +5%",
+    locked=True,
 )
 
 ELDER_GUARDIAN_SIGIL = Equipment(
     name="장로의 수호 인장", slot="accessory", defense_bonus=2, max_hp_bonus=6,
     description="마을을 지키겠다고 맹세한 이에게 맡기는 인장. 방어력 +2, 최대 HP +6",
     price=55, rarity="uncommon", damage_reduction_bonus=0.03,
-    special_effect="받는 피해 3% 감소",
+    special_effect="받는 피해 3% 감소", locked=True,
 )
 
 ARCHIVE_LANTERN = Equipment(
     name="기록실의 등불", slot="accessory", max_mp_bonus=8, defense_bonus=2,
     description="메아리를 잠재운 뒤 되찾은 등불. 최대 MP +8, 방어력 +2",
     price=75, rarity="rare", damage_reduction_bonus=0.04,
-    special_effect="받는 피해 4% 감소",
+    special_effect="받는 피해 4% 감소", locked=True,
 )
 
 STARWARD_CHARM = Equipment(
     name="별의 수호 부적", slot="accessory", defense_bonus=3, max_hp_bonus=10,
     description="검은 별의 잔재를 잠재운 뒤 얻은 부적. 방어력 +3, 최대 HP +10",
     price=95, rarity="rare", damage_reduction_bonus=0.06,
-    special_effect="받는 피해 6% 감소",
+    special_effect="받는 피해 6% 감소", locked=True,
 )
 
 CONSTELLATION_SPEAR = Equipment(
@@ -878,8 +883,17 @@ CONSTELLATION_SPEAR = Equipment(
     attack_bonus=12, defense_bonus=3, speed_bonus=1,
     description="공허의 관측자가 지키던 별길의 열쇠. 공격력 +12, 방어력 +3, 속도 +1",
     price=150, rarity="legendary", critical_rate_bonus=0.10,
-    special_effect="치명타율 +10%",
+    special_effect="치명타율 +10%", locked=True,
 )
+
+PROTECTED_EQUIPMENT_NAMES = {
+    item.name for item in (
+        MITHRIL_DAGGER, LEGENDARY_ARMOR, DRAKE_SCALE_ARMOR,
+        SEALBREAKER_BLADE, LUCKY_RING, MIST_CLOAK,
+        ELDER_GUARDIAN_SIGIL, ARCHIVE_LANTERN, STARWARD_CHARM,
+        CONSTELLATION_SPEAR,
+    )
+}
 
 
 IRON_DAGGER = Equipment(
@@ -1028,6 +1042,7 @@ def generate_random_equipment(
         description=", ".join(stat_parts),
         price=int((18 + level * 9) * RARITY_PRICE_MULTIPLIERS[rarity]),
         rarity=rarity, special_effect="/".join(affix_names), generated=True,
+        locked=rarity == "legendary",
         **bonuses,
     )
 

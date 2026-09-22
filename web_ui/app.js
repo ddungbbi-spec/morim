@@ -330,7 +330,7 @@ function renderUtilityPanel() {
     const equipment = gameState.blacksmith.equipment.map((item) => {
       const detail = item.enhancement_level >= gameState.blacksmith.max_level
         ? "최대 강화 단계"
-        : `${item.preview} · ${item.cost}G · 미강화 재료 ${item.materials}개 보유${item.reason ? ` · ${item.reason}` : ""}`;
+        : `${item.preview} · ${item.cost}G · 미강화 재료 ${item.materials}개 보유${item.locked ? " · 🔒 잠금 보호(강화 가능)" : ""}${item.reason ? ` · ${item.reason}` : ""}`;
       const action = item.can_upgrade ? `blacksmithRequest(${item.index})` : "";
       const duplicate = action
         ? equipmentButton(item, `${item.display_name} · 동일 장비 강화`, detail, action)
@@ -382,7 +382,9 @@ function renderUtilityPanel() {
     const memberTabs = gameState.party.map((character, index) => `
       <button class="mini-tab${index === equipmentMember ? " selected" : ""}" onclick="selectEquipmentMember(${index})">${escapeHtml(character.name)}</button>`).join("");
     const worn = Object.entries(member.equipment).map(([slot, item]) => item
-      ? equipmentButton(item, `${item.slot_name}: ${item.display_name}`, item.description, `equipmentRequest('unequip',${equipmentMember},null,'${slot}')`)
+      ? equipmentProtectionRow(item, `${item.slot_name}: ${item.display_name}`, item.description,
+          `equipmentRequest('unequip',${equipmentMember},null,'${slot}')`, true,
+          `equipmentRequest('${item.locked ? "unlock" : "lock"}',${equipmentMember},null,'${slot}')`)
       : `<div class="empty-slot">${{weapon:"무기",armor:"방어구",accessory:"장신구"}[slot]}: 없음</div>`).join("");
     const allowedWeapons = member.allowed_weapon_families || [];
     const allowedIds = new Set(allowedWeapons.map((family) => family.id));
@@ -390,9 +392,11 @@ function renderUtilityPanel() {
       const compatible = item.slot !== "weapon" || !item.weapon_family || allowedIds.has(item.weapon_family);
       const detail = [item.description, item.special_effect, compatible ? "" : `${member.base_job || member.job} 장착 불가`]
         .filter(Boolean).join(" · ");
-      return compatible
-        ? equipmentButton(item, `${item.slot_name}: ${item.display_name}`, detail, `equipmentRequest('equip',${equipmentMember},${item.index},null)`)
-        : equipmentDisabledCard(item, `${item.slot_name}: ${item.display_name}`, detail);
+      return equipmentProtectionRow(
+        item, `${item.slot_name}: ${item.display_name}`, detail,
+        `equipmentRequest('equip',${equipmentMember},${item.index},null)`, compatible,
+        `equipmentRequest('${item.locked ? "unlock" : "lock"}',${equipmentMember},${item.index},null)`
+      );
     }).join("");
     panel.innerHTML = utilityShell("장비 관리", `
       <div class="mini-tabs">${memberTabs}</div>
@@ -459,6 +463,14 @@ function equipmentDisabledCard(item, title, detail) {
   return `<div class="utility-card disabled ${rarityClass(item.rarity)}"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(detail)}</span></div>`;
 }
 
+function equipmentProtectionRow(item, title, detail, onclick, enabled, lockOnclick) {
+  const lockLabel = item.locked ? "🔓 잠금 해제" : "🔒 잠금";
+  const card = enabled
+    ? equipmentButton(item, `${item.locked ? "🔒 " : ""}${title}`, detail, onclick)
+    : equipmentDisabledCard(item, `${item.locked ? "🔒 " : ""}${title}`, detail);
+  return `<div class="equipment-protection-row">${card}<button class="protection-toggle${item.locked ? " active" : ""}" onclick="${lockOnclick}">${lockLabel}</button></div>`;
+}
+
 function openUtility(mode) { utilityMode = mode; if (mode === "shop") shopIndex = null; renderUtilityPanel(); }
 function clearUtility() { utilityMode = null; shopIndex = null; $("#choicePanel").classList.add("hidden"); }
 function selectShop(index) { shopIndex = index; renderUtilityPanel(); }
@@ -490,7 +502,8 @@ async function craftingRequest(operation, equipment, rarity, family, quote) {
   if (operation === "dismantle") {
     const item = gameState.crafting?.dismantle.find((entry) => entry.index === equipment);
     if (!item) return;
-    message = `${item.display_name}\n장비 조각 ${item.shard_yield}개로 분해할까요?\n분해한 장비는 복구할 수 없습니다.`;
+    const warning = item.protection_warning ? `\n⚠ ${item.protection_warning}` : "";
+    message = `${item.display_name}${warning}\n장비 조각 ${item.shard_yield}개로 분해할까요?\n분해한 장비는 복구할 수 없습니다.`;
   } else {
     const recipe = gameState.crafting?.recipes.find((entry) => entry.rarity === rarity);
     const familyName = gameState.crafting?.families.find((entry) => entry.id === family)?.name;

@@ -343,7 +343,14 @@ class WebGameTests(unittest.TestCase):
                 self.assertFalse(replay["ok"])
                 self.assertIn("다시 확인", replay["error"])
 
-                craft_item = result["state"]["crafting"]["dismantle"][0]
+                self.assertEqual(result["state"]["crafting"]["dismantle"], [])
+                with urllib.request.urlopen(
+                    request("/api/equipment", {
+                        "operation": "unlock", "member": 0, "equipment": 0,
+                    }), timeout=2
+                ) as response:
+                    unlocked = json.load(response)
+                craft_item = unlocked["state"]["crafting"]["dismantle"][0]
                 craft_body = {
                     "operation": "dismantle", "equipment": craft_item["index"],
                     "quote": craft_item["quote"],
