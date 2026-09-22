@@ -361,7 +361,7 @@ class WebGameTests(unittest.TestCase):
                     craft_result = json.load(response)
                 self.assertTrue(craft_result["ok"])
                 self.assertEqual(craft_result["state"]["equipment_count"], 0)
-                self.assertEqual(craft_result["state"]["crafting"]["shards"], 3)
+                self.assertEqual(craft_result["state"]["crafting"]["shards"], 4)
 
                 with self.assertRaises(urllib.error.HTTPError) as shape_error:
                     urllib.request.urlopen(request("/api/new", []), timeout=2)

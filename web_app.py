@@ -26,8 +26,9 @@ from blacksmith import (
     STAR_ORE_NAME, star_ore_cost, award_star_ore,
 )
 from crafting import (
-    SYNTHESIS_RECIPES, can_synthesize, dismantle_equipment, dismantle_value,
-    shard_count, synthesize_weapon,
+    ENHANCEMENT_DISMANTLE_BONUS, SYNTHESIS_RECIPES,
+    can_synthesize, dismantle_equipment, dismantle_value, shard_count,
+    synthesize_weapon,
 )
 from combat import _describe_skill_result
 from equipment import SLOT_NAMES_KR, protection_warning
@@ -1296,6 +1297,11 @@ class WebGame:
                 })
             crafting_state = {
                 "shards": shard_count(self.flags),
+                "enhancement_bonuses": [
+                    {"level": level, "shards": shards}
+                    for level, shards in ENHANCEMENT_DISMANTLE_BONUS.items()
+                    if level > 0
+                ],
                 "families": [
                     {"id": family, "name": name}
                     for family, name in WEAPON_FAMILIES.items()

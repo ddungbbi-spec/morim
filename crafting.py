@@ -14,6 +14,9 @@ SHARD_FLAG = "equipment_shards"
 DISMANTLE_SHARDS = {
     "common": 1, "uncommon": 3, "rare": 8, "epic": 20, "legendary": 50,
 }
+ENHANCEMENT_DISMANTLE_BONUS = {
+    0: 0, 1: 3, 2: 7, 3: 12, 4: 18, 5: 25,
+}
 SYNTHESIS_RECIPES = {
     "common": (4, 15),
     "uncommon": (10, 35),
@@ -29,8 +32,9 @@ def shard_count(flags: dict) -> int:
 
 
 def dismantle_value(item: Equipment) -> int:
-    """등급 기본 조각에 강화 단계당 2조각을 더한다."""
-    return DISMANTLE_SHARDS.get(item.rarity, 1) + max(0, item.enhancement_level) * 2
+    """등급 기본 조각에 강화 투자량을 반영한 단계별 회수 보너스를 더한다."""
+    level = min(5, max(0, item.enhancement_level))
+    return DISMANTLE_SHARDS.get(item.rarity, 1) + ENHANCEMENT_DISMANTLE_BONUS[level]
 
 
 def dismantle_equipment(

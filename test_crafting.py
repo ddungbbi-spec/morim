@@ -8,8 +8,8 @@ from dataclasses import replace
 import data
 import save
 from crafting import (
-    DISMANTLE_SHARDS, SYNTHESIS_RECIPES, dismantle_equipment,
-    dismantle_value, shard_count, synthesize_weapon,
+    DISMANTLE_SHARDS, ENHANCEMENT_DISMANTLE_BONUS, SYNTHESIS_RECIPES,
+    dismantle_equipment, dismantle_value, shard_count, synthesize_weapon,
 )
 from models import EQUIPMENT_RARITIES, Party, WEAPON_FAMILIES
 from world import build_world
@@ -25,7 +25,7 @@ class CraftingTests(unittest.TestCase):
                 data.IRON_SWORD, rarity=rarity,
                 enhancement_level=enhancement,
             )
-            value = DISMANTLE_SHARDS[rarity] + enhancement * 2
+            value = DISMANTLE_SHARDS[rarity] + ENHANCEMENT_DISMANTLE_BONUS[enhancement]
             self.assertEqual(dismantle_value(item), value)
             equipment.append(item)
             expected += value
@@ -40,6 +40,19 @@ class CraftingTests(unittest.TestCase):
             save.save_game(party, [], build_world(), flags, [], path)
             _, _, _, restored_flags, _, _ = save.load_game(path)
         self.assertEqual(restored_flags["equipment_shards"], expected)
+
+    def test_enhancement_dismantle_bonus_uses_progressive_recovery_curve(self):
+        expected = [0, 3, 7, 12, 18, 25]
+        values = [
+            dismantle_value(replace(data.IRON_SWORD, enhancement_level=level))
+            - DISMANTLE_SHARDS["common"]
+            for level in range(6)
+        ]
+        self.assertEqual(values, expected)
+        self.assertEqual(
+            dismantle_value(replace(data.IRON_SWORD, enhancement_level=99)),
+            DISMANTLE_SHARDS["common"] + 25,
+        )
 
     def test_synthesis_makes_exact_family_rarity_and_consumes_cost(self):
         party = Party([data.create_lancer("합성공")], gold=999)

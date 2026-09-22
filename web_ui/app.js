@@ -373,6 +373,7 @@ function renderUtilityPanel() {
     panel.innerHTML = utilityShell("분해 · 무기 합성 공방", `
       <p class="stat-line">보유 장비 조각 ${gameState.crafting.shards}개 · ${gameState.gold}G</p>
       <p class="stat-line">미착용 장비를 조각으로 분해하거나, 무기 계열과 등급을 지정해 실패 없이 합성합니다.</p>
+      <p class="stat-line">강화 분해 보너스: ${gameState.crafting.enhancement_bonuses.map((entry) => `+${entry.level} ${entry.shards}개`).join(" · ")}</p>
       <div class="mini-tabs">${familyTabs}</div>
       ${utilitySection(`${family?.name || "무기"} 합성`, recipes)}
       ${utilitySection("미착용 장비 분해", dismantle)}`);
