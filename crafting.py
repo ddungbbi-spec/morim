@@ -1,5 +1,6 @@
 """미착용 장비 분해와 무기 계열·등급 지정 합성 규칙."""
 
+from itertools import combinations
 from typing import List, Tuple
 
 from input_utils import prompt_index, prompt_yes_no
@@ -67,6 +68,80 @@ def can_synthesize(party: Party, flags: dict, rarity: str, family: str) -> Tuple
     if party.gold < gold:
         return False, f"골드가 부족합니다. ({gold}G 필요)"
     return True, ""
+
+
+def synthesis_preview(party: Party, rarity: str, family: str) -> dict:
+    """합성 결과의 확정 요소와 무작위 능력치 범위를 실제 생성 규칙으로 계산한다."""
+    if rarity not in EQUIPMENT_RARITIES:
+        raise ValueError("올바른 합성 등급을 선택하세요.")
+    if family not in WEAPON_FAMILIES:
+        raise ValueError("올바른 무기 계열을 선택하세요.")
+
+    import data
+    level = max((member.level for member in party.members), default=1)
+    base = data.equipment_base_bonuses(level, "weapon", family)
+    option_count = data.RARITY_AFFIX_COUNTS[rarity]
+    outcomes = []
+    for selected in combinations(data.RANDOM_AFFIXES, option_count):
+        values = dict(base)
+        for _, affix in selected:
+            for field, amount in affix.items():
+                values[field] += amount
+        outcomes.append(values)
+    if not outcomes:
+        outcomes = [base]
+
+    labels = {
+        "attack_bonus": "공격력", "defense_bonus": "방어력",
+        "speed_bonus": "속도", "max_hp_bonus": "최대 HP",
+        "max_mp_bonus": "최대 MP", "critical_rate_bonus": "치명타율",
+        "evasion_rate_bonus": "회피율", "damage_reduction_bonus": "피해 감소",
+    }
+    percent_fields = {
+        "critical_rate_bonus", "evasion_rate_bonus", "damage_reduction_bonus",
+    }
+    stat_ranges = []
+    for field, label in labels.items():
+        minimum = min(values[field] for values in outcomes)
+        maximum = max(values[field] for values in outcomes)
+        if minimum == maximum == 0:
+            continue
+        if field in percent_fields:
+            minimum, maximum = round(minimum * 100), round(maximum * 100)
+            unit = "%"
+        else:
+            unit = ""
+        stat_ranges.append({
+            "field": field, "label": label,
+            "min": minimum, "max": maximum, "unit": unit,
+        })
+
+    compatible_members = [
+        {"name": member.name, "job": member.job}
+        for member in party.members
+        if family in member.allowed_weapon_families
+    ]
+    return {
+        "level": level,
+        "rarity": rarity,
+        "rarity_name": RARITY_NAMES_KR[rarity],
+        "family": family,
+        "family_name": WEAPON_FAMILIES[family],
+        "option_count": option_count,
+        "options_random": option_count > 0,
+        "stat_ranges": stat_ranges,
+        "compatible_members": compatible_members,
+    }
+
+
+def preview_stat_text(preview: dict) -> str:
+    parts = []
+    for stat in preview["stat_ranges"]:
+        low = f"{stat['min']:+g}{stat['unit']}"
+        high = f"{stat['max']:+g}{stat['unit']}"
+        value = low if stat["min"] == stat["max"] else f"{low}~{high}"
+        parts.append(f"{stat['label']} {value}")
+    return " · ".join(parts) or "능력치 보너스 없음"
 
 
 def synthesize_weapon(
@@ -138,6 +213,18 @@ def run_crafting(
         if rarity_index == len(EQUIPMENT_RARITIES):
             continue
         rarity = EQUIPMENT_RARITIES[rarity_index]
+        preview = synthesis_preview(party, rarity, family)
+        compatible = ", ".join(
+            f"{member['name']}({member['job']})"
+            for member in preview["compatible_members"]
+        ) or "현재 파티에 없음"
+        option_text = (
+            f"무작위 부가 옵션 {preview['option_count']}개"
+            if preview["options_random"] else "부가 옵션 없음"
+        )
+        print(f"  예상 결과: Lv.{preview['level']} {preview['rarity_name']} {preview['family_name']}")
+        print(f"  능력치 범위: {preview_stat_text(preview)}")
+        print(f"  {option_text} / 장착 가능: {compatible}")
         if not prompt_yes_no(f"{RARITY_NAMES_KR[rarity]} {WEAPON_FAMILIES[family]} 무기를 합성할까요? (y/n)> "):
             continue
         try:

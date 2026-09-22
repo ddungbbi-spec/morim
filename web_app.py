@@ -28,7 +28,7 @@ from blacksmith import (
 from crafting import (
     ENHANCEMENT_DISMANTLE_BONUS, SYNTHESIS_RECIPES,
     can_synthesize, dismantle_equipment, dismantle_value, shard_count,
-    synthesize_weapon,
+    synthesize_weapon, synthesis_preview, preview_stat_text,
 )
 from combat import _describe_skill_result
 from equipment import SLOT_NAMES_KR, protection_warning
@@ -1283,6 +1283,13 @@ class WebGame:
                 allowed, reason = can_synthesize(
                     self.party, self.flags, rarity, next(iter(WEAPON_FAMILIES))
                 )
+                previews = {}
+                for family in WEAPON_FAMILIES:
+                    preview = synthesis_preview(self.party, rarity, family)
+                    previews[family] = {
+                        **preview,
+                        "stat_text": preview_stat_text(preview),
+                    }
                 crafting_recipes.append({
                     "rarity": rarity,
                     "rarity_name": RARITY_NAMES_KR[rarity],
@@ -1290,6 +1297,7 @@ class WebGame:
                     "gold_cost": gold_cost,
                     "can_synthesize": allowed,
                     "reason": reason,
+                    "previews": previews,
                     "quotes": {
                         family: self._craft_quote("synthesize", (rarity, family))
                         for family in WEAPON_FAMILIES

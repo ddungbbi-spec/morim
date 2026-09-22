@@ -9,7 +9,8 @@ import data
 import save
 from crafting import (
     DISMANTLE_SHARDS, ENHANCEMENT_DISMANTLE_BONUS, SYNTHESIS_RECIPES,
-    dismantle_equipment, dismantle_value, shard_count, synthesize_weapon,
+    dismantle_equipment, dismantle_value, preview_stat_text, shard_count,
+    synthesize_weapon, synthesis_preview,
 )
 from models import EQUIPMENT_RARITIES, Party, WEAPON_FAMILIES
 from world import build_world
@@ -72,6 +73,32 @@ class CraftingTests(unittest.TestCase):
         self.assertEqual((shard_cost, gold_cost), SYNTHESIS_RECIPES["epic"])
         self.assertEqual(flags["equipment_shards"], 999 - shard_cost)
         self.assertEqual(party.gold, 999 - gold_cost)
+
+    def test_synthesis_preview_matches_level_family_ranges_and_party_jobs(self):
+        lancer = data.create_lancer("연화")
+        lancer.level = 7
+        mage = data.create_mage("서린")
+        mage.level = 5
+        party = Party([lancer, mage])
+
+        preview = synthesis_preview(party, "epic", "spear")
+        self.assertEqual((preview["level"], preview["rarity_name"], preview["family_name"]),
+                         (7, "영웅", "창"))
+        self.assertEqual(preview["option_count"], 3)
+        self.assertTrue(preview["options_random"])
+        self.assertEqual(preview["compatible_members"], [{"name": "연화", "job": "창술가"}])
+
+        ranges = {entry["field"]: (entry["min"], entry["max"])
+                  for entry in preview["stat_ranges"]}
+        self.assertEqual(ranges["attack_bonus"], (9, 11))
+        self.assertEqual(ranges["defense_bonus"], (3, 5))
+        self.assertEqual(ranges["critical_rate_bonus"], (0, 5))
+        self.assertIn("공격력 +9~+11", preview_stat_text(preview))
+
+        common = synthesis_preview(party, "common", "staff")
+        self.assertEqual(common["option_count"], 0)
+        self.assertFalse(common["options_random"])
+        self.assertTrue(all(stat["min"] == stat["max"] for stat in common["stat_ranges"]))
 
     def test_invalid_inputs_never_consume_resources(self):
         party = Party([data.create_warrior("안전공")], gold=999)

@@ -200,7 +200,7 @@ h2 { font-size: 1.3rem; }
 .utility-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); gap: 7px; }
 .utility-card { padding: 10px; border: 1px solid var(--line); border-radius: 10px; color: var(--text); background: rgba(31, 45, 70, .7); text-align: left; cursor: pointer; }
 .utility-card strong, .utility-card span { display: block; }
-.utility-card span { margin-top: 4px; color: var(--muted); font-size: .67rem; line-height: 1.4; }
+.utility-card span { margin-top: 4px; color: var(--muted); font-size: .67rem; line-height: 1.4; white-space: pre-line; }
 .utility-card:hover { border-color: var(--cyan); }
 .utility-card.disabled { cursor: default; opacity: .72; }
 .utility-card.rarity-common strong { color: var(--text); }

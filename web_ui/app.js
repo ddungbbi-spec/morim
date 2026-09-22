@@ -358,7 +358,10 @@ function renderUtilityPanel() {
     const familyTabs = gameState.crafting.families.map((entry) => `
       <button class="mini-tab${entry.id === craftingFamily ? " selected" : ""}" onclick="selectCraftingFamily('${entry.id}')">${escapeHtml(entry.name)}</button>`).join("");
     const recipes = gameState.crafting.recipes.map((recipe) => {
-      const detail = `장비 조각 ${recipe.shard_cost}개 · ${recipe.gold_cost}G${recipe.reason ? ` · ${recipe.reason}` : ""}`;
+      const preview = recipe.previews[craftingFamily];
+      const compatible = preview.compatible_members.map((member) => `${member.name}(${member.job})`).join(" · ") || "현재 파티에 없음";
+      const optionText = preview.options_random ? `무작위 부가 옵션 ${preview.option_count}개` : "부가 옵션 없음";
+      const detail = `장비 조각 ${recipe.shard_cost}개 · ${recipe.gold_cost}G${recipe.reason ? ` · ${recipe.reason}` : ""}\n예상 Lv.${preview.level} · ${preview.stat_text}\n${optionText} · 장착 가능: ${compatible}`;
       const item = {rarity: recipe.rarity};
       return recipe.can_synthesize
         ? equipmentButton(item, `${recipe.rarity_name} ${family?.name || "무기"} 합성`, detail,
@@ -509,7 +512,10 @@ async function craftingRequest(operation, equipment, rarity, family, quote) {
     const recipe = gameState.crafting?.recipes.find((entry) => entry.rarity === rarity);
     const familyName = gameState.crafting?.families.find((entry) => entry.id === family)?.name;
     if (!recipe || !familyName) return;
-    message = `${recipe.rarity_name} ${familyName}\n장비 조각 ${recipe.shard_cost}개와 ${recipe.gold_cost}G를 사용해 합성할까요?`;
+    const preview = recipe.previews[family];
+    const compatible = preview.compatible_members.map((member) => `${member.name}(${member.job})`).join(" · ") || "현재 파티에 없음";
+    const optionText = preview.options_random ? `무작위 부가 옵션 ${preview.option_count}개` : "부가 옵션 없음";
+    message = `${recipe.rarity_name} ${familyName} · 예상 Lv.${preview.level}\n${preview.stat_text}\n${optionText}\n장착 가능: ${compatible}\n\n장비 조각 ${recipe.shard_cost}개와 ${recipe.gold_cost}G를 사용해 합성할까요?`;
   }
   if (!confirm(message)) return;
   craftingBusy = true;

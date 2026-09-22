@@ -891,6 +891,19 @@ class WebGameTests(unittest.TestCase):
         state = self.game.state()["crafting"]
         self.assertEqual(len(state["families"]), 7)
         self.assertEqual(len(state["recipes"]), 5)
+        epic_preview = next(
+            recipe for recipe in state["recipes"] if recipe["rarity"] == "epic"
+        )["previews"]["spear"]
+        self.assertEqual(epic_preview["option_count"], 3)
+        self.assertIn("공격력", epic_preview["stat_text"])
+        self.assertEqual(epic_preview["compatible_members"], [])
+        sword_preview = next(
+            recipe for recipe in state["recipes"] if recipe["rarity"] == "common"
+        )["previews"]["sword"]
+        self.assertEqual(
+            [member["job"] for member in sword_preview["compatible_members"]],
+            ["전사"],
+        )
 
         dismantle_quote = state["dismantle"][0]["quote"]
         result = self.game.crafting_action(
