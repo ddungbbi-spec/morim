@@ -53,10 +53,12 @@ class WebGameTests(unittest.TestCase):
             self.game._victory()
             self.game._victory()
         self.assertEqual(sum(i.name == "성운석" for i in self.game.inventory), 3)
+        self.assertEqual(self.game.flags["equipment_shards"], 5)
         self.assertTrue(self.game.boss_action("retry")["ok"])
         with patch("web_app.random.random", return_value=0.99):
             self.game._victory()
         self.assertEqual(sum(i.name == "성운석" for i in self.game.inventory), 6)
+        self.assertEqual(self.game.flags["equipment_shards"], 10)
         self.assertEqual(sum(i.name == "별의 수호 부적" for i in self.game.equipment_inventory), 1)
 
     def test_web_post_boss_chapter_gate_choice_boss_and_reward(self):
@@ -186,6 +188,7 @@ class WebGameTests(unittest.TestCase):
             with patch("web_app.random.random", return_value=0.99):
                 self.game._victory()
             self.assertEqual(sum(i.name == "성운석" for i in self.game.inventory), 3)
+            self.assertEqual(self.game.flags["equipment_shards"], 5)
             self.game.game_map.move_to("village")
             index = next(i for i, item in enumerate(self.game.equipment_inventory)
                          if item.name == data.STARWARD_CHARM.name)
@@ -196,6 +199,7 @@ class WebGameTests(unittest.TestCase):
             self.assertTrue(self.game.save_action("load", 1)["ok"])
             self.assertEqual(self.game.party.gold, gold)
             self.assertEqual(sum(i.name == "성운석" for i in self.game.inventory), 2)
+            self.assertEqual(self.game.flags["equipment_shards"], 5)
             self.assertEqual(self.game.party.members[0].equipment["accessory"].enhancement_level, 1)
             self.assertTrue(self.game.flags["star_rift_closed"])
             self.game.game_map.move_to("star_rift")
@@ -204,6 +208,7 @@ class WebGameTests(unittest.TestCase):
                 self.game._victory()
                 self.game._victory()
             self.assertEqual(sum(i.name == "성운석" for i in self.game.inventory), 5)
+            self.assertEqual(self.game.flags["equipment_shards"], 10)
             self.assertFalse(any(i.name == data.STARWARD_CHARM.name
                                  for i in self.game.equipment_inventory))
 
@@ -247,7 +252,7 @@ class WebGameTests(unittest.TestCase):
         self.assertIn(".utility-card.rarity-epic", styles)
         self.assertIn(".dismantle-toolbar", styles)
         with open(Path(WEB_ROOT) / "sw.js", encoding="utf-8") as stream:
-            self.assertIn("undefined-legend-v36", stream.read())
+            self.assertIn("undefined-legend-v37", stream.read())
 
     def test_boss_phase_transition_is_reported_once_per_event(self):
         self.finish_intro()
@@ -607,12 +612,15 @@ class WebGameTests(unittest.TestCase):
         with patch("web_app.random.random", return_value=0.99):
             self.game._victory()
         bank = self.game.state()["dungeon"]["reward_bank"]
+        shard_bank = self.game.state()["dungeon"]["shard_bank"]
         self.assertGreater(bank, 0)
+        self.assertEqual(shard_bank, 2)
         self.assertEqual(self.game.phase, "explore")
         gold_before_extract = self.game.party.gold
         result = self.game.move("누적 보상을 확정하고 마을로 귀환한다")
         self.assertTrue(result["ok"])
         self.assertEqual(self.game.party.gold, gold_before_extract + bank)
+        self.assertEqual(self.game.flags["equipment_shards"], shard_bank)
         self.assertEqual(self.game.game_map.current_id, "village")
         self.assertFalse(self.game.flags["dungeon_active"])
 
@@ -636,6 +644,8 @@ class WebGameTests(unittest.TestCase):
                     self.game._victory()
         self.assertEqual(self.game.game_map.current_id, "village")
         self.assertEqual(self.game.flags["dungeon_clear_count"], 1)
+        self.assertEqual(self.game.flags["equipment_shards"], 35)
+        self.assertEqual(self.game.flags["dungeon_shard_bank"], 0)
         self.assertIn(data.IRON_SWORD, self.game.equipment_inventory)
         self.assertFalse(self.game.flags["dungeon_active"])
 
@@ -645,6 +655,7 @@ class WebGameTests(unittest.TestCase):
             "demon_lord_defeated": True,
             "dungeon_active": True,
             "dungeon_reward_bank": 120,
+            "dungeon_shard_bank": 12,
             "dungeon_cleared_depth": 2,
             "dungeon_depth": 3,
         })
@@ -656,8 +667,11 @@ class WebGameTests(unittest.TestCase):
         self.assertEqual(self.game.game_map.current_id, "village")
         self.assertEqual(self.game.phase, "explore")
         self.assertEqual(self.game.flags["dungeon_reward_bank"], 0)
+        self.assertEqual(self.game.flags["dungeon_shard_bank"], 0)
+        self.assertEqual(self.game.flags.get("equipment_shards", 0), 0)
         self.assertTrue(all(member.hp >= 1 for member in self.game.party.members))
         self.assertTrue(any("120G" in message for message in self.game.logs))
+        self.assertTrue(any("장비 조각 12개" in message for message in self.game.logs))
 
     def test_high_risk_dungeon_blocks_flee(self):
         self.finish_intro()

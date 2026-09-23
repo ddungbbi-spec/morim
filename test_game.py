@@ -19,6 +19,7 @@ import equipment_simulator
 from blacksmith import MAX_ENHANCEMENT, enhance_equipment, upgrade_cost, run_blacksmith, preview_upgrade, upgrade_preview_text
 from quests import QuestLog
 from combat import Battle
+from dungeon import floor_shard_reward, full_clear_shard_bonus
 from input_utils import prompt_index
 from map import explore
 from models import EQUIPMENT_RARITIES, Party, StatusEffect
@@ -148,6 +149,14 @@ class GameTests(unittest.TestCase):
             explore(game_map, party, inventory, flags, equipment)
         self.assertEqual([item.name for item in inventory], ["성운석"] * 3)
         self.assertTrue(flags["star_rift_closed"])
+        self.assertEqual(flags["equipment_shards"], 5)
+
+    def test_dungeon_shard_reward_curve(self):
+        self.assertEqual([floor_shard_reward(depth) for depth in range(1, 5)], [2, 4, 6, 8])
+        self.assertEqual(
+            [full_clear_shard_bonus(clear_count) for clear_count in range(7)],
+            [15, 17, 19, 21, 23, 25, 25],
+        )
 
     def test_post_boss_chapter_gate_choice_quest_and_legacy_save(self):
         game_map = build_world()
@@ -250,6 +259,7 @@ class GameTests(unittest.TestCase):
         ), patch("map.prompt_yes_no", return_value=True), redirect_stdout(io.StringIO()):
             self.assertFalse(explore(game_map, Party([data.create_warrior("별지기")]), [], flags, equipment))
         self.assertTrue(flags["star_rift_closed"])
+        self.assertEqual(flags["equipment_shards"], 5)
         self.assertTrue(game_map.current.boss_defeated)
         self.assertEqual([item.name for item in equipment], ["별의 수호 부적"])
 

@@ -222,7 +222,7 @@ function renderCommands() {
     renderChoicePanel();
   } else if (exploreEnabled) {
     $("#commandTitle").textContent = gameState.location.id === "abyss_dungeon"
-      ? `심연 ${gameState.dungeon.depth}/${gameState.dungeon.max_depth} · ${gameState.dungeon.modifier}`
+      ? `심연 ${gameState.dungeon.depth}/${gameState.dungeon.max_depth} · ${gameState.dungeon.modifier} · 임시 ${gameState.dungeon.reward_bank}G/${gameState.dungeon.shard_bank}조각`
       : "이동";
     const moves = gameState.location.exits.map((exit) => {
       const encoded = encodeURIComponent(exit.label);
@@ -238,7 +238,7 @@ function renderCommands() {
       ${gameState.crafting ? `<button class="command-button utility" onclick="openUtility('crafting')">분해 · 무기 합성</button>` : ""}
       ${gameState.boss_retry?.available ? `<button class="command-button danger" onclick="bossRetry()">보스에게 다시 도전</button>` : ""}
       ${gameState.tower?.can_retry ? `<button class="command-button utility" onclick="towerRetry()">도전의 탑 ${gameState.tower.next_tier}단계 개방</button>` : ""}
-      ${gameState.location.id === "abyss_dungeon" && gameState.dungeon.active ? `<button class="command-button danger" onclick="dungeonRequest('advance')">다음 층 도전 · ${gameState.dungeon.depth + 1}/${gameState.dungeon.max_depth}</button>` : ""}
+      ${gameState.location.id === "abyss_dungeon" && gameState.dungeon.active ? `<button class="command-button danger" onclick="dungeonRequest('advance')">다음 층 도전 · ${gameState.dungeon.depth + 1}/${gameState.dungeon.max_depth} · 누적 조각 ${gameState.dungeon.shard_bank}개 위험</button>` : ""}
       <button class="command-button utility" onclick="openUtility('equipment')">장비</button>
       ${gameState.location.id === "village" ? `<button class="command-button utility" onclick="openUtility('quest')">의뢰 게시판</button>` : ""}
       ${gameState.location.id === "village" ? `<button class="command-button utility" onclick="openUtility('advancement')">전직 교관 · 2차 직업</button>` : ""}
@@ -632,9 +632,9 @@ function towerRetry() {
 }
 function dungeonRequest(operation) {
   const messages = {
-    enter: `입장 준비금 ${gameState.dungeon.entry_fee}G를 내고 심연 원정을 시작할까요?`,
-    advance: "다음 층으로 내려갈까요? 전멸하면 누적 보상을 잃습니다.",
-    retreat: `${gameState.dungeon.reward_bank}G를 확정하고 마을로 귀환할까요?`,
+    enter: `입장 준비금 ${gameState.dungeon.entry_fee}G를 내고 심연 원정을 시작할까요?\n층별 장비 조각 2·4·6·8개가 임시 보관되며 완주 시 ${gameState.dungeon.full_clear_shard_bonus}개를 추가로 얻습니다.`,
+    advance: `다음 층으로 내려갈까요?\n전멸하면 ${gameState.dungeon.reward_bank}G와 장비 조각 ${gameState.dungeon.shard_bank}개를 잃습니다.`,
+    retreat: `${gameState.dungeon.reward_bank}G와 장비 조각 ${gameState.dungeon.shard_bank}개를 확정하고 마을로 귀환할까요?`,
   };
   if (confirm(messages[operation])) request("/api/dungeon", {operation});
 }

@@ -26,7 +26,7 @@ from blacksmith import (
     STAR_ORE_NAME, star_ore_cost, award_star_ore,
 )
 from crafting import (
-    ENHANCEMENT_DISMANTLE_BONUS, SYNTHESIS_RECIPES,
+    ENHANCEMENT_DISMANTLE_BONUS, SHARD_FLAG, SYNTHESIS_RECIPES,
     bulk_dismantle_reason, can_synthesize, dismantle_equipment,
     dismantle_equipment_many, dismantle_value, shard_count,
     synthesize_weapon, synthesis_preview, preview_stat_text,
@@ -48,6 +48,7 @@ from world import (
 from dungeon import (
     DUNGEON_ENTRY_FEE, DUNGEON_LOCATION_ID, DUNGEON_MAX_DEPTH,
     create_dungeon_floor, dungeon_clear_count, floor_bank_reward,
+    floor_shard_reward, full_clear_shard_bonus,
 )
 
 
@@ -278,11 +279,19 @@ class WebGame:
 
     def _finish_dungeon_run(self, full_clear: bool) -> None:
         bank = max(0, int(self.flags.get("dungeon_reward_bank", 0)))
+        shard_bank = max(0, int(self.flags.get("dungeon_shard_bank", 0)))
+        clear_count_before = dungeon_clear_count(self.flags)
+        full_clear_bonus = full_clear_shard_bonus(clear_count_before) if full_clear else 0
+        confirmed_shards = shard_bank + full_clear_bonus
         self.party.gold += bank
         if bank:
             self._log(f"심연 누적 보상 {bank}G를 확정했습니다.")
+        if confirmed_shards:
+            self.flags[SHARD_FLAG] = shard_count(self.flags) + confirmed_shards
+            bonus_text = f" (완주 보너스 {full_clear_bonus}개 포함)" if full_clear_bonus else ""
+            self._log(f"심연 장비 조각 {confirmed_shards}개를 확정했습니다.{bonus_text}")
         if full_clear:
-            clear_count = dungeon_clear_count(self.flags) + 1
+            clear_count = clear_count_before + 1
             self.flags["dungeon_clear_count"] = clear_count
             party_level = max((member.level for member in self.party.members), default=1)
             equipment = data.generate_random_equipment(
@@ -292,6 +301,7 @@ class WebGame:
             self._log(f"심연 완주 보상: {equipment.display_name}")
         self.flags["dungeon_active"] = False
         self.flags["dungeon_reward_bank"] = 0
+        self.flags["dungeon_shard_bank"] = 0
         self.flags["dungeon_cleared_depth"] = 0
         self.game_map.move_to("village")
         self.enemies = []
@@ -311,6 +321,7 @@ class WebGame:
             self.flags.update({
                 "dungeon_active": True, "dungeon_depth": 1,
                 "dungeon_cleared_depth": 0, "dungeon_reward_bank": 0,
+                "dungeon_shard_bank": 0,
             })
             self.game_map.move_to(DUNGEON_LOCATION_ID)
             self._log(f"{DUNGEON_ENTRY_FEE}G를 사용해 심연 변이 던전에 진입했습니다.")
@@ -792,8 +803,10 @@ class WebGame:
         if self.party.is_wiped_out:
             if self.battle_context == "dungeon":
                 lost = max(0, int(self.flags.get("dungeon_reward_bank", 0)))
+                lost_shards = max(0, int(self.flags.get("dungeon_shard_bank", 0)))
                 self.flags["dungeon_active"] = False
                 self.flags["dungeon_reward_bank"] = 0
+                self.flags["dungeon_shard_bank"] = 0
                 self.flags["dungeon_cleared_depth"] = 0
                 for member in self.party.members:
                     member.hp = max(1, member.effective_max_hp // 4)
@@ -806,7 +819,10 @@ class WebGame:
                 self.battle_context = ""
                 self.current_actor = None
                 self.result_message = "심연에서 구조되어 시작 마을로 돌아왔습니다."
-                self._log(f"심연 원정 실패. 누적 보상 {lost}G를 잃었습니다.")
+                self._log(
+                    f"심연 원정 실패. 누적 보상 {lost}G와 "
+                    f"장비 조각 {lost_shards}개를 잃었습니다."
+                )
                 return True
             self.phase = "defeat"
             self.result_message = "파티가 전멸했습니다."
@@ -904,13 +920,24 @@ class WebGame:
                 "reward": float(self.flags.get("dungeon_modifier_reward", 1.0)),
             }
             earned = floor_bank_reward(depth, modifier, dungeon_clear_count(self.flags))
+            earned_shards = floor_shard_reward(depth)
             self.flags["dungeon_reward_bank"] = int(
                 self.flags.get("dungeon_reward_bank", 0)
             ) + earned
+            self.flags["dungeon_shard_bank"] = int(
+                self.flags.get("dungeon_shard_bank", 0)
+            ) + earned_shards
             self.flags["dungeon_cleared_depth"] = depth
             self.phase = "explore"
-            self.result_message = f"심연 {depth}층 돌파 · 누적 보상 {self.flags['dungeon_reward_bank']}G"
-            self._log(f"심연 {depth}층 보상 {earned}G가 임시 보관되었습니다.")
+            self.result_message = (
+                f"심연 {depth}층 돌파 · 누적 보상 "
+                f"{self.flags['dungeon_reward_bank']}G / 장비 조각 "
+                f"{self.flags['dungeon_shard_bank']}개"
+            )
+            self._log(
+                f"심연 {depth}층 보상 {earned}G와 장비 조각 "
+                f"{earned_shards}개가 임시 보관되었습니다."
+            )
             if depth >= DUNGEON_MAX_DEPTH:
                 self._finish_dungeon_run(True)
         else:
@@ -1455,6 +1482,10 @@ class WebGame:
                 "max_depth": DUNGEON_MAX_DEPTH,
                 "cleared_depth": int(self.flags.get("dungeon_cleared_depth", 0)),
                 "reward_bank": int(self.flags.get("dungeon_reward_bank", 0)),
+                "shard_bank": int(self.flags.get("dungeon_shard_bank", 0)),
+                "full_clear_shard_bonus": full_clear_shard_bonus(
+                    dungeon_clear_count(self.flags)
+                ),
                 "modifier": self.flags.get("dungeon_modifier_name", ""),
                 "modifier_description": self.flags.get("dungeon_modifier_description", ""),
                 "clear_count": dungeon_clear_count(self.flags),

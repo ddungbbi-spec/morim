@@ -20,11 +20,16 @@ def star_ore_cost(item: Equipment) -> int:
 
 
 def award_star_ore(flags: dict, inventory: list) -> str:
-    """별의 균열 전투 승리 시에만 호출한다. 첫 승리와 재도전 모두 재료를 지급한다."""
+    """별의 균열 승리마다 성운석과 합성용 장비 조각을 지급한다."""
     import data
+    from crafting import SHARD_FLAG, shard_count
     flags["star_rift_closed"] = True
     inventory.extend([data.STAR_ORE] * 3)
-    return "성운석 3개 획득! 마을의 별빛 대장간에서 동일 장비 대신 사용할 수 있다."
+    flags[SHARD_FLAG] = shard_count(flags) + 5
+    return (
+        "성운석 3개와 장비 조각 5개 획득! "
+        "마을의 별빛 대장간과 분해·합성 공방에서 사용할 수 있다."
+    )
 
 
 def upgrade_cost(item: Equipment) -> int:

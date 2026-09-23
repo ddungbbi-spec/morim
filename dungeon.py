@@ -77,3 +77,18 @@ def create_dungeon_floor(flags: dict, rng=random):
 def floor_bank_reward(depth: int, modifier: dict, clear_count: int) -> int:
     base = 30 + 20 * depth + 10 * clear_count
     return round(base * float(modifier["reward"]))
+
+
+def floor_shard_reward(depth: int) -> int:
+    """심연 1~4층 돌파 시 임시 보관할 장비 조각 수."""
+    depth = max(1, min(int(depth), DUNGEON_MAX_DEPTH))
+    return depth * 2
+
+
+def full_clear_shard_bonus(clear_count: int) -> int:
+    """완주 직전 누적 횟수 기준 15~25개의 추가 조각을 지급한다."""
+    try:
+        completed = max(0, int(clear_count))
+    except (TypeError, ValueError):
+        completed = 0
+    return min(25, 15 + completed * 2)
