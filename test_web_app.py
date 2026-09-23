@@ -7,6 +7,7 @@ import threading
 import http.cookiejar
 import urllib.request
 import urllib.error
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -237,9 +238,16 @@ class WebGameTests(unittest.TestCase):
             {"192x192", "512x512", "any"},
         )
         with open(Path(WEB_ROOT) / "app.js", encoding="utf-8") as stream:
-            self.assertIn("function rarityClass", stream.read())
+            app_script = stream.read()
+        self.assertIn("function rarityClass", app_script)
+        self.assertIn("function bulkDismantleRequest", app_script)
+        self.assertIn("파티 직업 비호환만", app_script)
         with open(Path(WEB_ROOT) / "styles.css", encoding="utf-8") as stream:
-            self.assertIn(".utility-card.rarity-epic", stream.read())
+            styles = stream.read()
+        self.assertIn(".utility-card.rarity-epic", styles)
+        self.assertIn(".dismantle-toolbar", styles)
+        with open(Path(WEB_ROOT) / "sw.js", encoding="utf-8") as stream:
+            self.assertIn("undefined-legend-v36", stream.read())
 
     def test_boss_phase_transition_is_reported_once_per_event(self):
         self.finish_intro()
@@ -970,6 +978,47 @@ class WebGameTests(unittest.TestCase):
         removed = self.game.equipment_action("unequip", 0, slot="weapon")
         self.assertTrue(removed["ok"])
         self.assertIsNone(self.game.party.members[0].equipment["weapon"])
+
+    def test_web_bulk_dismantle_filters_preview_and_atomic_request(self):
+        self.finish_intro()
+        safe_sword = data.IRON_SWORD
+        incompatible_dagger = data.IRON_DAGGER
+        enhanced = replace(data.BATTLE_AXE, enhancement_level=1, locked=False)
+        legendary = replace(data.OAK_STAFF, rarity="legendary", locked=False)
+        locked = replace(data.LEATHER_ARMOR, locked=True)
+        self.game.equipment_inventory = [
+            safe_sword, incompatible_dagger, enhanced, legendary, locked,
+        ]
+        self.game.flags["equipment_shards"] = 4
+
+        crafting = self.game.state()["crafting"]
+        self.assertEqual([item["index"] for item in crafting["dismantle"]], [0, 1, 2, 3])
+        self.assertTrue(crafting["dismantle"][0]["bulk_eligible"])
+        self.assertFalse(crafting["dismantle"][1]["compatible_with_party"])
+        self.assertEqual(crafting["dismantle"][2]["bulk_exclusion_reason"], "강화 장비")
+        self.assertEqual(crafting["dismantle"][3]["bulk_exclusion_reason"], "전설 장비")
+
+        quote = crafting["bulk_dismantle_quote"]
+        result = self.game.crafting_action(
+            "bulk_dismantle", quote=quote, equipment_indices=[0, 1],
+        )
+        self.assertTrue(result["ok"])
+        self.assertEqual(self.game.equipment_inventory, [enhanced, legendary, locked])
+        self.assertEqual(self.game.flags["equipment_shards"], 6)
+        self.assertIn("장비 2개 일괄 분해 완료", self.game.logs[-1])
+
+        before = (list(self.game.equipment_inventory), dict(self.game.flags))
+        self.assertFalse(self.game.crafting_action(
+            "bulk_dismantle", quote=quote, equipment_indices=[0],
+        )["ok"])
+        self.assertEqual((self.game.equipment_inventory, self.game.flags), before)
+
+        refreshed = self.game.state()["crafting"]
+        self.assertFalse(self.game.crafting_action(
+            "bulk_dismantle", quote=refreshed["bulk_dismantle_quote"],
+            equipment_indices=[0],
+        )["ok"])
+        self.assertEqual((self.game.equipment_inventory, self.game.flags), before)
 
     def test_web_quest_accept_and_claim(self):
         self.finish_intro()

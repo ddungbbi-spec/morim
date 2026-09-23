@@ -1,7 +1,7 @@
 """미착용 장비 분해와 무기 계열·등급 지정 합성 규칙."""
 
 from itertools import combinations
-from typing import List, Tuple
+from typing import List, Sequence, Tuple
 
 from input_utils import prompt_index, prompt_yes_no
 from equipment import protection_warning
@@ -49,6 +49,49 @@ def dismantle_equipment(
     gained = dismantle_value(item)
     flags[SHARD_FLAG] = shard_count(flags) + gained
     return item, gained
+
+
+def bulk_dismantle_reason(item: Equipment) -> str:
+    """안전 일괄 분해에서 자동 제외해야 할 이유를 반환한다."""
+    if item.locked:
+        return "잠금 보호 장비"
+    if item.rarity == "legendary":
+        return "전설 장비"
+    if item.enhancement_level > 0:
+        return "강화 장비"
+    return ""
+
+
+def dismantle_equipment_many(
+    equipment_inventory: List[Equipment], indices: Sequence[int], flags: dict,
+) -> Tuple[List[Equipment], int]:
+    """안전 대상 여러 장을 검증 후 한 번에 분해한다.
+
+    모든 항목 검증을 먼저 끝낸 뒤 역순으로 제거하여, 잘못된 요청이 일부만
+    처리되는 일을 막는다. 전설·강화·잠금 장비는 단일 분해와 달리 일괄
+    처리에서 항상 제외한다.
+    """
+    if not isinstance(indices, (list, tuple)) or not indices:
+        raise ValueError("분해할 장비를 한 개 이상 선택하세요.")
+    if any(not isinstance(index, int) or isinstance(index, bool) for index in indices):
+        raise ValueError("올바른 분해 장비를 선택하세요.")
+    unique = sorted(set(indices))
+    if len(unique) != len(indices):
+        raise ValueError("같은 장비를 중복 선택할 수 없습니다.")
+    if unique[0] < 0 or unique[-1] >= len(equipment_inventory):
+        raise ValueError("올바른 분해 장비를 선택하세요.")
+
+    selected = [equipment_inventory[index] for index in unique]
+    blocked = [bulk_dismantle_reason(item) for item in selected]
+    if any(blocked):
+        reason = next(reason for reason in blocked if reason)
+        raise ValueError(f"{reason}는 안전 일괄 분해에서 자동 제외됩니다.")
+
+    gained = sum(dismantle_value(item) for item in selected)
+    for index in reversed(unique):
+        equipment_inventory.pop(index)
+    flags[SHARD_FLAG] = shard_count(flags) + gained
+    return selected, gained
 
 
 def synthesis_requirements(rarity: str) -> Tuple[int, int]:

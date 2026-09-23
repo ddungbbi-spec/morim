@@ -9,8 +9,9 @@ import data
 import save
 from crafting import (
     DISMANTLE_SHARDS, ENHANCEMENT_DISMANTLE_BONUS, SYNTHESIS_RECIPES,
-    dismantle_equipment, dismantle_value, preview_stat_text, shard_count,
-    synthesize_weapon, synthesis_preview,
+    bulk_dismantle_reason, dismantle_equipment, dismantle_equipment_many,
+    dismantle_value, preview_stat_text, shard_count, synthesize_weapon,
+    synthesis_preview,
 )
 from models import EQUIPMENT_RARITIES, Party, WEAPON_FAMILIES
 from world import build_world
@@ -54,6 +55,30 @@ class CraftingTests(unittest.TestCase):
             dismantle_value(replace(data.IRON_SWORD, enhancement_level=99)),
             DISMANTLE_SHARDS["common"] + 25,
         )
+
+    def test_bulk_dismantle_is_atomic_and_excludes_protected_categories(self):
+        safe_sword = data.IRON_SWORD
+        safe_staff = data.OAK_STAFF
+        enhanced = replace(data.IRON_SWORD, enhancement_level=1, locked=False)
+        legendary = replace(data.IRON_SWORD, rarity="legendary", locked=False)
+        locked = replace(data.OAK_STAFF, locked=True)
+        equipment = [safe_sword, enhanced, safe_staff, legendary, locked]
+        flags = {"equipment_shards": 5}
+
+        removed, gained = dismantle_equipment_many(equipment, [0, 2], flags)
+        self.assertEqual(removed, [safe_sword, safe_staff])
+        self.assertEqual(gained, 4)
+        self.assertEqual(flags["equipment_shards"], 9)
+        self.assertEqual(equipment, [enhanced, legendary, locked])
+        self.assertEqual(bulk_dismantle_reason(enhanced), "강화 장비")
+        self.assertEqual(bulk_dismantle_reason(legendary), "전설 장비")
+        self.assertEqual(bulk_dismantle_reason(locked), "잠금 보호 장비")
+
+        before = (list(equipment), dict(flags))
+        for indices in ([0], [1], [2], [0, 0], [], [-1], [99], [True]):
+            with self.subTest(indices=indices), self.assertRaises(ValueError):
+                dismantle_equipment_many(equipment, indices, flags)
+            self.assertEqual((equipment, flags), before)
 
     def test_synthesis_makes_exact_family_rarity_and_consumes_cost(self):
         party = Party([data.create_lancer("합성공")], gold=999)

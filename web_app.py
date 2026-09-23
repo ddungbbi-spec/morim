@@ -27,7 +27,8 @@ from blacksmith import (
 )
 from crafting import (
     ENHANCEMENT_DISMANTLE_BONUS, SYNTHESIS_RECIPES,
-    can_synthesize, dismantle_equipment, dismantle_value, shard_count,
+    bulk_dismantle_reason, can_synthesize, dismantle_equipment,
+    dismantle_equipment_many, dismantle_value, shard_count,
     synthesize_weapon, synthesis_preview, preview_stat_text,
 )
 from combat import _describe_skill_result
@@ -403,6 +404,7 @@ class WebGame:
 
     def crafting_action(
         self, operation, equipment_index=None, rarity=None, family=None, quote=None,
+        equipment_indices=None,
     ) -> dict:
         if self.phase != "explore" or self.game_map.current_id != "village":
             return self._error("분해·합성 공방은 시작 마을에서 이용할 수 있습니다.")
@@ -422,6 +424,20 @@ class WebGame:
                 )
                 self._log(
                     f"{item.display_name} 분해 완료! 장비 조각 {gained}개를 얻었습니다."
+                )
+            elif operation == "bulk_dismantle":
+                if not isinstance(quote, str) or not secrets.compare_digest(
+                    quote, self._craft_quote("bulk_dismantle", None)
+                ):
+                    raise ValueError(
+                        "장비 상태가 변경되었습니다. 새 목록에서 일괄 분해 내용을 다시 확인하세요."
+                    )
+                items, gained = dismantle_equipment_many(
+                    self.equipment_inventory, equipment_indices, self.flags
+                )
+                self._log(
+                    f"장비 {len(items)}개 일괄 분해 완료! "
+                    f"장비 조각 {gained}개를 얻었습니다."
                 )
             elif operation == "synthesize":
                 target = (rarity, family)
@@ -1320,10 +1336,21 @@ class WebGame:
                         **self._equipment_state(item),
                         "shard_yield": dismantle_value(item),
                         "quote": self._craft_quote("dismantle", index),
+                        "bulk_eligible": not bulk_dismantle_reason(item),
+                        "bulk_exclusion_reason": bulk_dismantle_reason(item),
+                        "compatible_with_party": (
+                            item.slot != "weapon"
+                            or not item.weapon_family
+                            or any(
+                                item.weapon_family in member.allowed_weapon_families
+                                for member in self.party.members
+                            )
+                        ),
                     }
                     for index, item in enumerate(self.equipment_inventory)
                     if not item.locked
                 ],
+                "bulk_dismantle_quote": self._craft_quote("bulk_dismantle", None),
                 "recipes": crafting_recipes,
             }
         slots = [
@@ -1588,7 +1615,7 @@ class GameHandler(BaseHTTPRequestHandler):
                 result = game.crafting_action(
                     payload.get("operation", ""), payload.get("equipment"),
                     payload.get("rarity"), payload.get("family"),
-                    payload.get("quote"),
+                    payload.get("quote"), payload.get("equipment_indices"),
                 )
             elif self.path == "/api/tower":
                 result = game.tower_action(payload.get("operation", ""))

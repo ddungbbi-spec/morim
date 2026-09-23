@@ -5,6 +5,11 @@ let craftingBusy = false;
 let utilityMode = null;
 let equipmentMember = 0;
 let craftingFamily = "sword";
+let dismantleRarity = "all";
+let dismantleFamily = "all";
+let dismantleUnenhancedOnly = false;
+let dismantleIncompatibleOnly = false;
+let dismantleSelection = new Set();
 let shopIndex = null;
 let installPrompt = null;
 let phaseAnnouncementTimer = null;
@@ -43,6 +48,7 @@ async function request(path, body = null) {
       gameState?.phase_transition_id > previousTransitionId) {
     announceBossPhase(gameState.phase_transition_message);
   }
+  return result;
 }
 
 function announceBossPhase(message) {
@@ -368,18 +374,55 @@ function renderUtilityPanel() {
             `craftingRequest('synthesize',null,'${recipe.rarity}','${craftingFamily}','${recipe.quotes[craftingFamily]}')`)
         : equipmentDisabledCard(item, `${recipe.rarity_name} ${family?.name || "무기"} 합성`, detail);
     }).join("");
-    const dismantle = gameState.crafting.dismantle.map((item) => equipmentButton(
-      item, `${item.display_name} 분해 · 조각 ${item.shard_yield}개`,
-      [item.description, item.special_effect, "분해한 장비는 복구할 수 없습니다."].filter(Boolean).join(" · "),
-      `craftingRequest('dismantle',${item.index},null,null,'${item.quote}')`
-    )).join("");
+    const dismantleItems = gameState.crafting.dismantle;
+    const currentIndices = new Set(dismantleItems.filter((item) => item.bulk_eligible).map((item) => item.index));
+    dismantleSelection = new Set([...dismantleSelection].filter((index) => currentIndices.has(index)));
+    const filteredDismantle = dismantleItems.filter((item) => {
+      if (dismantleRarity !== "all" && item.rarity !== dismantleRarity) return false;
+      if (dismantleFamily !== "all" && item.weapon_family !== dismantleFamily) return false;
+      if (dismantleUnenhancedOnly && item.enhancement_level !== 0) return false;
+      if (dismantleIncompatibleOnly && item.compatible_with_party) return false;
+      return true;
+    });
+    const selectedItems = dismantleItems.filter((item) => dismantleSelection.has(item.index));
+    const selectedShards = selectedItems.reduce((sum, item) => sum + item.shard_yield, 0);
+    const rarityNames = {common:"일반", uncommon:"고급", rare:"희귀", epic:"영웅", legendary:"전설"};
+    const rarityOptions = [`<option value="all">전체 등급</option>`, ...Object.entries(rarityNames).map(([id, name]) =>
+      `<option value="${id}"${dismantleRarity === id ? " selected" : ""}>${name}</option>`)].join("");
+    const familyOptions = [`<option value="all">전체 무기 계열</option>`, ...gameState.crafting.families.map((entry) =>
+      `<option value="${entry.id}"${dismantleFamily === entry.id ? " selected" : ""}>${escapeHtml(entry.name)}</option>`)].join("");
+    const dismantle = filteredDismantle.map((item) => {
+      const selected = dismantleSelection.has(item.index);
+      const detail = [item.description, item.special_effect,
+        item.bulk_eligible ? `예상 조각 ${item.shard_yield}개` : `자동 제외 · ${item.bulk_exclusion_reason}`]
+        .filter(Boolean).join(" · ");
+      return `<label class="dismantle-select-card ${rarityClass(item.rarity)}${selected ? " selected" : ""}${item.bulk_eligible ? "" : " excluded"}">
+        <input type="checkbox" ${selected ? "checked" : ""} ${item.bulk_eligible ? "" : "disabled"}
+          onchange="toggleDismantleSelection(${item.index},this.checked)">
+        <span><strong>${escapeHtml(item.display_name)}</strong><small>${escapeHtml(detail)}</small></span>
+      </label>`;
+    }).join("");
+    const safeVisibleCount = filteredDismantle.filter((item) => item.bulk_eligible).length;
+    const dismantleControls = `<div class="dismantle-toolbar">
+      <select onchange="setDismantleFilter('rarity',this.value)">${rarityOptions}</select>
+      <select onchange="setDismantleFilter('family',this.value)">${familyOptions}</select>
+      <label><input type="checkbox" ${dismantleUnenhancedOnly ? "checked" : ""} onchange="setDismantleFilter('unenhanced',this.checked)"> 미강화만</label>
+      <label><input type="checkbox" ${dismantleIncompatibleOnly ? "checked" : ""} onchange="setDismantleFilter('incompatible',this.checked)"> 파티 직업 비호환만</label>
+    </div>
+    <div class="dismantle-summary">
+      <strong>${selectedItems.length}개 선택 · 예상 조각 ${selectedShards}개</strong>
+      <span>전설·강화·잠금 장비는 일괄 분해에서 자동 제외됩니다.</span>
+      <div><button onclick="selectVisibleDismantle()" ${safeVisibleCount ? "" : "disabled"}>보이는 장비 선택</button>
+      <button onclick="clearDismantleSelection()" ${selectedItems.length ? "" : "disabled"}>선택 해제</button>
+      <button class="bulk-dismantle" onclick="bulkDismantleRequest()" ${selectedItems.length ? "" : "disabled"}>선택 장비 분해</button></div>
+    </div>`;
     panel.innerHTML = utilityShell("분해 · 무기 합성 공방", `
       <p class="stat-line">보유 장비 조각 ${gameState.crafting.shards}개 · ${gameState.gold}G</p>
       <p class="stat-line">미착용 장비를 조각으로 분해하거나, 무기 계열과 등급을 지정해 실패 없이 합성합니다.</p>
       <p class="stat-line">강화 분해 보너스: ${gameState.crafting.enhancement_bonuses.map((entry) => `+${entry.level} ${entry.shards}개`).join(" · ")}</p>
       <div class="mini-tabs">${familyTabs}</div>
       ${utilitySection(`${family?.name || "무기"} 합성`, recipes)}
-      ${utilitySection("미착용 장비 분해", dismantle)}`);
+      ${utilitySection("미착용 장비 다중 분해", `${dismantleControls}<div class="dismantle-grid">${dismantle || `<span class="muted-copy">조건에 맞는 장비가 없습니다.</span>`}</div>`)}`);
   } else if (utilityMode === "equipment") {
     equipmentMember = Math.max(0, Math.min(equipmentMember, gameState.party.length - 1));
     const member = gameState.party[equipmentMember];
@@ -480,6 +523,29 @@ function clearUtility() { utilityMode = null; shopIndex = null; $("#choicePanel"
 function selectShop(index) { shopIndex = index; renderUtilityPanel(); }
 function selectEquipmentMember(index) { equipmentMember = index; renderUtilityPanel(); }
 function selectCraftingFamily(family) { craftingFamily = family; renderUtilityPanel(); }
+function setDismantleFilter(kind, value) {
+  if (kind === "rarity") dismantleRarity = value;
+  if (kind === "family") dismantleFamily = value;
+  if (kind === "unenhanced") dismantleUnenhancedOnly = Boolean(value);
+  if (kind === "incompatible") dismantleIncompatibleOnly = Boolean(value);
+  renderUtilityPanel();
+}
+function toggleDismantleSelection(index, selected) {
+  if (selected) dismantleSelection.add(index); else dismantleSelection.delete(index);
+  renderUtilityPanel();
+}
+function filteredBulkDismantleItems() {
+  return (gameState.crafting?.dismantle || []).filter((item) => item.bulk_eligible)
+    .filter((item) => dismantleRarity === "all" || item.rarity === dismantleRarity)
+    .filter((item) => dismantleFamily === "all" || item.weapon_family === dismantleFamily)
+    .filter((item) => !dismantleUnenhancedOnly || item.enhancement_level === 0)
+    .filter((item) => !dismantleIncompatibleOnly || !item.compatible_with_party);
+}
+function selectVisibleDismantle() {
+  filteredBulkDismantleItems().forEach((item) => dismantleSelection.add(item.index));
+  renderUtilityPanel();
+}
+function clearDismantleSelection() { dismantleSelection.clear(); renderUtilityPanel(); }
 function shopRequest(operation, index) { request("/api/shop", {operation, index, shop: shopIndex}); }
 async function blacksmithRequest(equipment, material = "duplicate") {
   if (forgeBusy) return;
@@ -522,6 +588,30 @@ async function craftingRequest(operation, equipment, rarity, family, quote) {
   document.querySelectorAll('#choicePanel button').forEach(button => button.disabled = true);
   try {
     await request("/api/crafting", {operation, equipment, rarity, family, quote});
+  } catch (_error) {
+    showError("처리 결과를 확인하지 못했습니다. 목록을 새로고침한 뒤 확인하세요.");
+  } finally {
+    craftingBusy = false;
+    render();
+  }
+}
+async function bulkDismantleRequest() {
+  if (craftingBusy || !gameState.crafting) return;
+  const items = gameState.crafting.dismantle.filter((item) => dismantleSelection.has(item.index) && item.bulk_eligible);
+  if (!items.length) return;
+  const shards = items.reduce((sum, item) => sum + item.shard_yield, 0);
+  const names = items.slice(0, 6).map((item) => item.display_name).join(" · ");
+  const more = items.length > 6 ? ` 외 ${items.length - 6}개` : "";
+  if (!confirm(`${names}${more}\n\n장비 ${items.length}개를 분해해 조각 ${shards}개를 얻을까요?\n분해한 장비는 복구할 수 없습니다.`)) return;
+  craftingBusy = true;
+  document.querySelectorAll('#choicePanel button, #choicePanel input, #choicePanel select').forEach((element) => element.disabled = true);
+  try {
+    const result = await request("/api/crafting", {
+      operation: "bulk_dismantle",
+      equipment_indices: items.map((item) => item.index),
+      quote: gameState.crafting.bulk_dismantle_quote,
+    });
+    if (result?.ok) dismantleSelection.clear();
   } catch (_error) {
     showError("처리 결과를 확인하지 못했습니다. 목록을 새로고침한 뒤 확인하세요.");
   } finally {
