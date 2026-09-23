@@ -109,9 +109,17 @@ function percent(value, maximum) {
 function characterCard(character, enemy = false) {
   const active = gameState.current_actor === character.name ? " active" : "";
   const fallen = character.alive ? "" : " fallen";
+  const threats = character.targeted_by || [];
+  const targeted = threats.some((threat) => !threat.aoe) ? " targeted" : "";
+  const endangered = !targeted && threats.length ? " endangered" : "";
   const tags = [
     ...(character.guarding ? [{name: "방어", guard: true}] : []),
     ...(character.guarded_by ? [{name: `엄호: ${character.guarded_by}`, guard: true}] : []),
+    ...threats.map((threat) => ({
+      name: `${threat.aoe ? "광역" : "표적"}: ${threat.enemy} · ${threat.action}`,
+      threat: !threat.aoe,
+      aoe: threat.aoe
+    })),
     ...character.statuses.map((status) => ({name: `${status.name} ${status.turns}턴`}))
   ];
   const elementNames = {fire: "화", ice: "냉", thunder: "뇌", wind: "풍"};
@@ -119,12 +127,12 @@ function characterCard(character, enemy = false) {
     ? `<p class="weakness">약점 ${elementNames[character.weakness] || "없음"} · 저항 ${elementNames[character.resistance] || "없음"}</p>
       <p class="enemy-intent${character.intent.phase ? " phase-intent" : ""}">다음 행동 · ${escapeHtml(character.intent.action)} → ${escapeHtml(character.intent.target)}${character.intent.phase ? " · 체력 구간 전용기" : ""}</p>`
     : "";
-  return `<article class="character-card${active}${fallen}${enemy ? " enemy-card" : ""}">
+  return `<article class="character-card${active}${fallen}${targeted}${endangered}${enemy ? " enemy-card" : ""}">
     <div class="card-head"><strong>${escapeHtml(character.name)}</strong><span>Lv.${character.level} ${escapeHtml(character.job)}</span></div>
     <div class="meter-row"><span>HP</span><div class="meter"><i style="width:${percent(character.hp, character.max_hp)}%"></i></div><span>${character.hp}/${character.max_hp}</span></div>
     <div class="meter-row"><span>MP</span><div class="meter mp"><i style="width:${percent(character.mp, character.max_mp)}%"></i></div><span>${character.mp}/${character.max_mp}</span></div>
     ${detail}
-    <div class="tags">${tags.map((tag) => `<span class="tag${tag.guard ? " guard" : ""}">${escapeHtml(tag.name)}</span>`).join("")}</div>
+    <div class="tags">${tags.map((tag) => `<span class="tag${tag.guard ? " guard" : ""}${tag.threat ? " threat" : ""}${tag.aoe ? " aoe" : ""}">${escapeHtml(tag.name)}</span>`).join("")}</div>
   </article>`;
 }
 

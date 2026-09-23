@@ -105,6 +105,9 @@ h2 { font-size: 1.3rem; }
   background: linear-gradient(145deg, rgba(40, 55, 81, .72), rgba(19, 29, 48, .72));
 }
 .character-card.active { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(241, 198, 109, .1); }
+.character-card.targeted { box-shadow: inset 0 0 0 1px rgba(240, 113, 120, .65), 0 0 16px rgba(240, 113, 120, .12); }
+.character-card.active.targeted { border-color: var(--gold); box-shadow: inset 0 0 0 1px rgba(240, 113, 120, .65), 0 0 0 2px rgba(241, 198, 109, .12), 0 0 16px rgba(240, 113, 120, .12); }
+.character-card.endangered { box-shadow: inset 0 0 0 1px rgba(241, 198, 109, .4); }
 .character-card.fallen { opacity: .48; filter: grayscale(.7); }
 .card-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 11px; }
 .card-head strong { font-size: .97rem; }
@@ -116,6 +119,8 @@ h2 { font-size: 1.3rem; }
 .tags { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 10px; }
 .tag { padding: 3px 7px; border-radius: 99px; background: rgba(102, 217, 208, .1); color: var(--cyan); font-size: .66rem; }
 .tag.guard { color: var(--gold); background: rgba(241, 198, 109, .1); }
+.tag.threat { color: #ffb0b4; background: rgba(240, 113, 120, .16); }
+.tag.aoe { color: var(--gold); background: rgba(241, 198, 109, .12); }
 
 .stage-heading { margin-bottom: 22px; }
 .phase-badge { color: var(--cyan); border-color: rgba(102, 217, 208, .3); background: rgba(102, 217, 208, .08); }

@@ -1175,7 +1175,9 @@ class WebGame:
                 "side": "enemy" if enemy else "party",
                 "speed": character.effective_speed,
                 "current": current,
-                "intent": intent["action"] if intent else "",
+                "intent": (
+                    f"{intent['action']} → {intent['target']}" if intent else ""
+                ),
             }
 
         remaining = []
@@ -1548,6 +1550,26 @@ class WebGame:
             {"slot": number, "exists": exists, "summary": summary}
             for number, exists, summary in game_save.list_slots(save_dir=self.save_dir)
         ]
+        enemy_intents = {
+            id(enemy): enemy.preview_intent(self.party.alive_members)
+            for enemy in self.enemies
+        }
+        incoming_threats = {id(member): [] for member in self.party.members}
+        if self.phase == "battle":
+            members_by_name = {member.name: member for member in self.party.alive_members}
+            for enemy in self.enemies:
+                intent = enemy_intents[id(enemy)]
+                if not enemy.is_alive or intent["target_type"] not in ("single", "all"):
+                    continue
+                for target_name in intent["target_names"]:
+                    member = members_by_name.get(target_name)
+                    if member is not None:
+                        incoming_threats[id(member)].append({
+                            "enemy": enemy.name,
+                            "action": intent["action"],
+                            "phase": intent["phase"],
+                            "aoe": intent["target_type"] == "all",
+                        })
         return {
             "phase": self.phase,
             "turn": self.turn,
@@ -1560,6 +1582,7 @@ class WebGame:
                         self.protection.protector_for(member).name
                         if self.phase == "battle" and self.protection.protector_for(member) else ""
                     ),
+                    "targeted_by": incoming_threats[id(member)],
                 }
                 for member in self.party.members
             ],
@@ -1569,7 +1592,7 @@ class WebGame:
                     "weakness": enemy.weakness,
                     "resistance": enemy.resistance,
                     "boss": enemy.job in BOSS_JOBS,
-                    "intent": enemy.preview_intent(self.party.alive_members),
+                    "intent": enemy_intents[id(enemy)],
                 }
                 for enemy in self.enemies
             ],

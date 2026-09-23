@@ -34,7 +34,10 @@ class TurnTimelineTests(unittest.TestCase):
         self.assertTrue(state["current_round"][0]["current"])
         self.assertEqual([entry["speed"] for entry in state["current_round"]], [10, 9, 8, 7, 6])
         self.assertEqual(state["current_round"][1]["side"], "enemy")
-        self.assertEqual(state["current_round"][1]["intent"], "불규칙 행동")
+        self.assertEqual(
+            state["current_round"][1]["intent"],
+            "불규칙 행동 → 대상과 기술을 예측할 수 없음",
+        )
 
         with patch("models.random.random", return_value=1), patch("models.random.randint", return_value=0):
             self.assertTrue(game.act({"type": "defend"})["ok"])
