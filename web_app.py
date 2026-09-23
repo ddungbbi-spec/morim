@@ -1146,6 +1146,41 @@ class WebGame:
     def _error(self, message: str) -> dict:
         return {"ok": False, "error": message, "state": self.state()}
 
+    def _turn_timeline_state(self) -> dict:
+        if self.phase != "battle":
+            return {"current_round": [], "next_round": []}
+
+        def entry(character, current=False):
+            enemy = isinstance(character, Enemy)
+            intent = character.preview_intent(self.party.alive_members) if enemy else None
+            return {
+                "name": character.name,
+                "side": "enemy" if enemy else "party",
+                "speed": character.effective_speed,
+                "current": current,
+                "intent": intent["action"] if intent else "",
+            }
+
+        remaining = []
+        if self.current_actor is not None and self.current_actor.is_alive:
+            remaining.append(entry(self.current_actor, current=True))
+        remaining.extend(
+            entry(character)
+            for character in self._order[self._cursor:]
+            if character.is_alive
+        )
+        combatants = [
+            *self.party.alive_members,
+            *[enemy for enemy in self.enemies if enemy.is_alive],
+        ]
+        forecast = sorted(
+            combatants, key=lambda character: character.effective_speed, reverse=True,
+        )
+        return {
+            "current_round": remaining,
+            "next_round": [entry(character) for character in forecast],
+        }
+
     @staticmethod
     def _character_state(character) -> dict:
         state = {
@@ -1513,6 +1548,7 @@ class WebGame:
                 for enemy in self.enemies
             ],
             "current_actor": actor.name if actor else None,
+            "turn_timeline": self._turn_timeline_state(),
             "combo": {
                 "target": self.enemies.index(self.combo.target)
                 if self.combo.target in self.enemies and self.combo.target.is_alive else None,

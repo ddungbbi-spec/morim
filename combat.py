@@ -73,8 +73,9 @@ class Battle:
         while True:
             self.combo.reset()
             print(f"\n--- 턴 {turn} ---")
-            self._print_battle_status()
             order = self._turn_order()
+            self._print_battle_status()
+            self._print_turn_order(order)
 
             for actor in order:
                 if not actor.is_alive:
@@ -136,6 +137,14 @@ class Battle:
             intent = enemy.preview_intent(self.party.alive_members)
             phase = " · 체력 구간 전용기" if intent["phase"] else ""
             print(f" - {enemy.name}: {intent['action']} → {intent['target']}{phase}")
+
+    @staticmethod
+    def _print_turn_order(order):
+        labels = [
+            f"{index}. {actor.name}({'아군' if isinstance(actor, PlayerCharacter) else '적'} · 속도 {actor.effective_speed})"
+            for index, actor in enumerate(order, 1)
+        ]
+        print("[이번 턴 행동 순서] " + " → ".join(labels))
 
     # -----------------------------------------------------------------
     def _player_turn(self, actor: PlayerCharacter):

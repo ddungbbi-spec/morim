@@ -151,6 +151,19 @@ function render() {
     : gameState.phase === "battle" ? `${gameState.current_actor || "적"}의 차례`
     : gameState.location.name;
 
+  const timeline = $("#turnTimeline");
+  if (gameState.phase === "battle") {
+    const timelineRow = (label, entries) => `<div><strong>${label}</strong><div>${entries.map((entry, index) =>
+      `<span class="turn-chip ${entry.side}${entry.current ? " current" : ""}"><b>${index + 1}</b>${escapeHtml(entry.name)}<small>속도 ${entry.speed}${entry.intent ? ` · ${escapeHtml(entry.intent)}` : ""}</small></span>`
+    ).join("") || `<span class="muted-copy">남은 행동 없음</span>`}</div></div>`;
+    timeline.innerHTML = timelineRow("이번 턴 남은 순서", gameState.turn_timeline.current_round)
+      + timelineRow("다음 턴 예상", gameState.turn_timeline.next_round);
+    timeline.classList.remove("hidden");
+  } else {
+    timeline.classList.add("hidden");
+    timeline.innerHTML = "";
+  }
+
   renderWorld();
   renderCommands();
 }
