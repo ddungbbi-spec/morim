@@ -6,13 +6,61 @@ from contextlib import redirect_stdout
 from unittest.mock import patch
 
 import data
-from combo import ComboChain
+from combo import ComboChain, COMBO_FINISHERS
 from combat import Battle
 from models import Party
 from web_app import WebGame
 
 
 class ComboTests(unittest.TestCase):
+    def test_third_hit_finishers_match_weapon_identity(self):
+        setup = [
+            (data.IRON_SWORD, "debuff_defense", -2, 0),
+            (data.IRON_DAGGER, "poison", 0, 3),
+            (data.GUARD_SPEAR, "debuff_defense", -4, 0),
+            (data.HUNTER_BOW, "debuff_speed", -3, 0),
+            (data.BATTLE_AXE, "debuff_attack", -3, 0),
+            (data.IRON_GAUNTLET, "paralysis", 0, 0),
+        ]
+        starter = data.create_warrior("선봉")
+        starter.equip(data.IRON_SWORD)
+        middle = data.create_archer("중진")
+        middle.equip(data.HUNTER_BOW)
+        for weapon, kind, modifier, poison_power in setup:
+            with self.subTest(family=weapon.weapon_family):
+                finisher = data.create_warrior("마무리")
+                finisher.equipment["weapon"] = weapon
+                enemy = data.create_dark_knight()
+                chain = ComboChain()
+                chain.record(starter, enemy, True)
+                chain.record(middle, enemy, True)
+                self.assertEqual(
+                    chain.finisher_name(finisher, enemy),
+                    COMBO_FINISHERS[weapon.weapon_family][0],
+                )
+                message = chain.apply_finisher(finisher, enemy, True)
+                effect = enemy.status_effects[0]
+                self.assertIn(effect.name, message)
+                self.assertEqual(effect.kind, kind)
+                self.assertEqual(effect.power, poison_power)
+                self.assertIn(modifier, (effect.attack_mod, effect.defense_mod, effect.speed_mod))
+
+    def test_finisher_requires_landing_and_living_target(self):
+        first = data.create_warrior("첫째")
+        second = data.create_archer("둘째")
+        third = data.create_lancer("셋째")
+        first.equip(data.IRON_SWORD)
+        second.equip(data.HUNTER_BOW)
+        third.equip(data.GUARD_SPEAR)
+        for landed, alive in ((False, True), (True, False)):
+            enemy = data.create_dark_knight()
+            enemy.hp = 1 if alive else 0
+            chain = ComboChain()
+            chain.record(first, enemy, True)
+            chain.record(second, enemy, True)
+            self.assertEqual(chain.apply_finisher(third, enemy, landed), "")
+            self.assertEqual(enemy.status_effects, [])
+
     def test_distinct_armed_members_chain_same_target_only(self):
         first = data.create_warrior("검객")
         second = data.create_lancer("창객")
@@ -108,6 +156,29 @@ class ComboTests(unittest.TestCase):
         game.current_actor = first
         self.assertTrue(game.act({"type": "defend"})["ok"])
         self.assertEqual(game.combo.streak, 0)
+
+    def test_web_third_hit_exposes_and_applies_finisher(self):
+        game = WebGame()
+        self.assertTrue(game.configure_party([
+            {"name": "검객", "job": "warrior"},
+            {"name": "궁수", "job": "archer"},
+            {"name": "창객", "job": "lancer"},
+        ])["ok"])
+        first, second, third = game.party.members
+        first.equip(data.IRON_SWORD)
+        second.equip(data.HUNTER_BOW)
+        third.equip(data.GUARD_SPEAR)
+        enemy = data.create_dark_knight()
+        enemy.hp = enemy.max_hp = 500
+        game._begin_battle([enemy], "training", "마무리 검증")
+        game.combo.record(first, enemy, True)
+        game.combo.record(second, enemy, True)
+        game.current_actor = third
+        self.assertEqual(game.state()["combo"]["finisher"], "파갑 관통")
+        with patch("models.random.randint", return_value=0), patch("models.random.random", return_value=1):
+            self.assertTrue(game.act({"type": "attack", "target": 0})["ok"])
+        self.assertTrue(enemy.has_status("debuff_defense"))
+        self.assertIn("3타 연계 마무리 [파갑 관통]!", " ".join(game.logs))
 
 
 if __name__ == "__main__":

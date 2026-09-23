@@ -150,6 +150,7 @@ class Battle:
                 bonus = self.combo.bonus(actor, target)
                 dmg = actor.basic_attack(target, bonus_power=bonus)
                 landed = not target.last_damage_evaded
+                finisher = self.combo.apply_finisher(actor, target, landed)
                 self.combo.record(actor, target, landed)
                 if target.last_damage_evaded:
                     print(f"{actor.name}의 공격! {target.name}은(는) 공격을 회피했다!")
@@ -158,6 +159,8 @@ class Battle:
                     print(f"{actor.name}의 공격! {target.name}에게 {dmg}의 피해!{critical}")
                     if bonus:
                         print(f"연계 공격! 추가 위력 +{bonus}")
+                    if finisher:
+                        print(finisher)
                 return
 
             if choice == 2:
@@ -209,9 +212,13 @@ class Battle:
                     actor.last_attack_was_critical, target.last_damage_evaded,
                 ):
                     print(msg)
-                self.combo.record(actor, target, not target.last_damage_evaded, skill)
+                landed = not target.last_damage_evaded
+                finisher = self.combo.apply_finisher(actor, target, landed, skill)
+                self.combo.record(actor, target, landed, skill)
                 if bonus:
                     print(f"연계 공격! 추가 위력 +{bonus}")
+                if finisher:
+                    print(finisher)
                 return
 
             if choice == 3:

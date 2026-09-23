@@ -215,7 +215,7 @@ function renderCommands() {
     $("#commandTitle").textContent = `${gameState.current_actor}의 명령`;
     const combo = gameState.combo;
     const chainHint = combo?.next_bonus
-      ? `<p class="stat-line">연계 기회 · ${escapeHtml(gameState.enemies[combo.target].name)}을(를) 근접·원거리 물리 공격하면 위력 +${combo.next_bonus}</p>`
+      ? `<p class="stat-line">연계 기회 · ${escapeHtml(gameState.enemies[combo.target].name)}을(를) 물리 공격하면 위력 +${combo.next_bonus}${combo.finisher ? ` · 3타 마무리: ${escapeHtml(combo.finisher)}` : ""}</p>`
       : `<p class="stat-line">서로 다른 파티원이 같은 적을 이어 공격하면 연계 위력이 증가합니다. 무기 착용 필요 · 턴마다 초기화</p>`;
     $("#commandButtons").innerHTML = `
       ${chainHint}

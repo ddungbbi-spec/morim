@@ -797,7 +797,9 @@ class WebGame:
                 target = self._enemy_target(action.get("target"))
                 bonus = self.combo.bonus(actor, target)
                 damage = actor.basic_attack(target, bonus_power=bonus)
-                self.combo.record(actor, target, not target.last_damage_evaded)
+                landed = not target.last_damage_evaded
+                finisher = self.combo.apply_finisher(actor, target, landed)
+                self.combo.record(actor, target, landed)
                 if target.last_damage_evaded:
                     self._log(f"{target.name}이(가) {actor.name}의 공격을 회피했습니다.")
                 else:
@@ -805,6 +807,8 @@ class WebGame:
                     self._log(f"{actor.name} → {target.name}: {damage} 피해.{critical}")
                     if bonus:
                         self._log(f"연계 공격! 추가 위력 +{bonus}")
+                    if finisher:
+                        self._log(finisher)
             elif action_type == "skill":
                 self._use_skill(actor, action)
             elif action_type == "item":
@@ -1040,9 +1044,13 @@ class WebGame:
             bonus = self.combo.bonus(actor, target, skill)
             attack_skill = replace(skill, power=skill.power + bonus) if bonus else skill
             amount, status_applied, effectiveness = actor.use_skill(attack_skill, target)
-            self.combo.record(actor, target, not target.last_damage_evaded, skill)
+            landed = not target.last_damage_evaded
+            finisher = self.combo.apply_finisher(actor, target, landed, skill)
+            self.combo.record(actor, target, landed, skill)
             if bonus:
                 self._log(f"연계 공격! 추가 위력 +{bonus}")
+            if finisher:
+                self._log(finisher)
             results = [(target, amount, status_applied, effectiveness)]
 
         for target, amount, status_applied, effectiveness in results:
@@ -1512,6 +1520,10 @@ class WebGame:
                 "next_bonus": (
                     self.combo.bonus(actor, self.combo.target)
                     if actor and self.combo.target in self.enemies and self.combo.target.is_alive else 0
+                ),
+                "finisher": (
+                    self.combo.finisher_name(actor, self.combo.target)
+                    if actor and self.combo.target in self.enemies and self.combo.target.is_alive else ""
                 ),
             },
             "skills": skills,
