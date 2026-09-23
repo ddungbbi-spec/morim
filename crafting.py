@@ -1,5 +1,6 @@
 """미착용 장비 분해와 무기 계열·등급 지정 합성 규칙."""
 
+from dataclasses import replace
 from itertools import combinations
 from typing import List, Sequence, Tuple
 
@@ -24,6 +25,9 @@ SYNTHESIS_RECIPES = {
     "rare": (24, 80),
     "epic": (55, 180),
     "legendary": (120, 400),
+}
+REFORGE_COSTS = {
+    "rare": (6, 40), "epic": (12, 90), "legendary": (25, 180),
 }
 
 
@@ -206,16 +210,128 @@ def synthesize_weapon(
     return item, shards, gold
 
 
+def equipment_affixes(item: Equipment) -> List[str]:
+    """생성 장비에 저장된 무작위 옵션 이름을 안전하게 반환한다."""
+    if not item.special_effect:
+        return []
+    return [name for name in item.special_effect.split("/") if name]
+
+
+def reforge_cost(item: Equipment, locked_affix: str = "") -> Tuple[int, int]:
+    if item.rarity not in REFORGE_COSTS:
+        raise ValueError("옵션 재련은 희귀 이상 장비만 가능합니다.")
+    shards, gold = REFORGE_COSTS[item.rarity]
+    multiplier = 2 if locked_affix else 1
+    return shards * multiplier, gold * multiplier
+
+
+def can_reforge(
+    party: Party, flags: dict, item: Equipment, locked_affix: str = "",
+) -> Tuple[bool, str]:
+    """재련 대상·고정 옵션·보유 자원을 실제 소비 전에 검증한다."""
+    import data
+
+    affix_names = equipment_affixes(item)
+    known = {name for name, _ in data.RANDOM_AFFIXES}
+    if not item.generated or item.rarity not in REFORGE_COSTS:
+        return False, "옵션 재련은 무작위 옵션이 있는 희귀 이상 생성 장비만 가능합니다."
+    if len(affix_names) != data.RARITY_AFFIX_COUNTS[item.rarity] or any(
+        name not in known for name in affix_names
+    ):
+        return False, "이 장비의 고유 효과는 옵션 재련으로 변경할 수 없습니다."
+    if not isinstance(locked_affix, str) or (locked_affix and locked_affix not in affix_names):
+        return False, "고정할 옵션을 올바르게 선택하세요."
+    shards, gold = reforge_cost(item, locked_affix)
+    if shard_count(flags) < shards:
+        return False, f"장비 조각이 부족합니다. ({shards}개 필요)"
+    if party.gold < gold:
+        return False, f"골드가 부족합니다. ({gold}G 필요)"
+    return True, ""
+
+
+def preview_reforge(item: Equipment, locked_affix: str = "") -> Equipment:
+    """자원을 소비하지 않고 옵션 하나의 고정을 반영한 새 장비를 만든다."""
+    import data
+
+    current_names = equipment_affixes(item)
+    known_affixes = dict(data.RANDOM_AFFIXES)
+    if not item.generated or item.rarity not in REFORGE_COSTS:
+        raise ValueError("옵션 재련은 무작위 옵션이 있는 희귀 이상 생성 장비만 가능합니다.")
+    if len(current_names) != data.RARITY_AFFIX_COUNTS[item.rarity] or any(
+        name not in known_affixes for name in current_names
+    ):
+        raise ValueError("이 장비의 고유 효과는 옵션 재련으로 변경할 수 없습니다.")
+    if not isinstance(locked_affix, str) or (locked_affix and locked_affix not in current_names):
+        raise ValueError("고정할 옵션을 올바르게 선택하세요.")
+
+    fixed = [locked_affix] if locked_affix else []
+    candidates = [name for name in known_affixes if name not in fixed]
+    reroll_count = len(current_names) - len(fixed)
+    new_names = fixed + data.random.sample(candidates, k=reroll_count)
+    if set(new_names) == set(current_names):
+        alternatives = [
+            list(choice) for choice in combinations(candidates, reroll_count)
+            if set(fixed + list(choice)) != set(current_names)
+        ]
+        if alternatives:
+            new_names = fixed + data.random.choice(alternatives)
+
+    bonuses = {
+        "attack_bonus": item.attack_bonus,
+        "defense_bonus": item.defense_bonus,
+        "speed_bonus": item.speed_bonus,
+        "max_hp_bonus": item.max_hp_bonus,
+        "max_mp_bonus": item.max_mp_bonus,
+        "critical_rate_bonus": item.critical_rate_bonus,
+        "evasion_rate_bonus": item.evasion_rate_bonus,
+        "damage_reduction_bonus": item.damage_reduction_bonus,
+    }
+    for name in current_names:
+        for field, amount in known_affixes[name].items():
+            bonuses[field] -= amount
+    for name in new_names:
+        for field, amount in known_affixes[name].items():
+            bonuses[field] += amount
+
+    base_name = item.name.split(" · ", 1)[0]
+    return replace(
+        item,
+        name=f"{base_name} · {'/'.join(new_names)}",
+        special_effect="/".join(new_names),
+        **bonuses,
+    )
+
+
+def apply_reforge(
+    party: Party, equipment_inventory: List[Equipment], flags: dict,
+    index: int, result: Equipment, locked_affix: str = "",
+) -> Tuple[Equipment, int, int]:
+    if not isinstance(index, int) or isinstance(index, bool) or not 0 <= index < len(equipment_inventory):
+        raise ValueError("올바른 재련 장비를 선택하세요.")
+    original = equipment_inventory[index]
+    allowed, reason = can_reforge(party, flags, original, locked_affix)
+    if not allowed:
+        raise ValueError(reason)
+    if not isinstance(result, Equipment) or result.rarity != original.rarity:
+        raise ValueError("재련 결과가 변경되었습니다. 다시 미리보기를 확인하세요.")
+    shards, gold = reforge_cost(original, locked_affix)
+    flags[SHARD_FLAG] = shard_count(flags) - shards
+    party.gold -= gold
+    equipment_inventory[index] = result
+    return result, shards, gold
+
+
 def run_crafting(
     party: Party, equipment_inventory: List[Equipment], flags: dict,
 ) -> None:
     while True:
-        print(f"\n[분해·합성 공방] 장비 조각 {shard_count(flags)}개 / {party.gold}G")
+        print(f"\n[분해·합성·재련 공방] 장비 조각 {shard_count(flags)}개 / {party.gold}G")
         print("  1) 장비 분해")
         print("  2) 무기 합성")
-        print("  3) 돌아가기")
-        action = prompt_index("> ", 3)
-        if action == 2:
+        print("  3) 장비 옵션 재련")
+        print("  4) 돌아가기")
+        action = prompt_index("> ", 4)
+        if action == 3:
             return
         if action == 0:
             if not equipment_inventory:
@@ -238,6 +354,56 @@ def run_crafting(
             if prompt_yes_no(f"{item.display_name}을(를) 분해할까요? (y/n)> "):
                 removed, gained = dismantle_equipment(equipment_inventory, equipment_inventory.index(item), flags)
                 print(f"{removed.display_name} 분해 완료! 장비 조각 {gained}개를 얻었습니다.")
+            continue
+
+        if action == 2:
+            available = [
+                item for item in equipment_inventory
+                if item.generated and item.rarity in REFORGE_COSTS
+            ]
+            if not available:
+                print("재련할 수 있는 희귀 이상 미착용 장비가 없습니다.")
+                continue
+            for index, item in enumerate(available, 1):
+                shards, gold = reforge_cost(item)
+                print(
+                    f"  {index}) {item.display_name} · {item.special_effect} "
+                    f"→ 조각 {shards}개 / {gold}G"
+                )
+            print(f"  {len(available) + 1}) 취소")
+            selected = prompt_index("> ", len(available) + 1)
+            if selected == len(available):
+                continue
+            item = available[selected]
+            affixes = equipment_affixes(item)
+            print("  1) 옵션 고정 없음")
+            for index, name in enumerate(affixes, 2):
+                print(f"  {index}) {name} 고정 (비용 2배)")
+            print(f"  {len(affixes) + 2}) 취소")
+            lock_choice = prompt_index("> ", len(affixes) + 2)
+            if lock_choice == len(affixes) + 1:
+                continue
+            locked_affix = "" if lock_choice == 0 else affixes[lock_choice - 1]
+            allowed, reason = can_reforge(party, flags, item, locked_affix)
+            if not allowed:
+                print(reason)
+                continue
+            result = preview_reforge(item, locked_affix)
+            shards, gold = reforge_cost(item, locked_affix)
+            print(f"  변경 전: {item.special_effect} / {item.display_description}")
+            print(f"  변경 후: {result.special_effect} / {result.display_description}")
+            if not prompt_yes_no(
+                f"장비 조각 {shards}개와 {gold}G를 사용해 이 결과를 확정할까요? (y/n)> "
+            ):
+                continue
+            index = equipment_inventory.index(item)
+            applied, used_shards, used_gold = apply_reforge(
+                party, equipment_inventory, flags, index, result, locked_affix,
+            )
+            print(
+                f"재련 완료! {applied.special_effect} "
+                f"(조각 {used_shards}개 / {used_gold}G 사용)"
+            )
             continue
 
         families = list(WEAPON_FAMILIES)

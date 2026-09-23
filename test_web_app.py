@@ -252,7 +252,7 @@ class WebGameTests(unittest.TestCase):
         self.assertIn(".utility-card.rarity-epic", styles)
         self.assertIn(".dismantle-toolbar", styles)
         with open(Path(WEB_ROOT) / "sw.js", encoding="utf-8") as stream:
-            self.assertIn("undefined-legend-v37", stream.read())
+            self.assertIn("undefined-legend-v38", stream.read())
 
     def test_boss_phase_transition_is_reported_once_per_event(self):
         self.finish_intro()
@@ -1033,6 +1033,48 @@ class WebGameTests(unittest.TestCase):
             equipment_indices=[0],
         )["ok"])
         self.assertEqual((self.game.equipment_inventory, self.game.flags), before)
+
+    def test_web_reforge_preview_apply_and_replay_protection(self):
+        self.finish_intro()
+        self.game.party.gold = 500
+        self.game.flags["equipment_shards"] = 50
+        with patch("data.random.sample", return_value=data.RANDOM_AFFIXES[:2]):
+            item = data.generate_random_equipment(
+                4, forced_rarity="rare", forced_slot="weapon", forced_family="sword",
+            )
+        self.game.equipment_inventory = [replace(item, enhancement_level=2, locked=True)]
+
+        reforge = self.game.state()["crafting"]["reforge"][0]
+        self.assertEqual(reforge["affixes"], ["예리함", "견고함"])
+        self.assertEqual((reforge["base_shard_cost"], reforge["base_gold_cost"]), (6, 40))
+        self.assertEqual((reforge["lock_shard_cost"], reforge["lock_gold_cost"]), (12, 80))
+
+        with patch("data.random.sample", return_value=["활력"]):
+            preview = self.game.crafting_action(
+                "reforge_preview", equipment_index=0, quote=reforge["quote"],
+                locked_affix="예리함",
+            )
+        self.assertTrue(preview["ok"])
+        comparison = preview["reforge_preview"]
+        self.assertEqual(comparison["after"]["special_effect"], "예리함/활력")
+        self.assertEqual((comparison["shard_cost"], comparison["gold_cost"]), (12, 80))
+        self.assertEqual((self.game.party.gold, self.game.flags["equipment_shards"]), (500, 50))
+
+        result = self.game.crafting_action(
+            "reforge_apply", reforge_token=comparison["token"],
+        )
+        self.assertTrue(result["ok"])
+        reforged = self.game.equipment_inventory[0]
+        self.assertEqual((reforged.special_effect, reforged.enhancement_level, reforged.locked),
+                         ("예리함/활력", 2, True))
+        self.assertEqual((self.game.party.gold, self.game.flags["equipment_shards"]), (420, 38))
+        before = (self.game.party.gold, dict(self.game.flags), list(self.game.equipment_inventory))
+        self.assertFalse(self.game.crafting_action(
+            "reforge_apply", reforge_token=comparison["token"],
+        )["ok"])
+        self.assertEqual(before, (
+            self.game.party.gold, self.game.flags, self.game.equipment_inventory,
+        ))
 
     def test_web_quest_accept_and_claim(self):
         self.finish_intro()

@@ -4,14 +4,16 @@ import os
 import tempfile
 import unittest
 from dataclasses import replace
+from unittest.mock import patch
 
 import data
 import save
 from crafting import (
     DISMANTLE_SHARDS, ENHANCEMENT_DISMANTLE_BONUS, SYNTHESIS_RECIPES,
     bulk_dismantle_reason, dismantle_equipment, dismantle_equipment_many,
-    dismantle_value, preview_stat_text, shard_count, synthesize_weapon,
-    synthesis_preview,
+    dismantle_value, apply_reforge, can_reforge, equipment_affixes,
+    preview_reforge, preview_stat_text, reforge_cost, shard_count,
+    synthesize_weapon, synthesis_preview,
 )
 from models import EQUIPMENT_RARITIES, Party, WEAPON_FAMILIES
 from world import build_world
@@ -98,6 +100,45 @@ class CraftingTests(unittest.TestCase):
         self.assertEqual((shard_cost, gold_cost), SYNTHESIS_RECIPES["epic"])
         self.assertEqual(flags["equipment_shards"], 999 - shard_cost)
         self.assertEqual(party.gold, 999 - gold_cost)
+
+    def test_reforge_preview_preserves_base_enhancement_and_locked_state(self):
+        with patch("data.random.sample", return_value=data.RANDOM_AFFIXES[:2]):
+            original = data.generate_random_equipment(
+                4, forced_rarity="rare", forced_slot="weapon", forced_family="sword",
+            )
+        original = replace(original, enhancement_level=3, locked=True)
+        party = Party([data.create_warrior("재련공")], gold=500)
+        flags = {"equipment_shards": 50}
+
+        with patch("data.random.sample", return_value=["활력"]):
+            result = preview_reforge(original, "예리함")
+
+        self.assertEqual(equipment_affixes(result), ["예리함", "활력"])
+        self.assertEqual((result.enhancement_level, result.locked), (3, True))
+        self.assertEqual(result.attack_bonus, original.attack_bonus)
+        self.assertEqual(result.defense_bonus, original.defense_bonus - 2)
+        self.assertEqual(result.max_hp_bonus, original.max_hp_bonus + 8)
+        self.assertEqual(reforge_cost(original, "예리함"), (12, 80))
+        self.assertEqual((party.gold, flags["equipment_shards"]), (500, 50))
+
+        equipment = [original]
+        applied, shards, gold = apply_reforge(
+            party, equipment, flags, 0, result, "예리함",
+        )
+        self.assertIs(equipment[0], applied)
+        self.assertEqual((shards, gold), (12, 80))
+        self.assertEqual((party.gold, flags["equipment_shards"]), (420, 38))
+
+    def test_reforge_rejects_static_low_rarity_bad_lock_and_short_resources(self):
+        party = Party([data.create_warrior("검증공")], gold=999)
+        flags = {"equipment_shards": 999}
+        self.assertFalse(can_reforge(party, flags, data.IRON_SWORD)[0])
+
+        with patch("data.random.sample", return_value=data.RANDOM_AFFIXES[:2]):
+            generated = data.generate_random_equipment(3, forced_rarity="rare")
+        self.assertFalse(can_reforge(party, flags, generated, "없는 옵션")[0])
+        self.assertFalse(can_reforge(Party(party.members, gold=0), flags, generated)[0])
+        self.assertFalse(can_reforge(party, {"equipment_shards": 0}, generated)[0])
 
     def test_synthesis_preview_matches_level_family_ranges_and_party_jobs(self):
         lancer = data.create_lancer("연화")

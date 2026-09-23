@@ -212,6 +212,14 @@ h2 { font-size: 1.3rem; }
 .utility-card.rarity-epic strong { color: #d5a7ff; }
 .utility-card.rarity-legendary { border-color: rgba(255, 190, 81, .58); box-shadow: inset 0 0 22px rgba(255, 174, 51, .09); }
 .utility-card.rarity-legendary strong { color: #ffd37a; }
+.reforge-card { cursor: default; }
+.reforge-card:hover { border-color: inherit; }
+.reforge-card > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; margin-top: 8px; }
+.reforge-card select, .reforge-card button { min-height: 36px; border: 1px solid var(--line); border-radius: 8px; color: var(--text); background: var(--panel-2); }
+.reforge-card select { min-width: 0; padding: 6px 8px; }
+.reforge-card button { padding: 6px 10px; color: var(--cyan); cursor: pointer; }
+.reforge-card button:disabled { cursor: default; opacity: .45; }
+.reforge-card small { display: block; margin-top: 5px; color: #ffb0b4; font-size: .62rem; }
 .equipment-protection-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: stretch; }
 .equipment-protection-row .utility-card { width: 100%; }
 .protection-toggle { min-width: 82px; border: 1px solid var(--line); border-radius: 10px; color: var(--muted); background: rgba(18, 28, 46, .86); cursor: pointer; }
@@ -332,6 +340,8 @@ footer { border-top: 1px solid var(--line); margin-top: 8px; }
   .world-map-grid, .region-map-layout { grid-template-columns: 1fr; }
   .equipment-protection-row { grid-template-columns: 1fr; }
   .dismantle-toolbar { grid-template-columns: 1fr; }
+  .reforge-card > div { grid-template-columns: 1fr; }
+  .reforge-card select, .reforge-card button { min-height: 44px; }
   .dismantle-grid { grid-template-columns: 1fr; }
   .dismantle-summary > div { display: grid; grid-template-columns: 1fr 1fr; }
   .dismantle-summary .bulk-dismantle { grid-column: 1 / -1; min-height: 40px; }

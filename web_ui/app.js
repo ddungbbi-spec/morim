@@ -235,7 +235,7 @@ function renderCommands() {
     const utilities = `${gameState.shop ? `<button class="command-button utility" onclick="openUtility('shop')">상점</button>` : ""}
       ${gameState.inn ? `<button class="command-button utility" onclick="innRequest()">여관 · 전원 회복</button>` : ""}
       ${gameState.blacksmith ? `<button class="command-button utility" onclick="openUtility('blacksmith')">대장간 · 장비 강화</button>` : ""}
-      ${gameState.crafting ? `<button class="command-button utility" onclick="openUtility('crafting')">분해 · 무기 합성</button>` : ""}
+      ${gameState.crafting ? `<button class="command-button utility" onclick="openUtility('crafting')">분해 · 합성 · 재련</button>` : ""}
       ${gameState.boss_retry?.available ? `<button class="command-button danger" onclick="bossRetry()">보스에게 다시 도전</button>` : ""}
       ${gameState.tower?.can_retry ? `<button class="command-button utility" onclick="towerRetry()">도전의 탑 ${gameState.tower.next_tier}단계 개방</button>` : ""}
       ${gameState.location.id === "abyss_dungeon" && gameState.dungeon.active ? `<button class="command-button danger" onclick="dungeonRequest('advance')">다음 층 도전 · ${gameState.dungeon.depth + 1}/${gameState.dungeon.max_depth} · 누적 조각 ${gameState.dungeon.shard_bank}개 위험</button>` : ""}
@@ -374,6 +374,18 @@ function renderUtilityPanel() {
             `craftingRequest('synthesize',null,'${recipe.rarity}','${craftingFamily}','${recipe.quotes[craftingFamily]}')`)
         : equipmentDisabledCard(item, `${recipe.rarity_name} ${family?.name || "무기"} 합성`, detail);
     }).join("");
+    const reforge = gameState.crafting.reforge.map((item) => {
+      const lockOptions = [`<option value="">옵션 고정 없음</option>`, ...item.affixes.map((affix) =>
+        `<option value="${escapeHtml(affix)}">${escapeHtml(affix)} 고정 · 비용 2배</option>`)].join("");
+      return `<div class="utility-card reforge-card ${rarityClass(item.rarity)}">
+        <strong>${escapeHtml(item.display_name)}</strong>
+        <span>현재 옵션: ${escapeHtml(item.affixes.join(" · "))}</span>
+        <span>기본 비용 ${item.base_shard_cost}조각 · ${item.base_gold_cost}G / 고정 시 ${item.lock_shard_cost}조각 · ${item.lock_gold_cost}G</span>
+        <div><select id="reforgeLock${item.index}" aria-label="고정할 옵션">${lockOptions}</select>
+        <button onclick="reforgePreviewRequest(${item.index},'${item.quote}')" ${item.can_reforge ? "" : "disabled"}>결과 미리보기</button></div>
+        ${item.reason ? `<small>${escapeHtml(item.reason)}</small>` : ""}
+      </div>`;
+    }).join("");
     const dismantleItems = gameState.crafting.dismantle;
     const currentIndices = new Set(dismantleItems.filter((item) => item.bulk_eligible).map((item) => item.index));
     dismantleSelection = new Set([...dismantleSelection].filter((index) => currentIndices.has(index)));
@@ -416,12 +428,13 @@ function renderUtilityPanel() {
       <button onclick="clearDismantleSelection()" ${selectedItems.length ? "" : "disabled"}>선택 해제</button>
       <button class="bulk-dismantle" onclick="bulkDismantleRequest()" ${selectedItems.length ? "" : "disabled"}>선택 장비 분해</button></div>
     </div>`;
-    panel.innerHTML = utilityShell("분해 · 무기 합성 공방", `
+    panel.innerHTML = utilityShell("분해 · 합성 · 재련 공방", `
       <p class="stat-line">보유 장비 조각 ${gameState.crafting.shards}개 · ${gameState.gold}G</p>
-      <p class="stat-line">미착용 장비를 조각으로 분해하거나, 무기 계열과 등급을 지정해 실패 없이 합성합니다.</p>
+      <p class="stat-line">미착용 장비를 분해·합성하고, 희귀 이상 생성 장비의 옵션을 결과 확인 후 재련합니다.</p>
       <p class="stat-line">강화 분해 보너스: ${gameState.crafting.enhancement_bonuses.map((entry) => `+${entry.level} ${entry.shards}개`).join(" · ")}</p>
       <div class="mini-tabs">${familyTabs}</div>
       ${utilitySection(`${family?.name || "무기"} 합성`, recipes)}
+      ${utilitySection("희귀 이상 장비 옵션 재련", reforge || `<span class="muted-copy">재련 가능한 미착용 장비가 없습니다.</span>`)}
       ${utilitySection("미착용 장비 다중 분해", `${dismantleControls}<div class="dismantle-grid">${dismantle || `<span class="muted-copy">조건에 맞는 장비가 없습니다.</span>`}</div>`)}`);
   } else if (utilityMode === "equipment") {
     equipmentMember = Math.max(0, Math.min(equipmentMember, gameState.party.length - 1));
@@ -590,6 +603,36 @@ async function craftingRequest(operation, equipment, rarity, family, quote) {
     await request("/api/crafting", {operation, equipment, rarity, family, quote});
   } catch (_error) {
     showError("처리 결과를 확인하지 못했습니다. 목록을 새로고침한 뒤 확인하세요.");
+  } finally {
+    craftingBusy = false;
+    render();
+  }
+}
+async function reforgePreviewRequest(equipment, quote) {
+  if (craftingBusy) return;
+  const lockedAffix = document.querySelector(`#reforgeLock${equipment}`)?.value || "";
+  craftingBusy = true;
+  document.querySelectorAll('#choicePanel button, #choicePanel select').forEach((element) => element.disabled = true);
+  try {
+    const result = await request("/api/crafting", {
+      operation: "reforge_preview", equipment, quote, locked_affix: lockedAffix,
+    });
+    const preview = result?.reforge_preview;
+    if (!result?.ok || !preview) return;
+    const fixed = preview.locked_affix ? `고정 옵션: ${preview.locked_affix}\n` : "";
+    const accepted = confirm(
+      `${preview.before.display_name}\n${fixed}\n` +
+      `변경 전: ${preview.before.special_effect}\n${preview.before.description}\n\n` +
+      `변경 후: ${preview.after.special_effect}\n${preview.after.description}\n\n` +
+      `장비 조각 ${preview.shard_cost}개와 ${preview.gold_cost}G를 사용해 이 결과를 확정할까요?`
+    );
+    if (accepted) {
+      await request("/api/crafting", {
+        operation: "reforge_apply", reforge_token: preview.token,
+      });
+    }
+  } catch (_error) {
+    showError("재련 결과를 확인하지 못했습니다. 목록을 새로고침한 뒤 다시 시도하세요.");
   } finally {
     craftingBusy = false;
     render();

@@ -27,9 +27,10 @@ from blacksmith import (
 )
 from crafting import (
     ENHANCEMENT_DISMANTLE_BONUS, SHARD_FLAG, SYNTHESIS_RECIPES,
-    bulk_dismantle_reason, can_synthesize, dismantle_equipment,
+    REFORGE_COSTS, apply_reforge, bulk_dismantle_reason, can_reforge,
+    can_synthesize, dismantle_equipment, equipment_affixes, reforge_cost,
     dismantle_equipment_many, dismantle_value, shard_count,
-    synthesize_weapon, synthesis_preview, preview_stat_text,
+    synthesize_weapon, synthesis_preview, preview_reforge, preview_stat_text,
 )
 from combat import _describe_skill_result
 from equipment import SLOT_NAMES_KR, protection_warning
@@ -90,6 +91,7 @@ class WebGame:
     def reset(self) -> None:
         self._forge_key = secrets.token_bytes(32)
         self._craft_key = secrets.token_bytes(32)
+        self._reforge_pending = None
         self.party = Party([])
         self.inventory: List[Item] = []
         self.equipment_inventory = []
@@ -415,7 +417,7 @@ class WebGame:
 
     def crafting_action(
         self, operation, equipment_index=None, rarity=None, family=None, quote=None,
-        equipment_indices=None,
+        equipment_indices=None, locked_affix="", reforge_token=None,
     ) -> dict:
         if self.phase != "explore" or self.game_map.current_id != "village":
             return self._error("분해·합성 공방은 시작 마을에서 이용할 수 있습니다.")
@@ -465,11 +467,73 @@ class WebGame:
                     f"무기 합성 성공! {item.display_name} "
                     f"(장비 조각 {used_shards}개 / {gold}G 사용)"
                 )
+            elif operation == "reforge_preview":
+                index = self._index(
+                    equipment_index, len(self.equipment_inventory), "재련 장비"
+                )
+                if not isinstance(quote, str) or not secrets.compare_digest(
+                    quote, self._craft_quote("reforge", index)
+                ):
+                    raise ValueError(
+                        "장비 또는 재료 상태가 변경되었습니다. 새 목록에서 재련 내용을 다시 확인하세요."
+                    )
+                item = self.equipment_inventory[index]
+                allowed, reason = can_reforge(
+                    self.party, self.flags, item, locked_affix,
+                )
+                if not allowed:
+                    raise ValueError(reason)
+                result = preview_reforge(item, locked_affix)
+                shards, gold = reforge_cost(item, locked_affix)
+                token = secrets.token_urlsafe(24)
+                self._reforge_pending = {
+                    "token": token,
+                    "index": index,
+                    "original": item,
+                    "result": result,
+                    "locked_affix": locked_affix,
+                    "gold": self.party.gold,
+                    "shards": shard_count(self.flags),
+                }
+                return {
+                    "ok": True,
+                    "state": self.state(),
+                    "reforge_preview": {
+                        "token": token,
+                        "before": self._equipment_state(item),
+                        "after": self._equipment_state(result),
+                        "locked_affix": locked_affix,
+                        "shard_cost": shards,
+                        "gold_cost": gold,
+                    },
+                }
+            elif operation == "reforge_apply":
+                pending = self._reforge_pending
+                if (
+                    not pending or not isinstance(reforge_token, str)
+                    or not secrets.compare_digest(reforge_token, pending["token"])
+                    or pending["index"] >= len(self.equipment_inventory)
+                    or self.equipment_inventory[pending["index"]] is not pending["original"]
+                    or self.party.gold != pending["gold"]
+                    or shard_count(self.flags) != pending["shards"]
+                ):
+                    raise ValueError(
+                        "재련 대상 또는 재료 상태가 변경되었습니다. 결과를 다시 미리보세요."
+                    )
+                item, used_shards, gold = apply_reforge(
+                    self.party, self.equipment_inventory, self.flags,
+                    pending["index"], pending["result"], pending["locked_affix"],
+                )
+                self._log(
+                    f"옵션 재련 완료! {item.display_name} "
+                    f"(장비 조각 {used_shards}개 / {gold}G 사용)"
+                )
             else:
                 return self._error("지원하지 않는 분해·합성 행동입니다.")
         except (IndexError, TypeError, ValueError) as error:
             return self._error(str(error))
         self._craft_key = secrets.token_bytes(32)
+        self._reforge_pending = None
         return {"ok": True, "state": self.state()}
 
     def equipment_action(self, operation: str, member_index, equipment_index=None, slot=None) -> dict:
@@ -1377,6 +1441,23 @@ class WebGame:
                     for index, item in enumerate(self.equipment_inventory)
                     if not item.locked
                 ],
+                "reforge": [
+                    {
+                        "index": index,
+                        **self._equipment_state(item),
+                        "affixes": equipment_affixes(item),
+                        "base_shard_cost": reforge_cost(item)[0],
+                        "base_gold_cost": reforge_cost(item)[1],
+                        "lock_shard_cost": reforge_cost(item, equipment_affixes(item)[0])[0],
+                        "lock_gold_cost": reforge_cost(item, equipment_affixes(item)[0])[1],
+                        "can_reforge": can_reforge(self.party, self.flags, item)[0],
+                        "reason": can_reforge(self.party, self.flags, item)[1],
+                        "quote": self._craft_quote("reforge", index),
+                    }
+                    for index, item in enumerate(self.equipment_inventory)
+                    if item.generated and item.rarity in REFORGE_COSTS
+                    and equipment_affixes(item)
+                ],
                 "bulk_dismantle_quote": self._craft_quote("bulk_dismantle", None),
                 "recipes": crafting_recipes,
             }
@@ -1647,6 +1728,7 @@ class GameHandler(BaseHTTPRequestHandler):
                     payload.get("operation", ""), payload.get("equipment"),
                     payload.get("rarity"), payload.get("family"),
                     payload.get("quote"), payload.get("equipment_indices"),
+                    payload.get("locked_affix", ""), payload.get("reforge_token"),
                 )
             elif self.path == "/api/tower":
                 result = game.tower_action(payload.get("operation", ""))
