@@ -111,6 +111,7 @@ function characterCard(character, enemy = false) {
   const fallen = character.alive ? "" : " fallen";
   const tags = [
     ...(character.guarding ? [{name: "방어", guard: true}] : []),
+    ...(character.guarded_by ? [{name: `엄호: ${character.guarded_by}`, guard: true}] : []),
     ...character.statuses.map((status) => ({name: `${status.name} ${status.turns}턴`}))
   ];
   const elementNames = {fire: "화", ice: "냉", thunder: "뇌", wind: "풍"};
@@ -237,6 +238,7 @@ function renderCommands() {
       <button class="command-button" onclick="selectSkill()">스킬</button>
       <button class="command-button" onclick="selectItem()">아이템</button>
       <button class="command-button" onclick="sendAction({type:'defend'})">방어</button>
+      <button class="command-button" onclick="selectProtect()">아군 엄호</button>
       <button class="command-button danger" onclick="sendAction({type:'flee'})">도주</button>`;
     renderChoicePanel();
   } else if (exploreEnabled) {
@@ -733,6 +735,11 @@ function renderChoicePanel() {
     panel.innerHTML = choices("대상을 선택하세요", livingEnemies(), (enemy) => enemy.name, (enemy) => ({target: enemy.index}));
   } else if (pending.mode === "party") {
     panel.innerHTML = choices("대상을 선택하세요", livingParty(), (member) => member.name, (member) => ({target: member.index}));
+  } else if (pending.mode === "protect") {
+    const candidates = livingParty().filter((member) => member.name !== gameState.current_actor);
+    panel.innerHTML = choices("엄호할 파티원을 선택하세요", candidates,
+      (member) => member.name, (member) => ({target: member.index}),
+      () => "다음 단일 대상 공격을 대신 받고 방어로 피해를 줄입니다");
   } else if (pending.mode === "skill") {
     panel.innerHTML = choices("사용할 스킬을 선택하세요", gameState.skills,
       (skill) => `${skill.name} · MP ${skill.mp_cost}`,
@@ -762,6 +769,7 @@ function livingParty() {
 function selectAttack() { pending = {mode: "enemy", action: {type: "attack"}}; renderChoicePanel(); }
 function selectSkill() { pending = {mode: "skill", action: {type: "skill"}}; renderChoicePanel(); }
 function selectItem() { pending = {mode: "item", action: {type: "item"}}; renderChoicePanel(); }
+function selectProtect() { pending = {mode: "protect", action: {type: "protect"}}; renderChoicePanel(); }
 function clearChoice() { pending = null; renderChoicePanel(); }
 
 function acceptChoice(encoded) {

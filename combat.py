@@ -8,6 +8,7 @@ from typing import List
 from dataclasses import replace
 import random
 from combo import ComboChain, can_chain
+from protection import AllyProtection
 from models import Party, Enemy, PlayerCharacter, Item, Skill
 from input_utils import prompt_index
 
@@ -62,6 +63,7 @@ class Battle:
         self.equipment_inventory = equipment_inventory if equipment_inventory is not None else []
         self.fled = False
         self.combo = ComboChain()
+        self.protection = AllyProtection()
 
     # -----------------------------------------------------------------
     def run(self) -> bool:
@@ -84,6 +86,7 @@ class Battle:
                     break
 
                 if isinstance(actor, PlayerCharacter):
+                    self.protection.clear_protector(actor)
                     actor.guarding = False
 
                 if actor.status_effects:
@@ -150,8 +153,8 @@ class Battle:
     def _player_turn(self, actor: PlayerCharacter):
         while True:
             print(f"\n{actor.status_line()}")
-            print("행동: 1) 공격  2) 스킬  3) 아이템  4) 방어  5) 적 정보  6) 도망가기")
-            choice = prompt_index("> ", 6) + 1
+            print("행동: 1) 공격  2) 스킬  3) 아이템  4) 방어  5) 적 정보  6) 도망가기  7) 아군 엄호")
+            choice = prompt_index("> ", 7) + 1
 
             alive_enemies = [e for e in self.enemies if e.is_alive]
             if not alive_enemies:
@@ -267,6 +270,20 @@ class Battle:
                 self._print_enemy_info()
                 continue
 
+            if choice == 7:
+                allies = [member for member in self.party.alive_members if member is not actor]
+                if not allies:
+                    print("엄호할 수 있는 다른 파티원이 없습니다.")
+                    continue
+                target = self._choose_target(allies, allow_cancel=True)
+                if target is None:
+                    continue
+                self.protection.protect(actor, target)
+                actor.guarding = True
+                self.combo.reset()
+                print(f"{actor.name}이(가) 방어 태세로 {target.name}을(를) 엄호한다.")
+                return
+
             self._attempt_flee()
             self.combo.reset()
             return
@@ -320,6 +337,9 @@ class Battle:
         if target is None:
             return
         if skill is None:
+            target, protection_message = self.protection.redirect(target)
+            if protection_message:
+                print(protection_message)
             dmg = enemy.basic_attack(target)
             if target.last_damage_evaded:
                 print(f"{enemy.name}의 공격! {target.name}은(는) 재빠르게 회피했다!")
@@ -339,6 +359,10 @@ class Battle:
                 ):
                     print(msg)
         else:
+            if not skill.aoe:
+                target, protection_message = self.protection.redirect(target, skill)
+                if protection_message:
+                    print(protection_message)
             amount, status_applied, effectiveness = enemy.use_skill(skill, target)
             for msg in _describe_skill_result(
                 enemy.name, target.name, skill, amount, status_applied, effectiveness,

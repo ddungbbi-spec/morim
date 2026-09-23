@@ -20,6 +20,7 @@ from typing import Callable, Dict, List, Optional
 
 import data
 from combo import ComboChain, can_chain
+from protection import AllyProtection
 import save as game_save
 from blacksmith import (
     MAX_ENHANCEMENT, can_upgrade, enhance_equipment,
@@ -111,6 +112,7 @@ class WebGame:
         self.current_actor: Optional[PlayerCharacter] = None
         self._rewarded = False
         self.combo = ComboChain()
+        self.protection = AllyProtection()
         self.battle_context = ""
         self.dialogue = None
         self.dialogue_node_id = None
@@ -771,6 +773,7 @@ class WebGame:
         self.turn = 0
         self._rewarded = False
         self.combo.reset()
+        self.protection.reset()
         self.current_actor = None
         self.battle_context = context
         self._start_round()
@@ -818,6 +821,13 @@ class WebGame:
                 actor.guarding = True
                 self.combo.reset()
                 self._log(f"{actor.name}이(가) 방어 태세를 취했습니다.")
+            elif action_type == "protect":
+                allies = self.party.alive_members
+                target = allies[self._index(action.get("target"), len(allies), "엄호 대상")]
+                self.protection.protect(actor, target)
+                actor.guarding = True
+                self.combo.reset()
+                self._log(f"{actor.name}이(가) 방어 태세로 {target.name}을(를) 엄호합니다.")
             elif action_type == "flee":
                 self.combo.reset()
                 if self._attempt_flee():
@@ -860,6 +870,7 @@ class WebGame:
             if not actor.is_alive:
                 continue
             if isinstance(actor, PlayerCharacter):
+                self.protection.clear_protector(actor)
                 actor.guarding = False
 
             paralyzed = actor.is_paralyzed()
@@ -1081,6 +1092,9 @@ class WebGame:
         if target is None:
             return
         if skill is None:
+            target, protection_message = self.protection.redirect(target)
+            if protection_message:
+                self._log(protection_message)
             damage = enemy.basic_attack(target)
             if target.last_damage_evaded:
                 self._log(f"{target.name}이(가) {enemy.name}의 공격을 회피했습니다.")
@@ -1093,6 +1107,9 @@ class WebGame:
             if skill.aoe:
                 results = enemy.use_skill_on_targets(skill, targets)
             else:
+                target, protection_message = self.protection.redirect(target, skill)
+                if protection_message:
+                    self._log(protection_message)
                 amount, applied, effectiveness = enemy.use_skill(skill, target)
                 results = [(target, amount, applied, effectiveness)]
         except ValueError:
@@ -1536,7 +1553,16 @@ class WebGame:
             "turn": self.turn,
             "result_message": self.result_message,
             "gold": self.party.gold,
-            "party": [self._character_state(member) for member in self.party.members],
+            "party": [
+                {
+                    **self._character_state(member),
+                    "guarded_by": (
+                        self.protection.protector_for(member).name
+                        if self.phase == "battle" and self.protection.protector_for(member) else ""
+                    ),
+                }
+                for member in self.party.members
+            ],
             "enemies": [
                 {
                     **self._character_state(enemy),
