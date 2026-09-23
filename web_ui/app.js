@@ -322,7 +322,8 @@ function renderUtilityPanel() {
       `shopRequest('sell_item',${item.index})`
     )).join("");
     const sellEquipment = gameState.shop.sell_equipment.map((item) => equipmentButton(item,
-      `${item.display_name} 판매 · ${item.price}G`, item.description,
+      `${item.display_name} 판매 · ${item.price}G`,
+      `${item.description} · 분해 시 조각 ${item.shard_yield}개${item.can_dismantle_here ? "" : " (시작 마을 공방)"}`,
       `shopRequest('sell_equipment',${item.index})`
     )).join("");
     panel.innerHTML = utilityShell(shop.name, `
@@ -406,7 +407,8 @@ function renderUtilityPanel() {
     const dismantle = filteredDismantle.map((item) => {
       const selected = dismantleSelection.has(item.index);
       const detail = [item.description, item.special_effect,
-        item.bulk_eligible ? `예상 조각 ${item.shard_yield}개` : `자동 제외 · ${item.bulk_exclusion_reason}`]
+        `판매 ${item.sale_price}G / 분해 ${item.shard_yield}조각`,
+        item.bulk_eligible ? "" : `일괄 분해 제외 · ${item.bulk_exclusion_reason}`]
         .filter(Boolean).join(" · ");
       return `<label class="dismantle-select-card ${rarityClass(item.rarity)}${selected ? " selected" : ""}${item.bulk_eligible ? "" : " excluded"}">
         <input type="checkbox" ${selected ? "checked" : ""} ${item.bulk_eligible ? "" : "disabled"}
@@ -559,7 +561,13 @@ function selectVisibleDismantle() {
   renderUtilityPanel();
 }
 function clearDismantleSelection() { dismantleSelection.clear(); renderUtilityPanel(); }
-function shopRequest(operation, index) { request("/api/shop", {operation, index, shop: shopIndex}); }
+function shopRequest(operation, index) {
+  if (operation === "sell_equipment") {
+    const item = gameState.shop?.sell_equipment.find((entry) => entry.index === index);
+    if (!item || !confirm(`${item.display_name}\n판매: ${item.price}G\n분해: 장비 조각 ${item.shard_yield}개${item.can_dismantle_here ? "" : " (시작 마을 공방)"}\n\n이 장비를 판매할까요? 판매 후에는 분해할 수 없습니다.`)) return;
+  }
+  request("/api/shop", {operation, index, shop: shopIndex});
+}
 async function blacksmithRequest(equipment, material = "duplicate") {
   if (forgeBusy) return;
   const item = gameState.blacksmith?.equipment.find((entry) => entry.index === equipment);

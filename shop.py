@@ -10,6 +10,7 @@ from typing import List, Optional
 
 from models import Item, Equipment, Party
 from input_utils import prompt_index
+from crafting import dismantle_value
 
 SELL_RATIO = 0.5
 
@@ -143,7 +144,8 @@ def _sell_menu(party: Party, inventory: List[Item], equipment_inventory: List[Eq
     for i, (kind, obj) in enumerate(combined, 1):
         sell_price = int(obj.price * SELL_RATIO)
         display_name = obj.display_name if kind == "equipment" else obj.name
-        print(f"  {i}) {display_name}  판매가 {sell_price} G")
+        alternative = f" / 분해 {dismantle_value(obj)}조각 (시작 마을 공방)" if kind == "equipment" else ""
+        print(f"  {i}) {display_name}  판매가 {sell_price} G{alternative}")
     cancel_option = len(combined) + 1
     print(f"  {cancel_option}) 취소")
 
@@ -157,6 +159,13 @@ def _sell_menu(party: Party, inventory: List[Item], equipment_inventory: List[Eq
 
     kind, obj = combined[idx]
     sell_price = int(obj.price * SELL_RATIO)
+    if kind == "equipment":
+        from input_utils import prompt_yes_no
+        if not prompt_yes_no(
+            f"{obj.display_name}: 판매 {sell_price}G / 분해 {dismantle_value(obj)}조각. "
+            "판매하면 분해할 수 없습니다. 판매할까요? (y/n)> "
+        ):
+            return
     party.gold += sell_price
     if kind == "item":
         inventory.remove(obj)

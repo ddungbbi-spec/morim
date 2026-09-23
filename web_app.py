@@ -1342,6 +1342,8 @@ class WebGame:
                     {
                         "index": index, **self._equipment_state(item),
                         "price": int(item.price * SELL_RATIO),
+                        "shard_yield": dismantle_value(item),
+                        "can_dismantle_here": location.id == "village",
                     }
                     for index, item in enumerate(self.equipment_inventory)
                     if not item.locked
@@ -1426,6 +1428,7 @@ class WebGame:
                         "index": index,
                         **self._equipment_state(item),
                         "shard_yield": dismantle_value(item),
+                        "sale_price": int(item.price * SELL_RATIO),
                         "quote": self._craft_quote("dismantle", index),
                         "bulk_eligible": not bulk_dismantle_reason(item),
                         "bulk_exclusion_reason": bulk_dismantle_reason(item),

@@ -252,7 +252,7 @@ class WebGameTests(unittest.TestCase):
         self.assertIn(".utility-card.rarity-epic", styles)
         self.assertIn(".dismantle-toolbar", styles)
         with open(Path(WEB_ROOT) / "sw.js", encoding="utf-8") as stream:
-            self.assertIn("undefined-legend-v38", stream.read())
+            self.assertIn("undefined-legend-v39", stream.read())
 
     def test_boss_phase_transition_is_reported_once_per_event(self):
         self.finish_intro()
@@ -866,6 +866,20 @@ class WebGameTests(unittest.TestCase):
 
         wrong_stock = self.game.shop_action("buy_item", 0, shop_index=1)
         self.assertFalse(wrong_stock["ok"])
+
+    def test_equipment_disposal_comparison_tracks_real_values_and_lock(self):
+        self.finish_intro()
+        item = replace(data.IRON_SWORD, rarity="epic", enhancement_level=3, price=101)
+        self.game.equipment_inventory = [item, replace(item, locked=True)]
+        state = self.game.state()
+        sale = state["shop"]["sell_equipment"]
+        dismantle = state["crafting"]["dismantle"]
+        self.assertEqual(len(sale), 1)
+        self.assertEqual(len(dismantle), 1)
+        self.assertEqual((sale[0]["price"], sale[0]["shard_yield"]), (50, 32))
+        self.assertEqual((dismantle[0]["sale_price"], dismantle[0]["shard_yield"]), (50, 32))
+        self.assertTrue(sale[0]["can_dismantle_here"])
+        self.assertIs(self.game.equipment_inventory[0], item)
 
     def test_herbalist_shop_unlocks_and_applies_escort_discount(self):
         self.finish_intro()
