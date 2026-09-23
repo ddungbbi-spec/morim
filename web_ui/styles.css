@@ -201,6 +201,33 @@ h2 { font-size: 1.3rem; }
 .command-button:active, .choice-button:active { transform: scale(.98); }
 .command-button.danger { color: #ffb0b4; }
 .command-button.utility { color: var(--cyan); border-style: dashed; }
+.command-button:disabled { cursor: default; opacity: .42; transform: none; }
+.auto-battle-controls {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(145px, auto) auto minmax(150px, 1fr);
+  gap: 9px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid rgba(102, 217, 208, .28);
+  border-radius: 12px;
+  background: rgba(102, 217, 208, .06);
+}
+.auto-battle-toggle, .speed-button {
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--text);
+  background: var(--panel-2);
+  cursor: pointer;
+}
+.auto-battle-toggle { padding: 8px 12px; font-weight: 800; }
+.auto-battle-toggle.active { border-color: var(--cyan); color: var(--cyan); background: rgba(102, 217, 208, .14); }
+.speed-controls { display: flex; align-items: center; gap: 5px; }
+.speed-controls span { margin-right: 3px; color: var(--muted); font-size: .66rem; white-space: nowrap; }
+.speed-button { min-width: 38px; padding: 5px 8px; }
+.speed-button.selected { border-color: var(--gold); color: var(--gold); background: rgba(241, 198, 109, .12); }
+.auto-battle-controls small { color: var(--muted); font-size: .66rem; line-height: 1.4; }
 .ghost { padding: 9px 12px; }
 
 .choice-panel { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: rgba(8, 13, 24, .5); }
@@ -351,6 +378,9 @@ footer { border-top: 1px solid var(--line); margin-top: 8px; }
   .setup-members { grid-template-columns: 1fr; }
   .setup-member input, .setup-member select { min-height: 44px; font-size: 16px; }
   .command-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .auto-battle-controls { grid-template-columns: 1fr; }
+  .speed-controls { justify-content: center; }
+  .auto-battle-controls small { text-align: center; }
   .map-summary { align-items: stretch; flex-direction: column; }
   .map-shortcuts { display: grid; grid-template-columns: 1fr 1fr; }
   .world-map-grid, .region-map-layout { grid-template-columns: 1fr; }

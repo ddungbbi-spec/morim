@@ -888,6 +888,145 @@ class WebGame:
         self._advance()
         return {"ok": True, "state": self.state()}
 
+    def auto_action(self) -> dict:
+        """현재 파티원의 상황을 판단해 한 번의 행동만 안전하게 실행한다."""
+        if self.phase != "battle" or self.current_actor is None:
+            return self._error("자동 전투로 처리할 파티원 행동이 없습니다.")
+        try:
+            action, description = self._choose_auto_action()
+        except ValueError as error:
+            return self._error(str(error))
+        self._log(f"자동 전투 · {self.current_actor.name}: {description}")
+        return self.act(action)
+
+    def _choose_auto_action(self) -> tuple[dict, str]:
+        actor = self.current_actor
+        allies = self.party.alive_members
+        enemies = [enemy for enemy in self.enemies if enemy.is_alive]
+        if actor is None or not enemies:
+            raise ValueError("자동 전투 행동을 선택할 수 없습니다.")
+
+        affordable = [
+            (index, skill) for index, skill in enumerate(actor.skills)
+            if actor.mp >= skill.mp_cost
+        ]
+        wounded = sorted(allies, key=lambda member: member.hp / member.effective_max_hp)
+        lowest = wounded[0]
+        lowest_ratio = lowest.hp / lowest.effective_max_hp
+        heal_skills = [(index, skill) for index, skill in affordable if skill.kind == "heal"]
+        if heal_skills and lowest_ratio <= 0.45:
+            widespread = sum(
+                member.hp / member.effective_max_hp <= 0.70 for member in allies
+            ) >= 2
+            candidates = [entry for entry in heal_skills if entry[1].aoe == widespread]
+            if not candidates:
+                candidates = heal_skills
+            skill_index, skill = max(candidates, key=lambda entry: entry[1].power)
+            action = {"type": "skill", "skill": skill_index}
+            if not skill.aoe:
+                action["target"] = allies.index(lowest)
+            target_label = "파티 전체" if skill.aoe else lowest.name
+            return action, f"[{skill.name}] → {target_label} 회복"
+
+        if lowest is actor and lowest_ratio <= 0.25:
+            return {"type": "defend"}, "위험한 체력으로 방어"
+
+        buff_skills = [
+            (index, skill) for index, skill in affordable
+            if skill.kind == "buff"
+            and not actor.has_status(f"buff_{skill.buff_stat}")
+        ]
+        if buff_skills:
+            skill_index, skill = max(
+                buff_skills,
+                key=lambda entry: entry[1].buff_amount * entry[1].buff_duration,
+            )
+            action = {"type": "skill", "skill": skill_index}
+            if not skill.aoe:
+                action["target"] = allies.index(actor)
+            return action, f"[{skill.name}] 강화"
+
+        preferred_target = (
+            self.combo.target
+            if self.combo.target in enemies and can_chain(actor) and self.combo.actor is not actor
+            else min(enemies, key=lambda enemy: (enemy.hp, enemy.effective_defense))
+        )
+        debuff_skills = [
+            (index, skill) for index, skill in affordable
+            if skill.kind == "debuff"
+            and not preferred_target.has_status(f"debuff_{skill.buff_stat}")
+        ]
+        if debuff_skills:
+            skill_index, skill = max(
+                debuff_skills,
+                key=lambda entry: entry[1].buff_amount * entry[1].buff_duration,
+            )
+            action = {"type": "skill", "skill": skill_index}
+            if not skill.aoe:
+                action["target"] = enemies.index(preferred_target)
+            return action, f"[{skill.name}] → {preferred_target.name} 약화"
+
+        attack_options = []
+        for skill_index, skill in affordable:
+            if skill.kind == "steal":
+                target = next(
+                    (enemy for enemy in enemies if not enemy.has_been_stolen_from), None
+                )
+                if target is not None:
+                    attack_options.append((3, skill_index, skill, target))
+                continue
+            if skill.kind != "attack":
+                continue
+            if skill.aoe:
+                score = skill.power * len(enemies)
+                score += sum(
+                    4 for enemy in enemies
+                    if skill.element and skill.element == enemy.weakness
+                )
+                score -= sum(
+                    3 for enemy in enemies
+                    if skill.element and skill.element == enemy.resistance
+                )
+                target = preferred_target
+            else:
+                target = max(
+                    enemies,
+                    key=lambda enemy: (
+                        bool(skill.element and skill.element == enemy.weakness),
+                        not skill.element or skill.element != enemy.resistance,
+                        -enemy.hp,
+                    ),
+                )
+                score = skill.power
+                if skill.element and skill.element == target.weakness:
+                    score += 5
+                elif skill.element and skill.element == target.resistance:
+                    score -= 4
+                if skill.inflict_status and not target.has_status(skill.inflict_status):
+                    score += 2
+            if skill.mp_cost == 0:
+                score += 2
+            attack_options.append((score, skill_index, skill, target))
+
+        basic_score = max(
+            1,
+            actor.effective_attack - preferred_target.effective_defense // 2
+            + self.combo.bonus(actor, preferred_target),
+        )
+        if attack_options:
+            score, skill_index, skill, target = max(attack_options, key=lambda entry: entry[0])
+            if score > basic_score + 1:
+                action = {"type": "skill", "skill": skill_index}
+                if not skill.aoe:
+                    action["target"] = enemies.index(target)
+                target_label = "적 전체" if skill.aoe else target.name
+                return action, f"[{skill.name}] → {target_label}"
+
+        return (
+            {"type": "attack", "target": enemies.index(preferred_target)},
+            f"기본 공격 → {preferred_target.name}",
+        )
+
     def _start_round(self) -> None:
         self.combo.reset()
         self.turn += 1
@@ -1957,6 +2096,8 @@ class GameHandler(BaseHTTPRequestHandler):
                 )
             elif self.path == "/api/action":
                 result = game.act(payload)
+            elif self.path == "/api/auto":
+                result = game.auto_action()
             else:
                 self._json({"ok": False, "error": "API 경로를 찾을 수 없습니다."}, 404)
                 return

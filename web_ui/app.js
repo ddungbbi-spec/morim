@@ -14,6 +14,12 @@ let shopIndex = null;
 let installPrompt = null;
 let phaseAnnouncementTimer = null;
 let soundEnabled = localStorage.getItem("undefined-legend-sound") !== "off";
+let autoBattleEnabled = false;
+let autoBattleTimer = null;
+let autoRequestInFlight = false;
+let battleSpeed = Number(localStorage.getItem("undefined-legend-battle-speed") || "1");
+if (![1, 2, 3].includes(battleSpeed)) battleSpeed = 1;
+const AUTO_BATTLE_DELAYS = {1: 900, 2: 450, 3: 300};
 const SAVE_BACKUP_KEY = "undefined-legend-save-backups-v1";
 
 const $ = (selector) => document.querySelector(selector);
@@ -175,6 +181,7 @@ function render() {
 
   renderWorld();
   renderCommands();
+  scheduleAutoBattle();
 }
 
 function renderWorld() {
@@ -240,14 +247,23 @@ function renderCommands() {
     const chainHint = combo?.next_bonus
       ? `<p class="stat-line">연계 기회 · ${escapeHtml(gameState.enemies[combo.target].name)}을(를) 물리 공격하면 위력 +${combo.next_bonus}${combo.finisher ? ` · 3타 마무리: ${escapeHtml(combo.finisher)}` : ""}</p>`
       : `<p class="stat-line">서로 다른 파티원이 같은 적을 이어 공격하면 연계 위력이 증가합니다. 무기 착용 필요 · 턴마다 초기화</p>`;
+    const manualDisabled = autoBattleEnabled ? " disabled" : "";
+    const speedButtons = [1, 2, 3].map((speed) =>
+      `<button class="speed-button${battleSpeed === speed ? " selected" : ""}" onclick="setBattleSpeed(${speed})">${speed}×</button>`
+    ).join("");
     $("#commandButtons").innerHTML = `
+      <div class="auto-battle-controls">
+        <button class="auto-battle-toggle${autoBattleEnabled ? " active" : ""}" onclick="toggleAutoBattle()">${autoBattleEnabled ? "자동 전투 중지" : "자동 전투 시작"}</button>
+        <div class="speed-controls"><span>전투 배속</span>${speedButtons}</div>
+        <small>${autoBattleEnabled ? `${battleSpeed}× 속도로 상황 판단 중` : "회복·강화·약점·연계를 판단합니다"}</small>
+      </div>
       ${chainHint}
-      <button class="command-button" onclick="selectAttack()">공격</button>
-      <button class="command-button" onclick="selectSkill()">스킬</button>
-      <button class="command-button" onclick="selectItem()">아이템</button>
-      <button class="command-button" onclick="sendAction({type:'defend'})">방어</button>
-      <button class="command-button" onclick="selectProtect()">아군 엄호</button>
-      <button class="command-button danger" onclick="sendAction({type:'flee'})">도주</button>`;
+      <button class="command-button" onclick="selectAttack()"${manualDisabled}>공격</button>
+      <button class="command-button" onclick="selectSkill()"${manualDisabled}>스킬</button>
+      <button class="command-button" onclick="selectItem()"${manualDisabled}>아이템</button>
+      <button class="command-button" onclick="sendAction({type:'defend'})"${manualDisabled}>방어</button>
+      <button class="command-button" onclick="selectProtect()"${manualDisabled}>아군 엄호</button>
+      <button class="command-button danger" onclick="sendAction({type:'flee'})"${manualDisabled}>도주</button>`;
     renderChoicePanel();
   } else if (exploreEnabled) {
     $("#commandTitle").textContent = gameState.location.id === "abyss_dungeon"
@@ -827,7 +843,41 @@ function acceptChoice(encoded) {
   sendAction(pending.action);
 }
 
-function sendAction(action) { request("/api/action", action); }
+function sendAction(action) {
+  if (!autoBattleEnabled) request("/api/action", action);
+}
+function toggleAutoBattle() {
+  if (gameState?.phase !== "battle") return;
+  autoBattleEnabled = !autoBattleEnabled;
+  pending = null;
+  if (!autoBattleEnabled) clearTimeout(autoBattleTimer);
+  render();
+}
+function setBattleSpeed(speed) {
+  if (![1, 2, 3].includes(speed)) return;
+  battleSpeed = speed;
+  localStorage.setItem("undefined-legend-battle-speed", String(speed));
+  render();
+}
+function scheduleAutoBattle() {
+  clearTimeout(autoBattleTimer);
+  if (!autoBattleEnabled || autoRequestInFlight || gameState?.phase !== "battle" || !gameState.current_actor) return;
+  autoBattleTimer = setTimeout(runAutoBattleStep, AUTO_BATTLE_DELAYS[battleSpeed]);
+}
+async function runAutoBattleStep() {
+  if (!autoBattleEnabled || autoRequestInFlight || gameState?.phase !== "battle") return;
+  autoRequestInFlight = true;
+  try {
+    const result = await request("/api/auto", {});
+    if (!result.ok) autoBattleEnabled = false;
+  } catch (_error) {
+    autoBattleEnabled = false;
+    showError("자동 전투 연결이 끊겼습니다. 수동 전투로 전환했습니다.");
+  } finally {
+    autoRequestInFlight = false;
+    render();
+  }
+}
 function startBattle(id) { request("/api/start", {encounter: id}); }
 function moveTo(encoded) { utilityMode = null; request("/api/move", {exit: decodeURIComponent(encoded)}); }
 function advanceDialogue(choice) { utilityMode = null; request("/api/dialogue", {choice}); }
@@ -906,6 +956,8 @@ if ("serviceWorker" in navigator) {
 
 $("#newGameButton").addEventListener("click", () => {
   if (gameState?.phase === "setup" || confirm("현재 진행을 중단하고 새 게임을 시작할까요?")) {
+    autoBattleEnabled = false;
+    clearTimeout(autoBattleTimer);
     utilityMode = null;
     request("/api/new", {});
   }
