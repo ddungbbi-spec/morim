@@ -5,7 +5,9 @@ combat.py
 """
 
 from typing import List
+from dataclasses import replace
 import random
+from combo import ComboChain, can_chain
 from models import Party, Enemy, PlayerCharacter, Item, Skill
 from input_utils import prompt_index
 
@@ -59,6 +61,7 @@ class Battle:
         self.inventory = inventory  # 파티 공용 아이템 목록
         self.equipment_inventory = equipment_inventory if equipment_inventory is not None else []
         self.fled = False
+        self.combo = ComboChain()
 
     # -----------------------------------------------------------------
     def run(self) -> bool:
@@ -68,6 +71,7 @@ class Battle:
 
         turn = 1
         while True:
+            self.combo.reset()
             print(f"\n--- 턴 {turn} ---")
             self._print_battle_status()
             order = self._turn_order()
@@ -88,6 +92,8 @@ class Battle:
                     if not actor.is_alive:
                         continue  # 상태이상 피해로 쓰러진 경우 행동하지 않음
                     if paralyzed:
+                        if isinstance(actor, PlayerCharacter):
+                            self.combo.reset()
                         print(f"{actor.name}은(는) 마비되어 움직일 수 없었다!")
                         continue
 
@@ -141,12 +147,17 @@ class Battle:
                 target = self._choose_target(alive_enemies, allow_cancel=True)
                 if target is None:
                     continue
-                dmg = actor.basic_attack(target)
+                bonus = self.combo.bonus(actor, target)
+                dmg = actor.basic_attack(target, bonus_power=bonus)
+                landed = not target.last_damage_evaded
+                self.combo.record(actor, target, landed)
                 if target.last_damage_evaded:
                     print(f"{actor.name}의 공격! {target.name}은(는) 공격을 회피했다!")
                 else:
                     critical = " 치명타!" if actor.last_attack_was_critical else ""
                     print(f"{actor.name}의 공격! {target.name}에게 {dmg}의 피해!{critical}")
+                    if bonus:
+                        print(f"연계 공격! 추가 위력 +{bonus}")
                 return
 
             if choice == 2:
@@ -176,14 +187,17 @@ class Battle:
                             actor.last_attack_was_critical, target.last_damage_evaded,
                         ):
                             print(msg)
+                    self.combo.reset()
                     return
 
                 candidates = self.party.alive_members if skill.kind in ("heal", "buff") else alive_enemies
                 target = self._choose_target(candidates, allow_cancel=True)
                 if target is None:
                     continue
+                bonus = self.combo.bonus(actor, target, skill)
                 try:
-                    amount, status_applied, effectiveness = actor.use_skill(skill, target)
+                    attack_skill = replace(skill, power=skill.power + bonus) if bonus else skill
+                    amount, status_applied, effectiveness = actor.use_skill(attack_skill, target)
                 except ValueError as error:
                     print(error)
                     continue
@@ -195,6 +209,9 @@ class Battle:
                     actor.last_attack_was_critical, target.last_damage_evaded,
                 ):
                     print(msg)
+                self.combo.record(actor, target, not target.last_damage_evaded, skill)
+                if bonus:
+                    print(f"연계 공격! 추가 위력 +{bonus}")
                 return
 
             if choice == 3:
@@ -216,11 +233,13 @@ class Battle:
                 target.take_item(item)
                 self.inventory.remove(item)
                 print(f"{target.name}이(가) {item.name}을 사용했다!")
+                self.combo.reset()
                 return
 
             if choice == 4:
                 actor.guarding = True
                 print(f"{actor.name}은 방어 태세를 취했다.")
+                self.combo.reset()
                 return
 
             if choice == 5:
@@ -228,6 +247,7 @@ class Battle:
                 continue
 
             self._attempt_flee()
+            self.combo.reset()
             return
 
     def _choose_target(self, candidates, allow_cancel=False):

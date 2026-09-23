@@ -306,11 +306,11 @@ class Character:
         return self.hp > 0
 
     # ---- 행동 ----
-    def basic_attack(self, target: "Character") -> int:
+    def basic_attack(self, target: "Character", bonus_power: int = 0) -> int:
         """기본 공격. 데미지를 반환합니다."""
         rate = self.effective_critical_rate
         self.last_attack_was_critical = rate > 0 and random.random() < rate
-        raw = self.effective_attack - target.effective_defense // 2
+        raw = self.effective_attack + bonus_power - target.effective_defense // 2
         variance = random.randint(-2, 2)
         damage = max(1, raw + variance)
         if self.last_attack_was_critical:

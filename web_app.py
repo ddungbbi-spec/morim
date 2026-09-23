@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
 import data
+from combo import ComboChain, can_chain
 import save as game_save
 from blacksmith import (
     MAX_ENHANCEMENT, can_upgrade, enhance_equipment,
@@ -109,6 +110,7 @@ class WebGame:
         self._cursor = 0
         self.current_actor: Optional[PlayerCharacter] = None
         self._rewarded = False
+        self.combo = ComboChain()
         self.battle_context = ""
         self.dialogue = None
         self.dialogue_node_id = None
@@ -768,6 +770,7 @@ class WebGame:
             self._log(f"[{title}] 전투가 시작되었습니다!")
         self.turn = 0
         self._rewarded = False
+        self.combo.reset()
         self.current_actor = None
         self.battle_context = context
         self._start_round()
@@ -792,20 +795,27 @@ class WebGame:
         try:
             if action_type == "attack":
                 target = self._enemy_target(action.get("target"))
-                damage = actor.basic_attack(target)
+                bonus = self.combo.bonus(actor, target)
+                damage = actor.basic_attack(target, bonus_power=bonus)
+                self.combo.record(actor, target, not target.last_damage_evaded)
                 if target.last_damage_evaded:
                     self._log(f"{target.name}이(가) {actor.name}의 공격을 회피했습니다.")
                 else:
                     critical = " 치명타!" if actor.last_attack_was_critical else ""
                     self._log(f"{actor.name} → {target.name}: {damage} 피해.{critical}")
+                    if bonus:
+                        self._log(f"연계 공격! 추가 위력 +{bonus}")
             elif action_type == "skill":
                 self._use_skill(actor, action)
             elif action_type == "item":
                 self._use_item(action)
+                self.combo.reset()
             elif action_type == "defend":
                 actor.guarding = True
+                self.combo.reset()
                 self._log(f"{actor.name}이(가) 방어 태세를 취했습니다.")
             elif action_type == "flee":
+                self.combo.reset()
                 if self._attempt_flee():
                     return {"ok": True, "state": self.state()}
             else:
@@ -818,6 +828,7 @@ class WebGame:
         return {"ok": True, "state": self.state()}
 
     def _start_round(self) -> None:
+        self.combo.reset()
         self.turn += 1
         self._log(f"--- {self.turn}턴 ---")
         combatants = [*self.party.alive_members, *[e for e in self.enemies if e.is_alive]]
@@ -830,6 +841,7 @@ class WebGame:
             if self._finish_if_needed():
                 return
             if self._cursor >= len(self._order):
+                self.combo.reset()
                 self.turn += 1
                 self._log(f"--- {self.turn}턴 ---")
                 combatants = [*self.party.alive_members, *[e for e in self.enemies if e.is_alive]]
@@ -852,6 +864,8 @@ class WebGame:
             if not actor.is_alive:
                 continue
             if paralyzed:
+                if isinstance(actor, PlayerCharacter):
+                    self.combo.reset()
                 self._log(f"{actor.name}은(는) 마비되어 행동하지 못했습니다.")
                 continue
 
@@ -1019,10 +1033,16 @@ class WebGame:
         candidates = allies if skill.kind in ("heal", "buff") else enemies
         if skill.aoe:
             results = actor.use_skill_on_targets(skill, candidates)
+            self.combo.reset()
         else:
             target_index = self._index(action.get("target"), len(candidates), "대상")
             target = candidates[target_index]
-            amount, status_applied, effectiveness = actor.use_skill(skill, target)
+            bonus = self.combo.bonus(actor, target, skill)
+            attack_skill = replace(skill, power=skill.power + bonus) if bonus else skill
+            amount, status_applied, effectiveness = actor.use_skill(attack_skill, target)
+            self.combo.record(actor, target, not target.last_damage_evaded, skill)
+            if bonus:
+                self._log(f"연계 공격! 추가 위력 +{bonus}")
             results = [(target, amount, status_applied, effectiveness)]
 
         for target, amount, status_applied, effectiveness in results:
@@ -1484,6 +1504,16 @@ class WebGame:
                 for enemy in self.enemies
             ],
             "current_actor": actor.name if actor else None,
+            "combo": {
+                "target": self.enemies.index(self.combo.target)
+                if self.combo.target in self.enemies and self.combo.target.is_alive else None,
+                "streak": self.combo.streak,
+                "eligible": bool(actor and can_chain(actor) and self.combo.actor is not actor),
+                "next_bonus": (
+                    self.combo.bonus(actor, self.combo.target)
+                    if actor and self.combo.target in self.enemies and self.combo.target.is_alive else 0
+                ),
+            },
             "skills": skills,
             "items": [
                 {"index": index, "name": item.name, "description": item.description}
