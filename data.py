@@ -99,6 +99,25 @@ CHAOS_WAVE = Skill(
     name="혼돈의 파동", mp_cost=13, power=6, kind="attack", aoe=True,
     description="혼돈의 힘이 파동처럼 퍼져나가 모든 적에게 피해를 준다.",
 )
+GRAVE_CUT = Skill(
+    name="검총참", mp_cost=8, power=14, kind="attack",
+    description="검총에 맺힌 원념을 칼날에 실어 한 명을 깊게 벤다.",
+)
+BURIAL_BLADE_STORM = Skill(
+    name="장송검우", mp_cost=15, power=9, kind="attack", aoe=True, element="wind",
+    description="묻힌 검들을 폭풍처럼 일으켜 파티 전체를 공격한다. (풍 속성)",
+)
+NAMELESS_FORM = Skill(
+    name="무명검식", mp_cost=10, power=0, kind="buff",
+    description="이름조차 남지 않은 검식을 펼쳐 공격력을 크게 높인다.",
+    buff_stat="attack", buff_amount=5, buff_duration=4, buff_name="무명검식",
+)
+SOUL_SEVER = Skill(
+    name="혼절참", mp_cost=18, power=22, kind="attack",
+    description="혼과 육신의 경계를 베어 높은 확률로 행동을 봉한다.",
+    inflict_status="paralysis", status_name="마비", status_duration=1,
+    status_chance=0.65,
+)
 
 # ---------------------------------------------------------------------------
 # 직업 성장용 스킬
@@ -775,6 +794,45 @@ def create_void_observer() -> Enemy:
     )
 
 
+def create_grave_sword() -> Enemy:
+    """잊힌 검총을 떠도는 빠른 원혼."""
+    return Enemy(
+        name="검묘의 원혼", job="몬스터", level=9,
+        max_hp=78, max_mp=18, attack=19, defense=8, speed=12,
+        skills=[GRAVE_CUT, CURSE_WHISPER], exp_reward=55, gold_reward=32,
+        weakness="thunder", resistance="wind",
+        loot_pool=[(ETHER, 0.18)],
+    )
+
+
+def create_oath_warden() -> Enemy:
+    """검총의 맹세를 지키는 방어형 수문장."""
+    return Enemy(
+        name="맹세의 수문장", job="몬스터", level=10,
+        max_hp=112, max_mp=28, attack=19, defense=14, speed=7,
+        skills=[GRAVE_CUT, BURIAL_BLADE_STORM], exp_reward=68, gold_reward=40,
+        smart_ai=True, weakness="fire", resistance="wind",
+        action_pattern=[GRAVE_CUT, BURIAL_BLADE_STORM, None],
+        loot_pool=[(MOONLIGHT_TONIC, 0.15)],
+    )
+
+
+def create_nameless_swordmaster() -> Enemy:
+    """시크릿 던전의 주인. 검총에 잠든 모든 검사의 미련이 뭉친 존재."""
+    return Enemy(
+        name="무명검귀", job="최종보스", level=12,
+        max_hp=380, max_mp=72, attack=27, defense=18, speed=12,
+        skills=[GRAVE_CUT, BURIAL_BLADE_STORM, SOUL_SEVER],
+        exp_reward=280, gold_reward=200, smart_ai=True,
+        weakness="thunder", resistance="wind",
+        action_pattern=[GRAVE_CUT, BURIAL_BLADE_STORM, SOUL_SEVER, None],
+        boss_phases=[
+            BossPhase(0.65, NAMELESS_FORM, "무명검귀가 검총의 수천 자루 검과 호흡을 맞춘다!"),
+            BossPhase(0.25, BURIAL_BLADE_STORM, "검총의 봉인이 무너지며 장송의 검비가 쏟아진다!"),
+        ],
+    )
+
+
 # ---------------------------------------------------------------------------
 # 아이템
 # ---------------------------------------------------------------------------
@@ -886,12 +944,21 @@ CONSTELLATION_SPEAR = Equipment(
     special_effect="치명타율 +10%", locked=True,
 )
 
+NAMELESS_SOUL_CHARM = Equipment(
+    name="무명검혼의 옥", slot="accessory",
+    attack_bonus=4, defense_bonus=3, speed_bonus=2, max_hp_bonus=12,
+    description="잊힌 검총의 모든 이름 없는 검객을 기억하는 옥. 공격력 +4, 방어력 +3, 속도 +2, 최대 HP +12",
+    price=190, rarity="legendary", critical_rate_bonus=0.08,
+    damage_reduction_bonus=0.05,
+    special_effect="치명타율 +8%, 받는 피해 5% 감소", locked=True,
+)
+
 PROTECTED_EQUIPMENT_NAMES = {
     item.name for item in (
         MITHRIL_DAGGER, LEGENDARY_ARMOR, DRAKE_SCALE_ARMOR,
         SEALBREAKER_BLADE, LUCKY_RING, MIST_CLOAK,
         ELDER_GUARDIAN_SIGIL, ARCHIVE_LANTERN, STARWARD_CHARM,
-        CONSTELLATION_SPEAR,
+        CONSTELLATION_SPEAR, NAMELESS_SOUL_CHARM,
     )
 }
 
@@ -1068,6 +1135,7 @@ SKILLS_BY_NAME = {
         APOCALYPSE_STRIKE, CHAOS_WAVE, ROCK_COUNTER,
         DARK_RAMPAGE, MIST_BARRIER, DEEP_MIST, ABYSSAL_BARRIER, LAST_JUDGMENT,
         STARFALL, VOID_COLLAPSE, ASTRAL_BARRIER,
+        GRAVE_CUT, BURIAL_BLADE_STORM, NAMELESS_FORM, SOUL_SEVER,
         GUARD_STANCE, BRAVER_SLASH, SPINNING_SLASH,
         AERO, FIRAGA, BLIZZAGA,
         HEALING_WIND, CURA, HOLY_LIGHT,
@@ -1091,6 +1159,6 @@ EQUIPMENT_BY_NAME = {
         MIST_CLOAK,
         ELDER_GUARDIAN_SIGIL,
         ARCHIVE_LANTERN,
-        STARWARD_CHARM, CONSTELLATION_SPEAR,
+        STARWARD_CHARM, CONSTELLATION_SPEAR, NAMELESS_SOUL_CHARM,
     ]
 }

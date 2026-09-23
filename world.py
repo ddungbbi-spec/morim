@@ -14,6 +14,15 @@ import dialogues
 TOWER_SUMMIT_ID = "tower_summit"
 
 
+def secret_dungeon_unlocked(flags: dict) -> bool:
+    """공허의 관측자 처치와 심연 변이 던전 완주를 모두 요구한다."""
+    try:
+        abyss_clears = int(flags.get("dungeon_clear_count", 0))
+    except (TypeError, ValueError):
+        abyss_clears = 0
+    return bool(flags.get("void_observer_defeated")) and abyss_clears >= 1
+
+
 MAP_REGIONS = [
     {
         "id": "village", "name": "시작 마을", "description": "원정대의 거점과 지원 시설",
@@ -55,6 +64,12 @@ MAP_REGIONS = [
         "id": "abyss", "name": "심연 변이 던전", "description": "위험 변이가 무작위로 겹치는 4층 반복 원정",
         "locations": ("abyss_dungeon",),
         "unlock_flag": "demon_lord_defeated", "unlock_description": "봉인된 마왕 처치 필요",
+    },
+    {
+        "id": "secret_grave", "name": "잊힌 검총", "description": "이름 없는 검객들의 혼이 잠든 시크릿 던전",
+        "locations": ("forgotten_sword_grave", "grave_depths", "nameless_sanctum"),
+        "unlock_check": secret_dungeon_unlocked,
+        "unlock_description": "공허의 관측자 처치 및 심연 변이 던전 1회 완주 필요",
     },
 ]
 LOCATION_REGION = {
@@ -164,6 +179,7 @@ def build_world() -> GameMap:
             "북쪽 관측소로 향한다": "star_observatory",
             "별빛 항로로 향한다": "astral_passage",
             "심연 변이 던전에 도전한다": "abyss_dungeon",
+            "검은 비석의 숨은 문을 연다": "forgotten_sword_grave",
         },
         flag_requirements={
             "북쪽 관측소로 향한다": FlagRequirement(
@@ -185,6 +201,15 @@ def build_world() -> GameMap:
                 flag="demon_lord_defeated",
                 description="봉인된 마왕 처치 필요",
                 failure_message="봉인된 마왕을 처치한 원정대만 심연의 입구를 견딜 수 있다.",
+            ),
+            "검은 비석의 숨은 문을 연다": FlagRequirement(
+                flag="secret_dungeon_unlocked",
+                predicate=secret_dungeon_unlocked,
+                description="공허의 관측자 처치 및 심연 변이 던전 1회 완주 필요",
+                failure_message=(
+                    "검은 비석은 반응하지 않는다. 공허의 관측자를 쓰러뜨리고 "
+                    "심연 변이 던전을 한 번 완주해야 한다."
+                ),
             ),
         },
         dialogue=dialogues.village_intro_dialogue(),
@@ -461,6 +486,45 @@ def build_world() -> GameMap:
         exits={"누적 보상을 확정하고 마을로 귀환한다": "village"},
     )
 
+    forgotten_sword_grave = Location(
+        loc_id="forgotten_sword_grave",
+        name="잊힌 검총 입구",
+        description="검은 비석 아래 열린 계단 너머로 이름 없는 검들이 끝없이 꽂혀 있다.",
+        exits={
+            "검무덤 깊은 곳으로 내려간다": "grave_depths",
+            "비석의 문으로 마을에 돌아간다": "village",
+        },
+        encounter_chance=0.55,
+        encounter_pool=[
+            lambda: [data.create_grave_sword()],
+            lambda: [data.create_grave_sword(), data.create_grave_sword()],
+        ],
+    )
+
+    grave_depths = Location(
+        loc_id="grave_depths",
+        name="검무덤 심층",
+        description="부러진 검마다 주인을 잃은 맹세가 남아 있으며 가장 오래된 검이 안쪽 문을 가리킨다.",
+        exits={
+            "무명의 제단으로 들어간다": "nameless_sanctum",
+            "검총 입구로 돌아간다": "forgotten_sword_grave",
+        },
+        encounter_chance=0.70,
+        encounter_pool=[
+            lambda: [data.create_oath_warden()],
+            lambda: [data.create_grave_sword(), data.create_oath_warden()],
+        ],
+    )
+
+    nameless_sanctum = Location(
+        loc_id="nameless_sanctum",
+        name="무명의 제단",
+        description="어떤 기록에도 남지 못한 검객들의 이름이 하나의 검귀가 되어 제단을 지킨다.",
+        exits={"검무덤 심층으로 돌아간다": "grave_depths"},
+        boss=lambda: [data.create_nameless_swordmaster()],
+        loot_equipment=data.NAMELESS_SOUL_CHARM,
+    )
+
     cave = Location(
         loc_id="cave",
         name="동굴",
@@ -614,6 +678,7 @@ def build_world() -> GameMap:
         mist_marsh, sunken_boardwalk, forgotten_shrine, moonlit_spring,
         drowned_archive, echo_vault,
         shadow_valley, ruins, seal_gate, final_chamber, abyss_dungeon,
+        forgotten_sword_grave, grave_depths, nameless_sanctum,
         cave, cave_treasure, cave_vault, ending,
         tower_floor_1, tower_floor_2, tower_floor_3, tower_summit,
         mine_entrance, mine_deep, mine_depths,

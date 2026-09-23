@@ -980,6 +980,8 @@ class WebGame:
                     from world import astral_chapter_epilogue
                     for line in astral_chapter_epilogue(self.flags):
                         self._log(line)
+            if location.id == "nameless_sanctum":
+                self.flags["nameless_swordmaster_defeated"] = True
             self.quest_log.refresh_from_world(self.game_map, self.flags)
             if first_clear:
                 self._log(f"{location.name}의 위험이 사라졌습니다.")
@@ -1262,6 +1264,11 @@ class WebGame:
                 for location_id in region["locations"]
             )
             unlock_flag = region.get("unlock_flag", "")
+            unlock_check = region.get("unlock_check")
+            unlocked = (
+                bool(unlock_check(self.flags)) if unlock_check
+                else not unlock_flag or bool(self.flags.get(unlock_flag))
+            )
             world_regions.append({
                 "id": region["id"],
                 "name": region["name"],
@@ -1270,7 +1277,7 @@ class WebGame:
                 "visited": visited_count > 0,
                 "visited_count": visited_count,
                 "total_count": len(region["locations"]),
-                "locked": bool(unlock_flag and not self.flags.get(unlock_flag)),
+                "locked": not unlocked,
                 "lock_reason": region.get("unlock_description", ""),
             })
 

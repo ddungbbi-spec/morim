@@ -24,8 +24,11 @@ class FlagRequirement:
     description: str
     expected: object = True
     failure_message: str = "아직 이 길을 이용할 조건을 갖추지 못했다."
+    predicate: Optional[Callable[[dict], bool]] = None
 
     def is_met(self, flags: dict) -> bool:
+        if self.predicate is not None:
+            return bool(self.predicate(flags))
         return flags.get(self.flag) == self.expected
 
 
@@ -218,6 +221,8 @@ def explore(
                 from world import astral_chapter_epilogue
                 for line in astral_chapter_epilogue(flags):
                     print(line)
+            if loc.id == "nameless_sanctum":
+                flags["nameless_swordmaster_defeated"] = True
             print(f"\n{loc.name}의 위험이 사라졌다. 계속 진행할 수 있다.")
             if loc.id == "final_chamber":
                 _claim_location_loot(loc, inventory, equipment_inventory)

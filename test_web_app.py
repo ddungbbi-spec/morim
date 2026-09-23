@@ -570,7 +570,7 @@ class WebGameTests(unittest.TestCase):
     def test_world_and_region_maps_are_separate_and_track_progress(self):
         state = self.game.state()
         self.assertEqual(state["maps"]["current_region_id"], "village")
-        self.assertEqual(len(state["maps"]["world"]), 9)
+        self.assertEqual(len(state["maps"]["world"]), 10)
         astral = next(region for region in state["maps"]["world"] if region["id"] == "astral")
         self.assertTrue(astral["locked"])
         village_nodes = {node["id"]: node for node in state["maps"]["region"]["locations"]}

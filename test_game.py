@@ -665,7 +665,9 @@ class GameTests(unittest.TestCase):
         self.assertEqual(equipment_inventory, [dropped])
 
     def test_generated_equipment_save_roundtrip_and_legacy_name(self):
-        generated = data.generate_random_equipment(4)
+        generated = data.generate_random_equipment(
+            4, forced_slot="weapon", forced_family="bow",
+        )
         hero = data.create_archer("장비 기록자")
         hero.equip(generated)
         reserve = data.generate_random_equipment(2)
@@ -742,7 +744,7 @@ class GameTests(unittest.TestCase):
     def test_world_regions_cover_every_location_once(self):
         game_map = build_world()
         grouped = [location_id for region in MAP_REGIONS for location_id in region["locations"]]
-        self.assertEqual(len(MAP_REGIONS), 9)
+        self.assertEqual(len(MAP_REGIONS), 10)
         self.assertEqual(len(grouped), len(set(grouped)))
         self.assertEqual(set(grouped), set(game_map.locations))
 
@@ -766,7 +768,7 @@ class GameTests(unittest.TestCase):
 
     def test_mist_marsh_expansion_is_connected_and_reward_registered(self):
         game_map = build_world()
-        self.assertEqual(len(game_map.locations), 32)
+        self.assertEqual(len(game_map.locations), 35)
         self.assertEqual(
             game_map.locations["deep_forest"].exits["안개 습지로 들어간다"],
             "mist_marsh",
