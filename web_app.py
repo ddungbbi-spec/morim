@@ -19,6 +19,10 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
 import data
+from commissions import (
+    accept_commission, claim_commission, commission_state, offer_commission,
+    record_defeats, record_visit,
+)
 from combo import ComboChain, can_chain
 from protection import AllyProtection
 import save as game_save
@@ -195,11 +199,29 @@ class WebGame:
         self.game_map.move_to(location.exits[exit_label])
         arrived = self.game_map.current
         self._log(f"{arrived.name}에 도착했습니다.")
+        for title in record_visit(self.flags, arrived.id):
+            self._log(f"NPC 의뢰 [{title}]의 목표를 달성했습니다.")
         if arrived.encounter_pool and random.random() < arrived.encounter_chance:
             enemies = random.choice(arrived.encounter_pool)()
             self._begin_battle(enemies, "random", f"{arrived.name}의 습격")
         else:
             self._enter_current_location()
+        return {"ok": True, "state": self.state()}
+
+    def travel_action(self, target_id: str) -> dict:
+        current = self.game_map.current
+        if self.phase != "explore" or not current.is_village:
+            return self._error("마을 안에서만 마을 간 이동을 이용할 수 있습니다.")
+        target = self.game_map.locations.get(target_id)
+        if target is None or not target.is_village or target.id not in self.game_map.visited:
+            return self._error("먼저 직접 방문한 마을로만 이동할 수 있습니다.")
+        if target is current:
+            return self._error("현재 머무는 마을입니다.")
+        self.game_map.move_to(target.id)
+        self._log(f"마을 이동로를 이용해 {target.name}에 도착했습니다.")
+        for title in record_visit(self.flags, target.id):
+            self._log(f"NPC 의뢰 [{title}]의 목표를 달성했습니다.")
+        self._enter_current_location()
         return {"ok": True, "state": self.state()}
 
     def shop_action(self, operation: str, index, shop_index=0) -> dict:
@@ -253,7 +275,7 @@ class WebGame:
 
     def inn_action(self) -> dict:
         if self.phase != "explore" or not self.game_map.current.has_inn:
-            return self._error("여관은 시작 마을에서 이용할 수 있습니다.")
+            return self._error("현재 장소에서는 여관을 이용할 수 없습니다.")
         self.party.full_restore()
         self._log("여관에서 쉬었습니다. 파티 전원의 HP·MP와 상태이상이 모두 회복되었습니다.")
         return {"ok": True, "state": self.state()}
@@ -390,8 +412,8 @@ class WebGame:
         return hmac.new(self._forge_key, snapshot.encode(), "sha256").hexdigest()
 
     def blacksmith_action(self, equipment_index, material="duplicate", quote=None) -> dict:
-        if self.phase != "explore" or self.game_map.current_id != "village":
-            return self._error("대장간은 시작 마을에서 이용할 수 있습니다.")
+        if self.phase != "explore" or "blacksmith" not in self.game_map.current.services:
+            return self._error("현재 마을에서는 대장간을 이용할 수 없습니다.")
         try:
             index = self._index(
                 equipment_index, len(self.equipment_inventory), "강화 장비"
@@ -423,8 +445,8 @@ class WebGame:
         self, operation, equipment_index=None, rarity=None, family=None, quote=None,
         equipment_indices=None, locked_affix="", reforge_token=None,
     ) -> dict:
-        if self.phase != "explore" or self.game_map.current_id != "village":
-            return self._error("분해·합성 공방은 시작 마을에서 이용할 수 있습니다.")
+        if self.phase != "explore" or "crafting" not in self.game_map.current.services:
+            return self._error("현재 마을에서는 분해·합성 공방을 이용할 수 없습니다.")
         try:
             if operation == "dismantle":
                 index = self._index(
@@ -589,8 +611,8 @@ class WebGame:
         return {"ok": True, "state": self.state()}
 
     def quest_action(self, operation: str, quest_id: str) -> dict:
-        if self.phase != "explore" or self.game_map.current_id != "village":
-            return self._error("퀘스트 게시판은 시작 마을에서 이용할 수 있습니다.")
+        if self.phase != "explore" or "quest_board" not in self.game_map.current.services:
+            return self._error("현재 마을에는 이야기 의뢰 게시판이 없습니다.")
         if quest_id not in QUESTS:
             return self._error("존재하지 않는 퀘스트입니다.")
         self.quest_log.refresh_from_world(self.game_map, self.flags)
@@ -609,9 +631,34 @@ class WebGame:
             return self._error("지원하지 않는 퀘스트 행동입니다.")
         return {"ok": True, "state": self.state()}
 
+    def commission_action(self, operation: str) -> dict:
+        location = self.game_map.current
+        if self.phase != "explore" or not location.is_village or not location.quest_npc:
+            return self._error("현재 장소에는 의뢰를 주는 NPC가 없습니다.")
+        if operation == "offer":
+            _, template = offer_commission(self.flags, location.id)
+            self._log(f"{location.quest_npc}이(가) [{template.title}] 의뢰를 제시했습니다.")
+        elif operation == "accept":
+            view = commission_state(self.flags, location.id)
+            if not accept_commission(self.flags, location.id):
+                return self._error("지금 수락할 수 있는 NPC 의뢰가 없습니다.")
+            self._log(f"NPC 의뢰 [{view['title']}]을(를) 수락했습니다.")
+        elif operation == "claim":
+            template = claim_commission(
+                self.flags, location.id, self.party, self.inventory,
+            )
+            if template is None:
+                return self._error("아직 NPC 의뢰 보상을 받을 수 없습니다.")
+            self._log(
+                f"NPC 의뢰 [{template.title}] 완료! {template.gold_reward}G와 보상을 받았습니다."
+            )
+        else:
+            return self._error("지원하지 않는 NPC 의뢰 행동입니다.")
+        return {"ok": True, "state": self.state()}
+
     def advancement_action(self, member_index, job_id: str) -> dict:
-        if self.phase != "explore" or self.game_map.current_id != "village":
-            return self._error("전직 교관은 시작 마을에서 이용할 수 있습니다.")
+        if self.phase != "explore" or "advancement" not in self.game_map.current.services:
+            return self._error("현재 마을에는 전직 교관이 없습니다.")
         try:
             member = self.party.members[self._index(member_index, len(self.party.members), "파티원")]
             job = advance(member, job_id)
@@ -946,6 +993,8 @@ class WebGame:
                 equipment = data.generate_random_equipment(enemy.level)
                 self.equipment_inventory.append(equipment)
                 self._log(f"{enemy.name}: {equipment.display_name} 획득")
+        for title in record_defeats(self.flags, [enemy.name for enemy in self.enemies]):
+            self._log(f"NPC 의뢰 [{title}]의 목표를 달성했습니다.")
         self.current_actor = None
         context = self.battle_context
         self.battle_context = ""
@@ -1432,7 +1481,7 @@ class WebGame:
                         "index": index, **self._equipment_state(item),
                         "price": int(item.price * SELL_RATIO),
                         "shard_yield": dismantle_value(item),
-                        "can_dismantle_here": location.id == "village",
+                        "can_dismantle_here": "crafting" in location.services,
                     }
                     for index, item in enumerate(self.equipment_inventory)
                     if not item.locked
@@ -1440,7 +1489,7 @@ class WebGame:
             }
         blacksmith_state = None
         crafting_state = None
-        if location.id == "village":
+        if {"blacksmith", "crafting"}.issubset(location.services):
             blacksmith_equipment = []
             for index, item in enumerate(self.equipment_inventory):
                 allowed, reason = can_upgrade(
@@ -1655,6 +1704,21 @@ class WebGame:
                 }
                 for quest_id, definition in QUESTS.items()
             ],
+            "quest_board": "quest_board" in location.services,
+            "advancement_service": "advancement" in location.services,
+            "village": {
+                "is_village": location.is_village,
+                "npc": location.quest_npc,
+                "travel": [
+                    {"id": village.id, "name": village.name}
+                    for village in self.game_map.visited_villages
+                    if village is not location
+                ],
+                "commission": (
+                    commission_state(self.flags, location.id)
+                    if location.quest_npc else None
+                ),
+            },
             "advancement": [
                 {
                     "member": index,
@@ -1846,6 +1910,8 @@ class GameHandler(BaseHTTPRequestHandler):
                 result = game.start_battle(payload.get("encounter", ""))
             elif self.path == "/api/move":
                 result = game.move(payload.get("exit", ""))
+            elif self.path == "/api/travel":
+                result = game.travel_action(payload.get("target", ""))
             elif self.path == "/api/dialogue":
                 result = game.advance_dialogue(payload.get("choice"))
             elif self.path == "/api/shop":
@@ -1881,6 +1947,8 @@ class GameHandler(BaseHTTPRequestHandler):
                 )
             elif self.path == "/api/quest":
                 result = game.quest_action(payload.get("operation", ""), payload.get("quest", ""))
+            elif self.path == "/api/commission":
+                result = game.commission_action(payload.get("operation", ""))
             elif self.path == "/api/advancement":
                 result = game.advancement_action(payload.get("member"), payload.get("job", ""))
             elif self.path == "/api/save":

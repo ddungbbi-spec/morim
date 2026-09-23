@@ -36,7 +36,7 @@ MAP_REGIONS = [
     {
         "id": "marsh", "name": "안개 습지", "description": "달빛 샘과 가라앉은 기록실",
         "locations": ("mist_marsh", "sunken_boardwalk", "forgotten_shrine", "moonlit_spring",
-                      "drowned_archive", "echo_vault"),
+                      "mist_village", "drowned_archive", "echo_vault"),
     },
     {
         "id": "cave", "name": "고대 동굴", "description": "골렘의 보물방과 잠긴 비밀 금고",
@@ -44,7 +44,7 @@ MAP_REGIONS = [
     },
     {
         "id": "mine", "name": "버려진 폐광", "description": "광부의 원혼과 탄광 드레이크의 둥지",
-        "locations": ("mine_entrance", "mine_deep", "mine_depths"),
+        "locations": ("iron_village", "mine_entrance", "mine_deep", "mine_depths"),
     },
     {
         "id": "tower", "name": "도전의 탑", "description": "단계가 높아지는 반복 도전 지역",
@@ -52,7 +52,7 @@ MAP_REGIONS = [
     },
     {
         "id": "fallen_star", "name": "검은 별 낙하지", "description": "마왕 처치 후 열리는 별의 균열",
-        "locations": ("star_observatory", "fallen_star_field", "star_rift"),
+        "locations": ("star_observatory", "star_village", "fallen_star_field", "star_rift"),
         "unlock_flag": "demon_lord_defeated", "unlock_description": "봉인된 마왕 처치 필요",
     },
     {
@@ -241,6 +241,9 @@ def build_world() -> GameMap:
             ),
         ],
         has_inn=True,
+        is_village=True,
+        quest_npc="길드 관리인 로아",
+        services={"quest_board", "advancement", "blacksmith", "crafting"},
     )
 
     elder_armory = Location(
@@ -254,8 +257,30 @@ def build_world() -> GameMap:
     star_observatory = Location(
         loc_id="star_observatory", name="북쪽 관측소",
         description="마왕이 사라진 밤부터 오래된 관측 장치가 검은 별을 가리킨다.",
-        exits={"낙하지로 내려간다": "fallen_star_field", "마을로 돌아간다": "village"},
+        exits={
+            "낙하지로 내려간다": "fallen_star_field",
+            "별바람 역참으로 향한다": "star_village",
+            "마을로 돌아간다": "village",
+        },
         dialogue=dialogues.star_observatory_dialogue(),
+    )
+    star_village = Location(
+        loc_id="star_village", name="별바람 역참",
+        description="낙하지를 오가는 관측자와 원정대가 별빛 천막 아래 모이는 국경의 역참이다.",
+        exits={
+            "북쪽 관측소로 돌아간다": "star_observatory",
+            "유성 낙하지로 향한다": "fallen_star_field",
+        },
+        shops=[
+            Shop(
+                "세라의 별빛 보급소",
+                items=[data.ETHER, data.MOONLIGHT_TONIC, data.POTION],
+                equipment=[data.OAK_STAFF, data.HUNTER_BOW, data.SWIFT_CHARM],
+                description="별길 원정에 필요한 마력 회복품과 기동 장비를 판매한다.",
+            ),
+        ],
+        has_inn=True, is_village=True, quest_npc="별길 안내인 세라",
+        services={"advancement"},
     )
     fallen_star_field = Location(
         loc_id="fallen_star_field", name="유성 낙하지",
@@ -401,6 +426,7 @@ def build_world() -> GameMap:
         description="안개가 걷힌 샘 위로 달빛이 쏟아진다. 고요한 물결이 긴 여정의 끝을 알린다.",
         exits={
             "잊힌 사당으로 돌아간다": "forgotten_shrine",
+            "물안개 등불을 따라 안개나루로 간다": "mist_village",
             "세아가 알려준 수로로 들어간다": "drowned_archive",
         },
         flag_requirements={
@@ -412,6 +438,24 @@ def build_world() -> GameMap:
         },
         dialogue=dialogues.moonlit_spring_dialogue(),
         loot_item=data.ETHER,
+    )
+
+    mist_village = Location(
+        loc_id="mist_village", name="안개나루",
+        description="달빛 샘의 물길 위에 세운 작은 수상 마을. 약초꾼과 뱃사공이 젖은 등불 곁을 지킨다.",
+        exits={
+            "달빛 샘으로 돌아간다": "moonlit_spring",
+            "기록실 수로로 향한다": "drowned_archive",
+        },
+        shops=[
+            Shop(
+                "나린의 수상 약방",
+                items=[data.ANTIDOTE, data.POTION, data.ETHER, data.MOONLIGHT_TONIC],
+                equipment=[data.SWIFT_CHARM],
+                description="습지에서 채집한 약초와 가벼운 여행 장비를 판매한다.",
+            ),
+        ],
+        has_inn=True, is_village=True, quest_npc="약초사 나린",
     )
 
     drowned_archive = Location(
@@ -532,6 +576,7 @@ def build_world() -> GameMap:
         exits={
             "동굴 깊은 곳으로": "cave_treasure",
             "굳게 닫힌 문 안으로": "cave_vault",
+            "광부들의 지름길로 철광촌에 간다": "iron_village",
             "숲 입구로 돌아간다": "forest_entrance",
         },
         encounter_chance=0.5,
@@ -635,6 +680,7 @@ def build_world() -> GameMap:
         description="오래전에 버려진 갱도. 곳곳에 녹슨 광차와 도구들이 나뒹굴고 있다.",
         exits={
             "더 깊이 들어간다": "mine_deep",
+            "철광촌으로 향한다": "iron_village",
             "숲 입구로 돌아간다": "forest_entrance",
         },
         encounter_chance=0.5,
@@ -642,6 +688,25 @@ def build_world() -> GameMap:
             lambda: [data.create_skeleton_miner()],
             lambda: [data.create_ghost_miner()],
         ],
+    )
+
+    iron_village = Location(
+        loc_id="iron_village", name="철광촌",
+        description="폐광과 고대 동굴 사이에 자리 잡은 광산 마을. 대장간의 불꽃이 밤새 꺼지지 않는다.",
+        exits={
+            "폐광 입구로 향한다": "mine_entrance",
+            "광부들의 지름길로 동굴에 간다": "cave",
+        },
+        shops=[
+            Shop(
+                "브론의 광산 장비점",
+                items=[data.POTION, data.ANTIDOTE],
+                equipment=[data.GUARD_SPEAR, data.BATTLE_AXE, data.IRON_GAUNTLET, data.LEATHER_ARMOR],
+                description="광산 작업과 근접 전투에 적합한 튼튼한 장비를 취급한다.",
+            ),
+        ],
+        has_inn=True, is_village=True, quest_npc="광부 조합장 브론",
+        services={"blacksmith", "crafting"},
     )
 
     mine_deep = Location(
@@ -672,16 +737,16 @@ def build_world() -> GameMap:
     )
 
     locations = [
-        village, elder_armory, star_observatory, fallen_star_field, star_rift,
+        village, elder_armory, star_observatory, star_village, fallen_star_field, star_rift,
         astral_passage, shattered_sanctum, void_throne,
         forest_entrance, deep_forest,
-        mist_marsh, sunken_boardwalk, forgotten_shrine, moonlit_spring,
+        mist_marsh, sunken_boardwalk, forgotten_shrine, moonlit_spring, mist_village,
         drowned_archive, echo_vault,
         shadow_valley, ruins, seal_gate, final_chamber, abyss_dungeon,
         forgotten_sword_grave, grave_depths, nameless_sanctum,
         cave, cave_treasure, cave_vault, ending,
         tower_floor_1, tower_floor_2, tower_floor_3, tower_summit,
-        mine_entrance, mine_deep, mine_depths,
+        iron_village, mine_entrance, mine_deep, mine_depths,
     ]
     for location in locations:
         if (

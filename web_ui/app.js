@@ -269,8 +269,10 @@ function renderCommands() {
       ${gameState.tower?.can_retry ? `<button class="command-button utility" onclick="towerRetry()">도전의 탑 ${gameState.tower.next_tier}단계 개방</button>` : ""}
       ${gameState.location.id === "abyss_dungeon" && gameState.dungeon.active ? `<button class="command-button danger" onclick="dungeonRequest('advance')">다음 층 도전 · ${gameState.dungeon.depth + 1}/${gameState.dungeon.max_depth} · 누적 조각 ${gameState.dungeon.shard_bank}개 위험</button>` : ""}
       <button class="command-button utility" onclick="openUtility('equipment')">장비</button>
-      ${gameState.location.id === "village" ? `<button class="command-button utility" onclick="openUtility('quest')">의뢰 게시판</button>` : ""}
-      ${gameState.location.id === "village" ? `<button class="command-button utility" onclick="openUtility('advancement')">전직 교관 · 2차 직업</button>` : ""}
+      ${gameState.quest_board ? `<button class="command-button utility" onclick="openUtility('quest')">이야기 의뢰 게시판</button>` : ""}
+      ${gameState.advancement_service ? `<button class="command-button utility" onclick="openUtility('advancement')">전직 교관 · 2차 직업</button>` : ""}
+      ${gameState.village?.travel?.length ? `<button class="command-button utility" onclick="openUtility('travel')">방문한 마을로 이동</button>` : ""}
+      ${gameState.village?.npc ? `<button class="command-button utility" onclick="openUtility('commission')">${escapeHtml(gameState.village.npc)}의 무작위 의뢰</button>` : ""}
       <button class="command-button utility" onclick="openUtility('save')">저장·불러오기</button>`;
     $("#commandButtons").innerHTML = moves + utilities;
     pending = null;
@@ -509,6 +511,31 @@ function renderUtilityPanel() {
         : `<div class="utility-card disabled"><strong>${escapeHtml(quest.title)} · ${statusNames[quest.status]}</strong><span>${escapeHtml(detail)}</span></div>`;
     }).join("");
     panel.innerHTML = utilityShell("의뢰 게시판", utilitySection("퀘스트", quests));
+  } else if (utilityMode === "travel") {
+    const destinations = gameState.village.travel.map((village) => utilityButton(
+      village.name, "한 번 방문한 마을은 이동로로 즉시 오갈 수 있습니다.",
+      `travelRequest('${village.id}')`
+    )).join("");
+    panel.innerHTML = utilityShell("마을 간 이동", utilitySection("방문한 마을", destinations));
+  } else if (utilityMode === "commission") {
+    const npc = gameState.village.npc;
+    const commission = gameState.village.commission;
+    if (!commission) {
+      panel.innerHTML = utilityShell(`${npc}의 의뢰`, utilitySection(
+        "지역 의뢰", utilityButton("새 의뢰를 요청한다", "지역에 맞는 의뢰가 무작위로 배정됩니다.", "commissionRequest('offer')")
+      ));
+    } else {
+      const statusNames = {offered:"제안됨",active:"진행 중",ready:"보상 가능"};
+      const rewards = [`${commission.gold_reward}G`, ...commission.item_rewards.map((item) => `${item.name}×${item.count}`)].join(" · ");
+      let action = `<div class="utility-card disabled"><strong>${escapeHtml(commission.title)} · ${statusNames[commission.status]}</strong><span>${escapeHtml(commission.objective)} · ${commission.progress}/${commission.required} · 보상 ${escapeHtml(rewards)}</span></div>`;
+      if (commission.status === "offered") action = utilityButton(
+        `${commission.title} · 수락`, `${commission.objective} · 보상 ${rewards}`, "commissionRequest('accept')"
+      );
+      if (commission.status === "ready") action = utilityButton(
+        `${commission.title} · 보상 받기`, `${commission.objective} · 보상 ${rewards}`, "commissionRequest('claim')"
+      );
+      panel.innerHTML = utilityShell(`${npc}의 의뢰`, `<p class="stat-line">${escapeHtml(commission.description)}</p>${utilitySection("지역 의뢰", action)}`);
+    }
   } else if (utilityMode === "advancement") {
     const members = gameState.advancement.map((member) => {
       const choices = member.options.map((job) => utilityButton(
@@ -725,6 +752,8 @@ function bossRetry() {
 }
 function equipmentRequest(operation, member, equipment, slot) { request("/api/equipment", {operation, member, equipment, slot}); }
 function questRequest(operation, quest) { request("/api/quest", {operation, quest}); }
+function travelRequest(target) { request("/api/travel", {target}); }
+function commissionRequest(operation) { request("/api/commission", {operation}); }
 function saveSlot(slot, exists) {
   if (!exists || confirm(`슬롯 ${slot}에 덮어쓸까요?`)) request("/api/save", {operation: "save", slot});
 }
@@ -819,7 +848,7 @@ function playResponseTone(path, before, after) {
   if (after === "battle" && before !== "battle") return playTone("battle");
   if (after === "victory" || after === "ending") return playTone("victory");
   if (after === "dialogue" && before !== "dialogue") return playTone("dialogue");
-  if (["/api/action", "/api/shop", "/api/inn", "/api/blacksmith", "/api/crafting", "/api/tower", "/api/dungeon", "/api/boss", "/api/equipment", "/api/quest", "/api/advancement", "/api/save"].includes(path)) return playTone("confirm");
+  if (["/api/action", "/api/shop", "/api/inn", "/api/blacksmith", "/api/crafting", "/api/tower", "/api/dungeon", "/api/boss", "/api/equipment", "/api/quest", "/api/travel", "/api/commission", "/api/advancement", "/api/save"].includes(path)) return playTone("confirm");
   if (path === "/api/move") return playTone("move");
 }
 

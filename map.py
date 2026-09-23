@@ -14,6 +14,10 @@ from combat import Battle
 from story import Dialogue
 from input_utils import prompt_index, prompt_yes_no
 from shop import Shop
+from commissions import (
+    accept_commission, claim_commission, commission_state, offer_commission,
+    record_defeats, record_visit,
+)
 
 
 @dataclass(frozen=True)
@@ -54,6 +58,9 @@ class Location:
         locked_exits: Optional[Dict[str, str]] = None,
         flag_requirements: Optional[Dict[str, FlagRequirement]] = None,
         has_inn: bool = False,
+        is_village: bool = False,
+        quest_npc: str = "",
+        services: Optional[set[str]] = None,
     ):
         self.id = loc_id
         self.name = name
@@ -82,6 +89,9 @@ class Location:
         self.flag_requirements = flag_requirements or {}  # 대화 선택 등 flags 조건. 충족 전에는 통과 불가
         self.unlocked_labels = set()            # 이미 열어서 더는 열쇠가 필요 없는 문구들 (1회 소모, 이후 영구)
         self.has_inn = has_inn                  # 파티 전체를 완전히 회복할 수 있는 여관
+        self.is_village = is_village            # 방문 후 마을 간 빠른 이동 거점으로 등록
+        self.quest_npc = quest_npc              # 반복 무작위 의뢰를 제공하는 NPC 이름
+        self.services = set(services or ())      # quest_board/advancement/blacksmith/crafting
 
     @property
     def has_shop(self) -> bool:
@@ -107,6 +117,13 @@ class GameMap:
     def move_to(self, target_id: str):
         self.current_id = target_id
         self.visited.add(target_id)
+
+    @property
+    def visited_villages(self) -> List[Location]:
+        return [
+            location for location in self.locations.values()
+            if location.is_village and location.id in self.visited
+        ]
 
     def render_overview(self) -> str:
         """지금까지 가본 장소 목록을 보여줍니다 (미발견 장소는 표시하지 않음)."""
@@ -193,6 +210,8 @@ def explore(
             won = Battle(party, enemies, inventory, equipment_inventory).run()
             if not won:
                 return False
+            for title in record_defeats(flags, [enemy.name for enemy in enemies]):
+                print(f"\nNPC 의뢰 [{title}]의 목표를 달성했다!")
             if loc.id == "tower_summit":
                 from world import complete_tower_challenge
                 clear_count, bonus_gold, equipment = complete_tower_challenge(
@@ -252,16 +271,24 @@ def explore(
         options.append(("퀘스트 일지", "quests", None))
         if loc.boss and loc.boss_defeated:
             options.append(("보스에게 다시 도전", "boss_retry", None))
-        if loc.id == "village":
+        if "quest_board" in loc.services:
             options.append(("의뢰 게시판", "quest_board", None))
+        if "advancement" in loc.services:
             options.append(("전직 교관 · 2차 직업", "advancement", None))
+        if "blacksmith" in loc.services:
             options.append(("대장간에서 장비 강화", "blacksmith", None))
+        if "crafting" in loc.services:
             options.append(("장비 분해·무기 합성", "crafting", None))
+        if loc.id == "village":
             tower_summit = game_map.locations.get("tower_summit")
             if tower_summit and tower_summit.boss_defeated:
                 from world import tower_challenge_tier
                 next_tier = max(2, tower_challenge_tier(flags))
                 options.append((f"도전의 탑 {next_tier}단계 개방", "tower_retry", None))
+        if loc.is_village and len(game_map.visited_villages) > 1:
+            options.append(("방문한 마을로 이동", "village_travel", None))
+        if loc.quest_npc:
+            options.append((f"{loc.quest_npc}의 무작위 의뢰", "commission", None))
         if loc.has_inn:
             options.append(("여관에서 쉬기 (전원 완전 회복)", "inn", None))
         for shop in loc.shops:
@@ -323,6 +350,8 @@ def explore(
             won = Battle(party, enemies, inventory, equipment_inventory).run()
             if not won:
                 return False
+            for title in record_defeats(flags, [enemy.name for enemy in enemies]):
+                print(f"\nNPC 의뢰 [{title}]의 목표를 달성했다!")
             if loc.id == "tower_summit":
                 from world import complete_tower_challenge
                 clear_count, bonus_gold, equipment = complete_tower_challenge(
@@ -344,6 +373,47 @@ def explore(
         if action == "quest_board":
             from quests import run_quest_board
             run_quest_board(quest_log, party, inventory, game_map, flags)
+            continue
+
+        if action == "village_travel":
+            destinations = [
+                village for village in game_map.visited_villages if village is not loc
+            ]
+            print("\n[방문한 마을 이동]")
+            for index, village in enumerate(destinations, 1):
+                print(f"  {index}) {village.name}")
+            print(f"  {len(destinations) + 1}) 돌아가기")
+            selection = prompt_index("> ", len(destinations) + 1)
+            if selection < len(destinations):
+                destination = destinations[selection]
+                game_map.move_to(destination.id)
+                print(f"\n마을 이동로를 이용해 {destination.name}에 도착했다.")
+                for title in record_visit(flags, destination.id):
+                    print(f"NPC 의뢰 [{title}]의 목표를 달성했다!")
+            continue
+
+        if action == "commission":
+            current = commission_state(flags, loc.id)
+            if current is None:
+                _, template = offer_commission(flags, loc.id)
+                current = commission_state(flags, loc.id)
+                print(f"\n{loc.quest_npc}: 새 의뢰 [{template.title}]이(가) 있다.")
+            print(f"\n[{current['title']}] {current['description']}")
+            print(f"목표: {current['objective']} ({current['progress']}/{current['required']})")
+            rewards = [f"{current['gold_reward']}G"] + [
+                f"{item['name']}×{item['count']}" for item in current["item_rewards"]
+            ]
+            print("보상: " + ", ".join(rewards))
+            if current["status"] == "offered":
+                if prompt_yes_no("이 의뢰를 수락할까요? (y/n)> "):
+                    accept_commission(flags, loc.id)
+                    print("의뢰를 수락했다.")
+            elif current["status"] == "ready":
+                if prompt_yes_no("완료 보상을 받을까요? (y/n)> "):
+                    claim_commission(flags, loc.id, party, inventory)
+                    print("의뢰 보상을 받았다. 다시 말을 걸면 새 의뢰를 받을 수 있다.")
+            else:
+                print("아직 목표를 달성하지 못했다.")
             continue
 
         if action == "advancement":
@@ -457,6 +527,8 @@ def explore(
 
             game_map.move_to(payload)
             new_loc = game_map.current
+            for title in record_visit(flags, new_loc.id):
+                print(f"\nNPC 의뢰 [{title}]의 목표를 달성했다!")
 
             # 새 장소로 이동했을 때 랜덤 인카운터 판정 (보스/엔딩 장소는 위에서 별도 처리)
             if new_loc.encounter_pool and random.random() < new_loc.encounter_chance:
@@ -465,3 +537,5 @@ def explore(
                 won = Battle(party, enemies, inventory, equipment_inventory).run()
                 if not won:
                     return False
+                for title in record_defeats(flags, [enemy.name for enemy in enemies]):
+                    print(f"\nNPC 의뢰 [{title}]의 목표를 달성했다!")

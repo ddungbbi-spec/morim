@@ -252,7 +252,7 @@ class WebGameTests(unittest.TestCase):
         self.assertIn(".utility-card.rarity-epic", styles)
         self.assertIn(".dismantle-toolbar", styles)
         with open(Path(WEB_ROOT) / "sw.js", encoding="utf-8") as stream:
-            self.assertIn("undefined-legend-v45", stream.read())
+            self.assertIn("undefined-legend-v46", stream.read())
 
     def test_boss_phase_transition_is_reported_once_per_event(self):
         self.finish_intro()
@@ -1126,7 +1126,12 @@ class WebGameTests(unittest.TestCase):
         self.game.game_map.current.dialogue_played = True
         blocked = self.game.move("세아가 알려준 수로로 들어간다")
         self.assertFalse(blocked["ok"])
-        self.assertTrue(self.game.state()["location"]["exits"][1]["locked"])
+        archive_exit = next(
+            exit_info
+            for exit_info in self.game.state()["location"]["exits"]
+            if exit_info["target_id"] == "drowned_archive"
+        )
+        self.assertTrue(archive_exit["locked"])
         self.game.game_map.current.dialogue_played = False
         self.game._enter_current_location()
         self.assertEqual(self.game.phase, "dialogue")
