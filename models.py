@@ -572,6 +572,57 @@ class Enemy(Character):
             return max(alive_targets, key=lambda t: t.effective_attack)
         return random.choice(alive_targets)
 
+    def preview_intent(self, targets: List[Character]) -> dict:
+        """Return the next readable AI intent without advancing patterns or phases."""
+        alive_targets = [target for target in targets if target.is_alive]
+        if not self.is_alive or not alive_targets:
+            return {"known": False, "action": "행동 없음", "target": "", "phase": False}
+        if not self.smart_ai:
+            return {
+                "known": False, "action": "불규칙 행동",
+                "target": "대상과 기술을 예측할 수 없음", "phase": False,
+            }
+
+        skill = None
+        phase_intent = False
+        hp_ratio = self.hp / self.effective_max_hp
+        for index, phase in enumerate(self.boss_phases):
+            if (
+                index not in self.triggered_phase_indices
+                and hp_ratio <= phase.threshold
+                and self.mp >= phase.skill.mp_cost
+            ):
+                skill = phase.skill
+                phase_intent = True
+                break
+        else:
+            if not self.action_pattern:
+                return {
+                    "known": False, "action": "상황 판단 행동",
+                    "target": "현재 전황에 따라 결정", "phase": False,
+                }
+            skill = self.action_pattern[self.action_count % len(self.action_pattern)]
+            if skill is not None and self.mp < skill.mp_cost:
+                skill = None
+
+        if skill is None:
+            return {
+                "known": True, "action": "기본 공격",
+                "target": "HP가 가장 낮은 파티원", "phase": phase_intent,
+            }
+        if skill.kind in ("heal", "buff"):
+            target_hint = "자신"
+        elif skill.aoe:
+            target_hint = "파티 전체"
+        elif skill.kind == "debuff":
+            target_hint = "공격력이 가장 높은 파티원"
+        else:
+            target_hint = "HP가 가장 낮은 파티원"
+        return {
+            "known": True, "action": skill.name, "target": target_hint,
+            "phase": phase_intent, "kind": skill.kind, "aoe": skill.aoe,
+        }
+
     def choose_action(self, targets: List[Character]):
         """
         일반 몬스터는 무작위로 행동/대상을 고르는 단순한 AI.

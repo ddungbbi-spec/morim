@@ -1508,6 +1508,7 @@ class WebGame:
                     "weakness": enemy.weakness,
                     "resistance": enemy.resistance,
                     "boss": enemy.job in BOSS_JOBS,
+                    "intent": enemy.preview_intent(self.party.alive_members),
                 }
                 for enemy in self.enemies
             ],

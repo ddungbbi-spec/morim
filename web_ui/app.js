@@ -115,7 +115,8 @@ function characterCard(character, enemy = false) {
   ];
   const elementNames = {fire: "화", ice: "냉", thunder: "뇌", wind: "풍"};
   const detail = enemy
-    ? `<p class="weakness">약점 ${elementNames[character.weakness] || "없음"} · 저항 ${elementNames[character.resistance] || "없음"}</p>`
+    ? `<p class="weakness">약점 ${elementNames[character.weakness] || "없음"} · 저항 ${elementNames[character.resistance] || "없음"}</p>
+      <p class="enemy-intent${character.intent.phase ? " phase-intent" : ""}">다음 행동 · ${escapeHtml(character.intent.action)} → ${escapeHtml(character.intent.target)}${character.intent.phase ? " · 체력 구간 전용기" : ""}</p>`
     : "";
   return `<article class="character-card${active}${fallen}${enemy ? " enemy-card" : ""}">
     <div class="card-head"><strong>${escapeHtml(character.name)}</strong><span>Lv.${character.level} ${escapeHtml(character.job)}</span></div>

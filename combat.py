@@ -131,6 +131,11 @@ class Battle:
             print(" -", member.status_line())
         print("[적]")
         self._print_enemies()
+        print("[적 행동 예고]")
+        for enemy in [enemy for enemy in self.enemies if enemy.is_alive]:
+            intent = enemy.preview_intent(self.party.alive_members)
+            phase = " · 체력 구간 전용기" if intent["phase"] else ""
+            print(f" - {enemy.name}: {intent['action']} → {intent['target']}{phase}")
 
     # -----------------------------------------------------------------
     def _player_turn(self, actor: PlayerCharacter):

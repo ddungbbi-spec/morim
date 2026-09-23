@@ -123,6 +123,8 @@ h2 { font-size: 1.3rem; }
 .enemy-card { position: relative; overflow: hidden; }
 .enemy-card::before { content: ""; position: absolute; inset: 0 0 auto; height: 3px; background: var(--red); }
 .enemy-card .weakness { color: var(--gold); font-size: .7rem; margin-top: 9px; }
+.enemy-card .enemy-intent { margin-top: 7px; padding: 7px 8px; border: 1px solid rgba(240, 113, 120, .25); border-radius: 8px; color: #ffb0b4; background: rgba(112, 35, 45, .14); font-size: .66rem; line-height: 1.35; }
+.enemy-card .enemy-intent.phase-intent { border-color: rgba(241, 198, 109, .55); color: var(--gold); box-shadow: inset 0 0 14px rgba(241, 198, 109, .08); }
 
 .location-panel { padding: 18px; border: 1px solid var(--line); border-radius: 15px; background: rgba(8, 13, 24, .42); }
 .location-copy { color: #c8d0df; font-size: .82rem; line-height: 1.65; }
