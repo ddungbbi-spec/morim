@@ -25,6 +25,7 @@ from commissions import (
 )
 from combo import ComboChain, can_chain
 from bestiary import bestiary_state, discover_enemies, record_enemy_defeats
+from achievements import achievement_state, claim_achievement
 from protection import AllyProtection
 import save as game_save
 from blacksmith import (
@@ -676,6 +677,23 @@ class WebGame:
             )
         else:
             return self._error("지원하지 않는 NPC 의뢰 행동입니다.")
+        return {"ok": True, "state": self.state()}
+
+    def achievement_action(self, achievement_id: str) -> dict:
+        if self.phase != "explore":
+            return self._error("탐험 중에만 업적 보상을 받을 수 있습니다.")
+        if not isinstance(achievement_id, str):
+            return self._error("올바른 업적을 선택하세요.")
+        achievement = claim_achievement(
+            self.flags, achievement_id, self.party,
+            len(self.game_map.visited), len(self.game_map.visited_villages),
+        )
+        if achievement is None:
+            return self._error("아직 달성하지 않았거나 이미 보상을 받은 업적입니다.")
+        self._log(
+            f"업적 [{achievement.title}] 달성 보상으로 "
+            f"{achievement.gold_reward}G를 받았습니다."
+        )
         return {"ok": True, "state": self.state()}
 
     def advancement_action(self, member_index, job_id: str) -> dict:
@@ -1864,6 +1882,10 @@ class WebGame:
             "dialogue": dialogue_state,
             "story_flags": dict(self.flags),
             "bestiary": bestiary_state(self.flags),
+            "achievements": achievement_state(
+                self.flags, len(self.game_map.visited),
+                len(self.game_map.visited_villages),
+            ),
             "quests": [
                 {
                     "id": quest_id,
@@ -2121,6 +2143,8 @@ class GameHandler(BaseHTTPRequestHandler):
                 result = game.quest_action(payload.get("operation", ""), payload.get("quest", ""))
             elif self.path == "/api/commission":
                 result = game.commission_action(payload.get("operation", ""))
+            elif self.path == "/api/achievement":
+                result = game.achievement_action(payload.get("achievement", ""))
             elif self.path == "/api/advancement":
                 result = game.advancement_action(payload.get("member"), payload.get("job", ""))
             elif self.path == "/api/save":

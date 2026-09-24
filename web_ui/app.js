@@ -300,6 +300,7 @@ function renderCommands() {
       ${gameState.advancement_service ? `<button class="command-button utility" onclick="openUtility('advancement')">전직 교관 · 2차 직업</button>` : ""}
       ${gameState.village?.travel?.length ? `<button class="command-button utility" onclick="openUtility('travel')">방문한 마을로 이동</button>` : ""}
       ${gameState.village?.npc ? `<button class="command-button utility" onclick="openUtility('commission')">${escapeHtml(gameState.village.npc)}의 무작위 의뢰</button>` : ""}
+      <button class="command-button utility${gameState.achievements.ready ? " attention" : ""}" onclick="openUtility('achievements')">업적 · ${gameState.achievements.completed}/${gameState.achievements.total}${gameState.achievements.ready ? ` · 보상 ${gameState.achievements.ready}` : ""}</button>
       <button class="command-button utility" onclick="openUtility('bestiary')">적 도감 · ${gameState.bestiary.discovered}종</button>
       <button class="command-button utility" onclick="openUtility('save')">저장·불러오기</button>`;
     $("#commandButtons").innerHTML = moves + utilities;
@@ -356,6 +357,19 @@ function renderUtilityPanel() {
       <p class="stat-line">${escapeHtml(region.description)} · ${region.visited_count}/${region.total_count} 장소 발견</p>
       <div class="region-map-layout"><div class="region-map-nodes">${nodes}</div>
       <div class="region-map-routes"><p>확인된 연결 경로</p>${links || `<span class="muted-copy">아직 확인된 경로가 없습니다.</span>`}</div></div>`);
+  } else if (utilityMode === "achievements") {
+    const achievements = gameState.achievements;
+    const statusNames = {locked: "진행 중", ready: "보상 가능", claimed: "완료"};
+    const entries = achievements.entries.map((entry) => {
+      const title = `${entry.title} · ${statusNames[entry.status]}`;
+      const detail = `${entry.description} · ${entry.progress}/${entry.target} · 보상 ${entry.gold_reward}G`;
+      return entry.status === "ready"
+        ? `<button class="utility-card achievement-ready" onclick="achievementRequest('${entry.id}')"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(detail)}</span></button>`
+        : `<div class="utility-card disabled achievement-${entry.status}"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(detail)}</span></div>`;
+    }).join("");
+    panel.innerHTML = utilityShell("업적", `
+      <p class="stat-line">달성 ${achievements.completed}/${achievements.total} · 수령 완료 ${achievements.claimed} · 받을 보상 ${achievements.ready}</p>
+      ${utilitySection("모험 기록", entries)}`);
   } else if (utilityMode === "bestiary") {
     const bestiary = gameState.bestiary;
     const entries = bestiary.entries.map((enemy) => `
@@ -795,6 +809,7 @@ function equipmentRequest(operation, member, equipment, slot) { request("/api/eq
 function questRequest(operation, quest) { request("/api/quest", {operation, quest}); }
 function travelRequest(target) { request("/api/travel", {target}); }
 function commissionRequest(operation) { request("/api/commission", {operation}); }
+function achievementRequest(achievement) { request("/api/achievement", {achievement}); }
 function saveSlot(slot, exists) {
   if (!exists || confirm(`슬롯 ${slot}에 덮어쓸까요?`)) request("/api/save", {operation: "save", slot});
 }
@@ -929,7 +944,7 @@ function playResponseTone(path, before, after) {
   if (after === "battle" && before !== "battle") return playTone("battle");
   if (after === "victory" || after === "ending") return playTone("victory");
   if (after === "dialogue" && before !== "dialogue") return playTone("dialogue");
-  if (["/api/action", "/api/shop", "/api/inn", "/api/blacksmith", "/api/crafting", "/api/tower", "/api/dungeon", "/api/boss", "/api/equipment", "/api/quest", "/api/travel", "/api/commission", "/api/advancement", "/api/save"].includes(path)) return playTone("confirm");
+  if (["/api/action", "/api/shop", "/api/inn", "/api/blacksmith", "/api/crafting", "/api/tower", "/api/dungeon", "/api/boss", "/api/equipment", "/api/quest", "/api/travel", "/api/commission", "/api/achievement", "/api/advancement", "/api/save"].includes(path)) return playTone("confirm");
   if (path === "/api/move") return playTone("move");
 }
 
