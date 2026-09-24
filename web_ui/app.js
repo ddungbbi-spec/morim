@@ -19,6 +19,13 @@ let autoBattleTimer = null;
 let autoRequestInFlight = false;
 let battleSpeed = Number(localStorage.getItem("undefined-legend-battle-speed") || "1");
 if (![1, 2, 3].includes(battleSpeed)) battleSpeed = 1;
+let autoBattleStrategy = localStorage.getItem("undefined-legend-auto-strategy") || "balanced";
+const AUTO_BATTLE_STRATEGIES = {
+  balanced: {label: "균형", description: "회복과 공격을 고르게 판단"},
+  aggressive: {label: "공세", description: "위험을 감수하고 강한 기술을 우선"},
+  survival: {label: "안정", description: "빠른 회복과 방어로 생존을 우선"}
+};
+if (!AUTO_BATTLE_STRATEGIES[autoBattleStrategy]) autoBattleStrategy = "balanced";
 const AUTO_BATTLE_DELAYS = {1: 900, 2: 450, 3: 300};
 const SAVE_BACKUP_KEY = "undefined-legend-save-backups-v1";
 
@@ -251,11 +258,15 @@ function renderCommands() {
     const speedButtons = [1, 2, 3].map((speed) =>
       `<button class="speed-button${battleSpeed === speed ? " selected" : ""}" onclick="setBattleSpeed(${speed})">${speed}×</button>`
     ).join("");
+    const strategyButtons = Object.entries(AUTO_BATTLE_STRATEGIES).map(([id, strategy]) =>
+      `<button class="strategy-button${autoBattleStrategy === id ? " selected" : ""}" onclick="setAutoBattleStrategy('${id}')" title="${escapeHtml(strategy.description)}">${escapeHtml(strategy.label)}</button>`
+    ).join("");
     $("#commandButtons").innerHTML = `
       <div class="auto-battle-controls">
         <button class="auto-battle-toggle${autoBattleEnabled ? " active" : ""}" onclick="toggleAutoBattle()">${autoBattleEnabled ? "자동 전투 중지" : "자동 전투 시작"}</button>
         <div class="speed-controls"><span>전투 배속</span>${speedButtons}</div>
-        <small>${autoBattleEnabled ? `${battleSpeed}× 속도로 상황 판단 중` : "회복·강화·약점·연계를 판단합니다"}</small>
+        <div class="strategy-controls"><span>전술</span>${strategyButtons}</div>
+        <small>${autoBattleEnabled ? `${AUTO_BATTLE_STRATEGIES[autoBattleStrategy].label} 전술 · ${battleSpeed}× 진행 중` : AUTO_BATTLE_STRATEGIES[autoBattleStrategy].description}</small>
       </div>
       ${chainHint}
       <button class="command-button" onclick="selectAttack()"${manualDisabled}>공격</button>
@@ -859,6 +870,12 @@ function setBattleSpeed(speed) {
   localStorage.setItem("undefined-legend-battle-speed", String(speed));
   render();
 }
+function setAutoBattleStrategy(strategy) {
+  if (!AUTO_BATTLE_STRATEGIES[strategy]) return;
+  autoBattleStrategy = strategy;
+  localStorage.setItem("undefined-legend-auto-strategy", strategy);
+  render();
+}
 function scheduleAutoBattle() {
   clearTimeout(autoBattleTimer);
   if (!autoBattleEnabled || autoRequestInFlight || gameState?.phase !== "battle" || !gameState.current_actor) return;
@@ -868,7 +885,7 @@ async function runAutoBattleStep() {
   if (!autoBattleEnabled || autoRequestInFlight || gameState?.phase !== "battle") return;
   autoRequestInFlight = true;
   try {
-    const result = await request("/api/auto", {});
+    const result = await request("/api/auto", {strategy: autoBattleStrategy});
     if (!result.ok) autoBattleEnabled = false;
   } catch (_error) {
     autoBattleEnabled = false;

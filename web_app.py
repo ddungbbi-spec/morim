@@ -68,6 +68,27 @@ DEFAULT_PARTY_SETUP = [
     {"name": "셀린", "job": "healer"},
 ]
 
+AUTO_BATTLE_STRATEGIES = {
+    "balanced": {
+        "label": "균형",
+        "heal_threshold": 0.45,
+        "defend_threshold": 0.25,
+        "skill_margin": 1,
+    },
+    "aggressive": {
+        "label": "공세",
+        "heal_threshold": 0.30,
+        "defend_threshold": 0.15,
+        "skill_margin": -1,
+    },
+    "survival": {
+        "label": "안정",
+        "heal_threshold": 0.65,
+        "defend_threshold": 0.40,
+        "skill_margin": 2,
+    },
+}
+
 ENCOUNTERS: Dict[str, dict] = {
     "forest": {
         "name": "숲 입구 정찰",
@@ -888,23 +909,29 @@ class WebGame:
         self._advance()
         return {"ok": True, "state": self.state()}
 
-    def auto_action(self) -> dict:
+    def auto_action(self, strategy: str = "balanced") -> dict:
         """현재 파티원의 상황을 판단해 한 번의 행동만 안전하게 실행한다."""
         if self.phase != "battle" or self.current_actor is None:
             return self._error("자동 전투로 처리할 파티원 행동이 없습니다.")
+        if not isinstance(strategy, str) or strategy not in AUTO_BATTLE_STRATEGIES:
+            return self._error("지원하지 않는 자동 전투 전술입니다.")
         try:
-            action, description = self._choose_auto_action()
+            action, description = self._choose_auto_action(strategy)
         except ValueError as error:
             return self._error(str(error))
-        self._log(f"자동 전투 · {self.current_actor.name}: {description}")
+        label = AUTO_BATTLE_STRATEGIES[strategy]["label"]
+        self._log(f"자동 전투[{label}] · {self.current_actor.name}: {description}")
         return self.act(action)
 
-    def _choose_auto_action(self) -> tuple[dict, str]:
+    def _choose_auto_action(self, strategy: str = "balanced") -> tuple[dict, str]:
         actor = self.current_actor
         allies = self.party.alive_members
         enemies = [enemy for enemy in self.enemies if enemy.is_alive]
         if actor is None or not enemies:
             raise ValueError("자동 전투 행동을 선택할 수 없습니다.")
+        settings = AUTO_BATTLE_STRATEGIES.get(strategy) if isinstance(strategy, str) else None
+        if settings is None:
+            raise ValueError("지원하지 않는 자동 전투 전술입니다.")
 
         affordable = [
             (index, skill) for index, skill in enumerate(actor.skills)
@@ -914,7 +941,7 @@ class WebGame:
         lowest = wounded[0]
         lowest_ratio = lowest.hp / lowest.effective_max_hp
         heal_skills = [(index, skill) for index, skill in affordable if skill.kind == "heal"]
-        if heal_skills and lowest_ratio <= 0.45:
+        if heal_skills and lowest_ratio <= settings["heal_threshold"]:
             widespread = sum(
                 member.hp / member.effective_max_hp <= 0.70 for member in allies
             ) >= 2
@@ -928,7 +955,7 @@ class WebGame:
             target_label = "파티 전체" if skill.aoe else lowest.name
             return action, f"[{skill.name}] → {target_label} 회복"
 
-        if lowest is actor and lowest_ratio <= 0.25:
+        if lowest is actor and lowest_ratio <= settings["defend_threshold"]:
             return {"type": "defend"}, "위험한 체력으로 방어"
 
         buff_skills = [
@@ -1015,7 +1042,7 @@ class WebGame:
         )
         if attack_options:
             score, skill_index, skill, target = max(attack_options, key=lambda entry: entry[0])
-            if score > basic_score + 1:
+            if score > basic_score + settings["skill_margin"]:
                 action = {"type": "skill", "skill": skill_index}
                 if not skill.aoe:
                     action["target"] = enemies.index(target)
@@ -2097,7 +2124,7 @@ class GameHandler(BaseHTTPRequestHandler):
             elif self.path == "/api/action":
                 result = game.act(payload)
             elif self.path == "/api/auto":
-                result = game.auto_action()
+                result = game.auto_action(payload.get("strategy", "balanced"))
             else:
                 self._json({"ok": False, "error": "API 경로를 찾을 수 없습니다."}, 404)
                 return

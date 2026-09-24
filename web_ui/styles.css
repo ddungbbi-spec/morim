@@ -205,7 +205,7 @@ h2 { font-size: 1.3rem; }
 .auto-battle-controls {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: minmax(145px, auto) auto minmax(150px, 1fr);
+  grid-template-columns: minmax(145px, auto) auto auto minmax(150px, 1fr);
   gap: 9px;
   align-items: center;
   padding: 10px;
@@ -213,7 +213,7 @@ h2 { font-size: 1.3rem; }
   border-radius: 12px;
   background: rgba(102, 217, 208, .06);
 }
-.auto-battle-toggle, .speed-button {
+.auto-battle-toggle, .speed-button, .strategy-button {
   min-height: 38px;
   border: 1px solid var(--line);
   border-radius: 9px;
@@ -223,10 +223,11 @@ h2 { font-size: 1.3rem; }
 }
 .auto-battle-toggle { padding: 8px 12px; font-weight: 800; }
 .auto-battle-toggle.active { border-color: var(--cyan); color: var(--cyan); background: rgba(102, 217, 208, .14); }
-.speed-controls { display: flex; align-items: center; gap: 5px; }
-.speed-controls span { margin-right: 3px; color: var(--muted); font-size: .66rem; white-space: nowrap; }
+.speed-controls, .strategy-controls { display: flex; align-items: center; gap: 5px; }
+.speed-controls span, .strategy-controls span { margin-right: 3px; color: var(--muted); font-size: .66rem; white-space: nowrap; }
 .speed-button { min-width: 38px; padding: 5px 8px; }
-.speed-button.selected { border-color: var(--gold); color: var(--gold); background: rgba(241, 198, 109, .12); }
+.strategy-button { min-width: 42px; padding: 5px 7px; }
+.speed-button.selected, .strategy-button.selected { border-color: var(--gold); color: var(--gold); background: rgba(241, 198, 109, .12); }
 .auto-battle-controls small { color: var(--muted); font-size: .66rem; line-height: 1.4; }
 .ghost { padding: 9px 12px; }
 
@@ -357,6 +358,8 @@ footer { border-top: 1px solid var(--line); margin-top: 8px; }
   .layout { grid-template-columns: minmax(190px, .7fr) minmax(440px, 1.3fr); }
   .log-panel { grid-column: 1 / -1; min-height: 260px; }
   .log { height: 220px; }
+  .auto-battle-controls { grid-template-columns: 1fr 1fr; }
+  .auto-battle-controls small { grid-column: 1 / -1; text-align: center; }
 }
 
 @media (max-width: 720px) {
@@ -379,8 +382,8 @@ footer { border-top: 1px solid var(--line); margin-top: 8px; }
   .setup-member input, .setup-member select { min-height: 44px; font-size: 16px; }
   .command-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .auto-battle-controls { grid-template-columns: 1fr; }
-  .speed-controls { justify-content: center; }
-  .auto-battle-controls small { text-align: center; }
+  .speed-controls, .strategy-controls { justify-content: center; }
+  .auto-battle-controls small { grid-column: auto; text-align: center; }
   .map-summary { align-items: stretch; flex-direction: column; }
   .map-shortcuts { display: grid; grid-template-columns: 1fr 1fr; }
   .world-map-grid, .region-map-layout { grid-template-columns: 1fr; }
