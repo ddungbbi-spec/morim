@@ -25,7 +25,7 @@ class FixedChoice:
 class VillageCommissionTests(unittest.TestCase):
     def test_new_villages_connect_to_existing_regions_and_have_distinct_services(self):
         world = build_world()
-        self.assertEqual(len(world.locations), 44)
+        self.assertEqual(len(world.locations), 48)
         villages = {
             location.id: location for location in world.locations.values()
             if location.is_village

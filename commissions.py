@@ -100,6 +100,21 @@ COMMISSION_TEMPLATES: Dict[str, CommissionTemplate] = {
         "교역 광장의 수레와 보급품 상태를 확인한다.", "황혼 상단 광장 방문",
         "visit", "twilight_caravan_square", 1, 55, (("해독제", 1),),
     ),
+    "twilight_jackal_hunt": CommissionTemplate(
+        "twilight_jackal_hunt", "twilight_village", "붉은 갈대의 울음",
+        "상단의 짐말을 습격하는 승냥이 무리를 줄인다.", "붉은갈기 승냥이 3마리 처치",
+        "defeat", "붉은갈기 승냥이", 3, 78, (("포션", 2),),
+    ),
+    "twilight_hexer_hunt": CommissionTemplate(
+        "twilight_hexer_hunt", "twilight_village", "협곡의 검은 주문",
+        "바람흔적 협곡에서 상단을 저주하는 도적술사를 제압한다.", "협곡 도적술사 2명 처치",
+        "defeat", "협곡 도적술사", 2, 92, (("에테르", 2),),
+    ),
+    "twilight_den_scout": CommissionTemplate(
+        "twilight_den_scout", "twilight_village", "황혼송곳니 추적",
+        "협곡 최심부에 있다는 우두머리의 소굴을 찾아낸다.", "황혼송곳니 소굴 방문",
+        "visit", "duskfang_den", 1, 86, (("달빛 영약", 1),),
+    ),
 }
 
 

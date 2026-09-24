@@ -50,7 +50,7 @@ class VillageExpansionTests(unittest.TestCase):
         self.assertIn("교역로 산적", enemies)
         self.assertIn("황혼 매", enemies)
         twilight = next(region for region in MAP_REGIONS if region["id"] == "twilight")
-        self.assertEqual(len(twilight["locations"]), 3)
+        self.assertEqual(len(twilight["locations"]), 7)
 
     def test_village_event_choice_unlocks_local_shop_discount(self):
         game = WebGame()

@@ -768,7 +768,7 @@ class GameTests(unittest.TestCase):
 
     def test_mist_marsh_expansion_is_connected_and_reward_registered(self):
         game_map = build_world()
-        self.assertEqual(len(game_map.locations), 44)
+        self.assertEqual(len(game_map.locations), 48)
         self.assertEqual(
             game_map.locations["deep_forest"].exits["안개 습지로 들어간다"],
             "mist_marsh",

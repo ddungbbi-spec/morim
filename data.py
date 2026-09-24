@@ -600,6 +600,46 @@ def create_dusk_hawk() -> Enemy:
     )
 
 
+def create_redmane_jackal() -> Enemy:
+    """붉은 갈대 평원에서 무리를 지어 사냥하는 민첩한 맹수."""
+    return Enemy(
+        name="붉은갈기 승냥이", job="몬스터", level=5,
+        max_hp=46, max_mp=0, attack=14, defense=4, speed=11,
+        skills=[POISON_FANG], exp_reward=29, gold_reward=18,
+        weakness="ice", resistance="fire",
+        loot_pool=[(POTION, 0.18), (ANTIDOTE, 0.16)],
+    )
+
+
+def create_canyon_hexer() -> Enemy:
+    """바람흔적 협곡의 지형을 이용해 원정대를 약화시키는 산적 술사."""
+    return Enemy(
+        name="협곡 도적술사", job="몬스터", level=6,
+        max_hp=50, max_mp=22, attack=13, defense=5, speed=8,
+        skills=[WEAKEN, DARK_BOLT, CURSE_WHISPER], exp_reward=35, gold_reward=25,
+        smart_ai=True, action_pattern=[WEAKEN, DARK_BOLT, None, CURSE_WHISPER],
+        weakness="fire", resistance="dark",
+        loot_pool=[(ETHER, 0.18), (MOONLIGHT_TONIC, 0.08)],
+    )
+
+
+def create_duskfang_alpha() -> Enemy:
+    """황혼 사냥터의 먹이와 산적 무리를 동시에 지배하는 우두머리."""
+    return Enemy(
+        name="황혼송곳니 우두머리", job="보스", level=7,
+        max_hp=145, max_mp=28, attack=18, defense=8, speed=10,
+        skills=[PARALYZE_STRIKE, INTIMIDATING_ROAR, HEAVY_SMASH],
+        exp_reward=92, gold_reward=68, smart_ai=True,
+        action_pattern=[INTIMIDATING_ROAR, None, PARALYZE_STRIKE, HEAVY_SMASH],
+        weakness="ice", resistance="dark",
+        boss_phases=[BossPhase(
+            0.45, DARK_RAMPAGE,
+            "황혼송곳니 우두머리가 붉은 갈기를 곤두세우며 사냥 본능을 해방한다!",
+        )],
+        loot_pool=[(MOONLIGHT_TONIC, 0.20)],
+    )
+
+
 def create_dark_knight() -> Enemy:
     """보스급 적 예시"""
     return Enemy(
@@ -975,12 +1015,20 @@ NAMELESS_SOUL_CHARM = Equipment(
     special_effect="치명타율 +8%, 받는 피해 5% 감소", locked=True,
 )
 
+DUSKFANG_TALISMAN = Equipment(
+    name="황혼송곳니 부적", slot="accessory",
+    attack_bonus=3, speed_bonus=3, max_hp_bonus=8,
+    description="황혼장터의 사냥꾼들이 우두머리의 송곳니로 만든 부적. 공격력 +3, 속도 +3, 최대 HP +8",
+    price=105, rarity="rare", critical_rate_bonus=0.07,
+    special_effect="치명타율 +7%", locked=True,
+)
+
 PROTECTED_EQUIPMENT_NAMES = {
     item.name for item in (
         MITHRIL_DAGGER, LEGENDARY_ARMOR, DRAKE_SCALE_ARMOR,
         SEALBREAKER_BLADE, LUCKY_RING, MIST_CLOAK,
         ELDER_GUARDIAN_SIGIL, ARCHIVE_LANTERN, STARWARD_CHARM,
-        CONSTELLATION_SPEAR, NAMELESS_SOUL_CHARM,
+        CONSTELLATION_SPEAR, NAMELESS_SOUL_CHARM, DUSKFANG_TALISMAN,
     )
 }
 
@@ -1181,6 +1229,6 @@ EQUIPMENT_BY_NAME = {
         MIST_CLOAK,
         ELDER_GUARDIAN_SIGIL,
         ARCHIVE_LANTERN,
-        STARWARD_CHARM, CONSTELLATION_SPEAR, NAMELESS_SOUL_CHARM,
+        STARWARD_CHARM, CONSTELLATION_SPEAR, NAMELESS_SOUL_CHARM, DUSKFANG_TALISMAN,
     ]
 }

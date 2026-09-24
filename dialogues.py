@@ -72,6 +72,47 @@ def twilight_caravan_event_dialogue() -> Dialogue:
     )
 
 
+def twilight_hunter_camp_dialogue() -> Dialogue:
+    """상위 사냥터의 정보를 얻는 황혼장터 파생 거점 이벤트."""
+    def study_tracks(flags: dict):
+        flags["twilight_tracks_studied"] = True
+
+    def reinforce_camp(flags: dict):
+        flags["twilight_camp_reinforced"] = True
+
+    return Dialogue(nodes=[
+        DialogueNode("camp", [
+            "갈대 사냥꾼들의 전초막이 발톱 자국과 부서진 화살로 어지럽다.",
+            "사냥꾼 연호: \"우두머리는 협곡 안쪽에 있어. 출발 전에 무엇부터 살피겠나?\"",
+        ], choices=[
+            ("발톱 자국을 조사해 우두머리의 동선을 파악한다", "tracks"),
+            ("무너진 울타리를 보강해 퇴로를 확보한다", "camp_ready"),
+        ]),
+        DialogueNode("tracks", [
+            "겹쳐진 흔적 사이에서 협곡 북쪽 소굴로 이어지는 거대한 발자국을 찾아냈다.",
+            "연호: \"좋아. 놈의 기습에 대비할 수 있겠군.\"",
+        ], effect=study_tracks),
+        DialogueNode("camp_ready", [
+            "울타리와 횃불이 다시 세워지자 부상자들이 안전하게 쉴 거점이 마련되었다.",
+            "연호: \"돌아올 곳이 생겼으니 이제 협곡으로 나아갈 수 있겠어.\"",
+        ], effect=reinforce_camp),
+    ], start_id="camp")
+
+
+def duskfang_den_dialogue() -> Dialogue:
+    """황혼송곳니 우두머리와 조우하기 직전의 분기 대사."""
+    def lines(flags: dict) -> list[str]:
+        result = ["협곡의 바람이 끊긴 소굴 안에서 거대한 붉은 눈 두 개가 떠오른다."]
+        if flags.get("twilight_tracks_studied"):
+            result.append("미리 살핀 발톱 자국 덕분에 파티는 측면 기습을 피해 진형을 갖춘다.")
+        elif flags.get("twilight_camp_reinforced"):
+            result.append("등 뒤의 전초막 횃불을 확인한 파티는 퇴로를 믿고 앞으로 나선다.")
+        result.append("황혼송곳니 우두머리가 포효하며 소굴 입구를 막아선다.")
+        return result
+
+    return Dialogue(nodes=[DialogueNode("duskfang", lines)], start_id="duskfang")
+
+
 def village_intro_dialogue() -> Dialogue:
     """마을 노인이 부탁을 하는 오프닝 대화. 선택에 따라 flags["promised_elder"]가 갈린다."""
 

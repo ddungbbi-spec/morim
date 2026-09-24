@@ -35,7 +35,10 @@ MAP_REGIONS = [
     },
     {
         "id": "twilight", "name": "황혼 교역로", "description": "그림자 골짜기와 오방의 장터를 잇는 상단 길",
-        "locations": ("twilight_road", "twilight_village", "twilight_caravan_square"),
+        "locations": (
+            "twilight_road", "twilight_village", "twilight_caravan_square",
+            "red_reed_field", "twilight_hunter_camp", "windscar_ravine", "duskfang_den",
+        ),
     },
     {
         "id": "marsh", "name": "안개 습지", "description": "달빛 샘과 가라앉은 기록실",
@@ -545,6 +548,7 @@ def build_world() -> GameMap:
         exits={
             "황혼 교역로로 나간다": "twilight_road",
             "황혼 상단 광장으로 간다": "twilight_caravan_square",
+            "붉은 갈대 평원으로 사냥을 나간다": "red_reed_field",
         },
         shops=[
             Shop(
@@ -572,6 +576,63 @@ def build_world() -> GameMap:
         exits={"황혼장터로 돌아간다": "twilight_village"},
         dialogue=dialogues.twilight_caravan_event_dialogue(),
         loot_item=data.POTION,
+    )
+
+    red_reed_field = Location(
+        loc_id="red_reed_field", name="붉은 갈대 평원",
+        description="노을빛 갈대가 사람 키보다 높게 자라 사냥감과 포식자의 움직임을 함께 감춘다.",
+        exits={
+            "황혼장터로 돌아간다": "twilight_village",
+            "사냥꾼 전초막으로 향한다": "twilight_hunter_camp",
+        },
+        encounter_chance=0.62,
+        encounter_pool=[
+            lambda: [data.create_redmane_jackal()],
+            lambda: [data.create_redmane_jackal(), data.create_redmane_jackal()],
+            lambda: [data.create_road_bandit(), data.create_redmane_jackal()],
+            lambda: [data.create_dusk_hawk(), data.create_redmane_jackal()],
+        ],
+    )
+
+    twilight_hunter_camp = Location(
+        loc_id="twilight_hunter_camp", name="갈대 사냥꾼 전초막",
+        description="황혼장터의 사냥꾼들이 협곡 원정을 준비하는 작은 야영 거점이다.",
+        exits={
+            "붉은 갈대 평원으로 돌아간다": "red_reed_field",
+            "바람흔적 협곡으로 진입한다": "windscar_ravine",
+        },
+        encounter_chance=0.35,
+        encounter_pool=[
+            lambda: [data.create_redmane_jackal()],
+            lambda: [data.create_road_bandit(), data.create_dusk_hawk()],
+        ],
+        dialogue=dialogues.twilight_hunter_camp_dialogue(),
+        loot_item=data.ANTIDOTE,
+    )
+
+    windscar_ravine = Location(
+        loc_id="windscar_ravine", name="바람흔적 협곡",
+        description="칼날 같은 바람과 도적술사의 매복이 원정대를 시험하는 상위 사냥터다.",
+        exits={
+            "사냥꾼 전초막으로 돌아간다": "twilight_hunter_camp",
+            "황혼송곳니 소굴로 내려간다": "duskfang_den",
+        },
+        encounter_chance=0.68,
+        encounter_pool=[
+            lambda: [data.create_canyon_hexer()],
+            lambda: [data.create_canyon_hexer(), data.create_road_bandit()],
+            lambda: [data.create_canyon_hexer(), data.create_redmane_jackal()],
+            lambda: [data.create_dusk_hawk(), data.create_dusk_hawk(), data.create_canyon_hexer()],
+        ],
+    )
+
+    duskfang_den = Location(
+        loc_id="duskfang_den", name="황혼송곳니 소굴",
+        description="붉은 갈대와 짐승 뼈가 둥지를 이룬 협곡 최심부. 우두머리의 숨결이 바위를 울린다.",
+        exits={"바람흔적 협곡으로 돌아간다": "windscar_ravine"},
+        boss=lambda: [data.create_duskfang_alpha()],
+        dialogue=dialogues.duskfang_den_dialogue(),
+        loot_equipment=data.DUSKFANG_TALISMAN,
     )
 
     ruins = Location(
@@ -831,6 +892,7 @@ def build_world() -> GameMap:
         mist_marsh, sunken_boardwalk, forgotten_shrine, moonlit_spring, mist_village, mist_herb_garden,
         drowned_archive, echo_vault,
         shadow_valley, twilight_road, twilight_village, twilight_caravan_square,
+        red_reed_field, twilight_hunter_camp, windscar_ravine, duskfang_den,
         ruins, seal_gate, final_chamber, abyss_dungeon,
         forgotten_sword_grave, grave_depths, nameless_sanctum,
         cave, cave_treasure, cave_vault, ending,
