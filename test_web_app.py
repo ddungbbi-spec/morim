@@ -252,7 +252,7 @@ class WebGameTests(unittest.TestCase):
         self.assertIn(".utility-card.rarity-epic", styles)
         self.assertIn(".dismantle-toolbar", styles)
         with open(Path(WEB_ROOT) / "sw.js", encoding="utf-8") as stream:
-            self.assertIn("undefined-legend-v48", stream.read())
+            self.assertIn("undefined-legend-v49", stream.read())
 
     def test_boss_phase_transition_is_reported_once_per_event(self):
         self.finish_intro()

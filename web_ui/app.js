@@ -300,6 +300,7 @@ function renderCommands() {
       ${gameState.advancement_service ? `<button class="command-button utility" onclick="openUtility('advancement')">전직 교관 · 2차 직업</button>` : ""}
       ${gameState.village?.travel?.length ? `<button class="command-button utility" onclick="openUtility('travel')">방문한 마을로 이동</button>` : ""}
       ${gameState.village?.npc ? `<button class="command-button utility" onclick="openUtility('commission')">${escapeHtml(gameState.village.npc)}의 무작위 의뢰</button>` : ""}
+      <button class="command-button utility" onclick="openUtility('bestiary')">적 도감 · ${gameState.bestiary.discovered}종</button>
       <button class="command-button utility" onclick="openUtility('save')">저장·불러오기</button>`;
     $("#commandButtons").innerHTML = moves + utilities;
     pending = null;
@@ -355,6 +356,19 @@ function renderUtilityPanel() {
       <p class="stat-line">${escapeHtml(region.description)} · ${region.visited_count}/${region.total_count} 장소 발견</p>
       <div class="region-map-layout"><div class="region-map-nodes">${nodes}</div>
       <div class="region-map-routes"><p>확인된 연결 경로</p>${links || `<span class="muted-copy">아직 확인된 경로가 없습니다.</span>`}</div></div>`);
+  } else if (utilityMode === "bestiary") {
+    const bestiary = gameState.bestiary;
+    const entries = bestiary.entries.map((enemy) => `
+      <article class="bestiary-card${enemy.mastered ? " mastered" : ""}">
+        <div><strong>${escapeHtml(enemy.name)}</strong><span>${escapeHtml(enemy.job)} · Lv.${enemy.level}</span></div>
+        <p>HP ${enemy.max_hp} · 공격 ${enemy.attack} · 방어 ${enemy.defense} · 속도 ${enemy.speed}</p>
+        <p>약점 ${escapeHtml(enemy.weakness)} · 내성 ${escapeHtml(enemy.resistance)}</p>
+        <footer><span>조우 ${enemy.encounters}회</span><b>처치 ${enemy.defeats}회${enemy.mastered ? " · 숙련" : ""}</b></footer>
+      </article>`).join("");
+    panel.innerHTML = utilityShell("적 도감", `
+      <p class="stat-line">발견 ${bestiary.discovered}종 · 총 처치 ${bestiary.total_defeats}회 · 숙련 ${bestiary.mastered}종</p>
+      <p class="muted-copy">같은 적을 ${bestiary.mastered_defeats}회 처치하면 해당 항목이 숙련 상태가 됩니다.</p>
+      <div class="bestiary-grid">${entries || `<span class="muted-copy">아직 발견한 적이 없습니다.</span>`}</div>`);
   } else if (utilityMode === "shop") {
     if (!gameState.shop) return clearUtility();
     if (shopIndex === null || !gameState.shop.shops[shopIndex]) {
