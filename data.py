@@ -578,6 +578,28 @@ def create_forest_sprite() -> Enemy:
     )
 
 
+def create_road_bandit() -> Enemy:
+    """황혼 교역로에서 여행자의 보급품을 노리는 빠른 인간형 적."""
+    return Enemy(
+        name="교역로 산적", job="몬스터", level=4,
+        max_hp=40, max_mp=8, attack=12, defense=5, speed=8,
+        skills=[SLASH, PARALYZE_STRIKE], exp_reward=25, gold_reward=17,
+        smart_ai=True, action_pattern=[SLASH, None, PARALYZE_STRIKE],
+        loot_pool=[(POTION, 0.20), (ANTIDOTE, 0.10)],
+    )
+
+
+def create_dusk_hawk() -> Enemy:
+    """황혼 바람을 타고 급강하하는 교역로의 맹금."""
+    return Enemy(
+        name="황혼 매", job="몬스터", level=4,
+        max_hp=30, max_mp=0, attack=11, defense=3, speed=12,
+        skills=[], exp_reward=23, gold_reward=14,
+        weakness="thunder", resistance="wind",
+        loot_pool=[(ETHER, 0.12)],
+    )
+
+
 def create_dark_knight() -> Enemy:
     """보스급 적 예시"""
     return Enemy(

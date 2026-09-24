@@ -39,8 +39,8 @@ ACHIEVEMENTS: Dict[str, Achievement] = {
         "locations", 10, 100,
     ),
     "village_envoy": Achievement(
-        "village_envoy", "사방의 벗", "네 마을을 모두 방문한다.",
-        "villages", 4, 125,
+        "village_envoy", "오방의 벗", "다섯 마을을 모두 방문한다.",
+        "villages", 5, 175,
     ),
     "abyss_conqueror": Achievement(
         "abyss_conqueror", "심연 정복자", "심연 던전을 한 차례 완주한다.",

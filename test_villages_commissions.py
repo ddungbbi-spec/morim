@@ -25,13 +25,16 @@ class FixedChoice:
 class VillageCommissionTests(unittest.TestCase):
     def test_new_villages_connect_to_existing_regions_and_have_distinct_services(self):
         world = build_world()
-        self.assertEqual(len(world.locations), 38)
+        self.assertEqual(len(world.locations), 44)
         villages = {
             location.id: location for location in world.locations.values()
             if location.is_village
         }
         self.assertEqual(
-            set(villages), {"village", "iron_village", "mist_village", "star_village"},
+            set(villages), {
+                "village", "iron_village", "mist_village", "star_village",
+                "twilight_village",
+            },
         )
         self.assertEqual(world.locations["mine_entrance"].exits["철광촌으로 향한다"],
                          "iron_village")
@@ -43,8 +46,8 @@ class VillageCommissionTests(unittest.TestCase):
         )
         self.assertEqual(world.locations["star_observatory"].exits["별바람 역참으로 향한다"],
                          "star_village")
-        self.assertEqual(villages["iron_village"].services, {"blacksmith", "crafting"})
-        self.assertEqual(villages["star_village"].services, {"advancement"})
+        full_services = {"quest_board", "advancement", "blacksmith", "crafting"}
+        self.assertTrue(all(village.services == full_services for village in villages.values()))
         self.assertTrue(all(village.has_inn and village.quest_npc
                             for village in villages.values()))
 
@@ -152,12 +155,12 @@ class VillageCommissionTests(unittest.TestCase):
         self.assertIsNotNone(state["blacksmith"])
         self.assertIsNotNone(state["crafting"])
         self.assertTrue(state["inn"])
-        self.assertFalse(state["advancement_service"])
+        self.assertTrue(state["advancement_service"])
 
         game.game_map.move_to("star_village")
         state = game.state()
-        self.assertIsNone(state["blacksmith"])
-        self.assertIsNone(state["crafting"])
+        self.assertIsNotNone(state["blacksmith"])
+        self.assertIsNotNone(state["crafting"])
         self.assertTrue(state["advancement_service"])
         self.assertTrue(state["village"]["npc"])
 

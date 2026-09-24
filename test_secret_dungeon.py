@@ -52,7 +52,7 @@ class SecretDungeonTests(unittest.TestCase):
 
     def test_world_contains_three_room_route_and_unique_content(self):
         world = build_world()
-        self.assertEqual(len(world.locations), 38)
+        self.assertEqual(len(world.locations), 44)
         self.assertEqual(
             world.locations["forgotten_sword_grave"].exits["검무덤 깊은 곳으로 내려간다"],
             "grave_depths",

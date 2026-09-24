@@ -390,7 +390,7 @@ function renderUtilityPanel() {
         ? utilityButton(shop.name, shop.description || "판매 목록 보기", `selectShop(${shop.index})`)
         : `<div class="utility-card disabled"><strong>${escapeHtml(shop.name)} · 🔒</strong><span>${escapeHtml(shop.unlock_description)}</span></div>`
       ).join("");
-      panel.innerHTML = utilityShell("시작 마을 상점가", utilitySection("방문할 상점", shops));
+      panel.innerHTML = utilityShell(`${gameState.location.name} 상점가`, utilitySection("방문할 상점", shops));
       return;
     }
     const shop = gameState.shop.shops[shopIndex];
@@ -409,7 +409,7 @@ function renderUtilityPanel() {
     )).join("");
     const sellEquipment = gameState.shop.sell_equipment.map((item) => equipmentButton(item,
       `${item.display_name} 판매 · ${item.price}G`,
-      `${item.description} · 분해 시 조각 ${item.shard_yield}개${item.can_dismantle_here ? "" : " (시작 마을 공방)"}`,
+      `${item.description} · 분해 시 조각 ${item.shard_yield}개${item.can_dismantle_here ? "" : " (공방이 있는 마을)"}`,
       `shopRequest('sell_equipment',${item.index})`
     )).join("");
     panel.innerHTML = utilityShell(shop.name, `
@@ -437,7 +437,7 @@ function renderUtilityPanel() {
         : equipmentDisabledCard(item, `${item.display_name} · 성운석 강화`, starDetail);
       return duplicate + star;
     }).join("");
-    panel.innerHTML = utilityShell("마을 대장간", `
+    panel.innerHTML = utilityShell(`${gameState.location.name} 대장간`, `
       <p class="stat-line">동일한 이름의 미강화(+0) 장비 1개와 골드를 사용해 최대 +${gameState.blacksmith.max_level}까지 확정 강화합니다.</p>
       <p class="stat-line">${gameState.blacksmith.star_unlocked
         ? `별빛 강화 개방 · 성운석 ${gameState.blacksmith.star_ore_count}개 보유. 동일 장비 대신 다음 강화 단계만큼의 성운석을 사용할 수 있습니다. 별의 균열 보스 승리마다 3개를 얻습니다.`
@@ -516,7 +516,7 @@ function renderUtilityPanel() {
       <button onclick="clearDismantleSelection()" ${selectedItems.length ? "" : "disabled"}>선택 해제</button>
       <button class="bulk-dismantle" onclick="bulkDismantleRequest()" ${selectedItems.length ? "" : "disabled"}>선택 장비 분해</button></div>
     </div>`;
-    panel.innerHTML = utilityShell("분해 · 합성 · 재련 공방", `
+    panel.innerHTML = utilityShell(`${gameState.location.name} · 분해·합성·재련 공방`, `
       <p class="stat-line">보유 장비 조각 ${gameState.crafting.shards}개 · ${gameState.gold}G</p>
       <p class="stat-line">미착용 장비를 분해·합성하고, 희귀 이상 생성 장비의 옵션을 결과 확인 후 재련합니다.</p>
       <p class="stat-line">강화 분해 보너스: ${gameState.crafting.enhancement_bonuses.map((entry) => `+${entry.level} ${entry.shards}개`).join(" · ")}</p>
@@ -565,7 +565,7 @@ function renderUtilityPanel() {
         ? utilityButton(`${quest.title} · ${statusNames[quest.status]}`, detail, action)
         : `<div class="utility-card disabled"><strong>${escapeHtml(quest.title)} · ${statusNames[quest.status]}</strong><span>${escapeHtml(detail)}</span></div>`;
     }).join("");
-    panel.innerHTML = utilityShell("의뢰 게시판", utilitySection("퀘스트", quests));
+    panel.innerHTML = utilityShell(`${gameState.location.name} 의뢰 게시판`, utilitySection("퀘스트", quests));
   } else if (utilityMode === "travel") {
     const destinations = gameState.village.travel.map((village) => utilityButton(
       village.name, "한 번 방문한 마을은 이동로로 즉시 오갈 수 있습니다.",
@@ -675,7 +675,7 @@ function clearDismantleSelection() { dismantleSelection.clear(); renderUtilityPa
 function shopRequest(operation, index) {
   if (operation === "sell_equipment") {
     const item = gameState.shop?.sell_equipment.find((entry) => entry.index === index);
-    if (!item || !confirm(`${item.display_name}\n판매: ${item.price}G\n분해: 장비 조각 ${item.shard_yield}개${item.can_dismantle_here ? "" : " (시작 마을 공방)"}\n\n이 장비를 판매할까요? 판매 후에는 분해할 수 없습니다.`)) return;
+    if (!item || !confirm(`${item.display_name}\n판매: ${item.price}G\n분해: 장비 조각 ${item.shard_yield}개${item.can_dismantle_here ? "" : " (공방이 있는 마을)"}\n\n이 장비를 판매할까요? 판매 후에는 분해할 수 없습니다.`)) return;
   }
   request("/api/shop", {operation, index, shop: shopIndex});
 }

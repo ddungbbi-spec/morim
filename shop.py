@@ -144,7 +144,7 @@ def _sell_menu(party: Party, inventory: List[Item], equipment_inventory: List[Eq
     for i, (kind, obj) in enumerate(combined, 1):
         sell_price = int(obj.price * SELL_RATIO)
         display_name = obj.display_name if kind == "equipment" else obj.name
-        alternative = f" / 분해 {dismantle_value(obj)}조각 (시작 마을 공방)" if kind == "equipment" else ""
+        alternative = f" / 분해 {dismantle_value(obj)}조각 (공방 서비스)" if kind == "equipment" else ""
         print(f"  {i}) {display_name}  판매가 {sell_price} G{alternative}")
     cancel_option = len(combined) + 1
     print(f"  {cancel_option}) 취소")

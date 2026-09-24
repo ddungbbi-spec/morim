@@ -34,9 +34,13 @@ MAP_REGIONS = [
                       "seal_gate", "final_chamber", "ending"),
     },
     {
+        "id": "twilight", "name": "황혼 교역로", "description": "그림자 골짜기와 오방의 장터를 잇는 상단 길",
+        "locations": ("twilight_road", "twilight_village", "twilight_caravan_square"),
+    },
+    {
         "id": "marsh", "name": "안개 습지", "description": "달빛 샘과 가라앉은 기록실",
         "locations": ("mist_marsh", "sunken_boardwalk", "forgotten_shrine", "moonlit_spring",
-                      "mist_village", "drowned_archive", "echo_vault"),
+                      "mist_village", "mist_herb_garden", "drowned_archive", "echo_vault"),
     },
     {
         "id": "cave", "name": "고대 동굴", "description": "골렘의 보물방과 잠긴 비밀 금고",
@@ -44,7 +48,7 @@ MAP_REGIONS = [
     },
     {
         "id": "mine", "name": "버려진 폐광", "description": "광부의 원혼과 탄광 드레이크의 둥지",
-        "locations": ("iron_village", "mine_entrance", "mine_deep", "mine_depths"),
+        "locations": ("iron_village", "iron_forge_yard", "mine_entrance", "mine_deep", "mine_depths"),
     },
     {
         "id": "tower", "name": "도전의 탑", "description": "단계가 높아지는 반복 도전 지역",
@@ -52,7 +56,7 @@ MAP_REGIONS = [
     },
     {
         "id": "fallen_star", "name": "검은 별 낙하지", "description": "마왕 처치 후 열리는 별의 균열",
-        "locations": ("star_observatory", "star_village", "fallen_star_field", "star_rift"),
+        "locations": ("star_observatory", "star_village", "star_beacon", "fallen_star_field", "star_rift"),
         "unlock_flag": "demon_lord_defeated", "unlock_description": "봉인된 마왕 처치 필요",
     },
     {
@@ -270,6 +274,7 @@ def build_world() -> GameMap:
         exits={
             "북쪽 관측소로 돌아간다": "star_observatory",
             "유성 낙하지로 향한다": "fallen_star_field",
+            "별바람 봉화대로 올라간다": "star_beacon",
         },
         shops=[
             Shop(
@@ -277,10 +282,19 @@ def build_world() -> GameMap:
                 items=[data.ETHER, data.MOONLIGHT_TONIC, data.POTION],
                 equipment=[data.OAK_STAFF, data.HUNTER_BOW, data.SWIFT_CHARM],
                 description="별길 원정에 필요한 마력 회복품과 기동 장비를 판매한다.",
+                discount_flag="star_beacon_aided", discount_rate=0.15,
+                discount_description="봉화 수리 감사 전 상품 15% 할인",
             ),
         ],
         has_inn=True, is_village=True, quest_npc="별길 안내인 세라",
-        services={"advancement"},
+        services={"quest_board", "advancement", "blacksmith", "crafting"},
+    )
+    star_beacon = Location(
+        loc_id="star_beacon", name="별바람 봉화대",
+        description="낙하지와 별빛 항로의 귀환 신호를 맞추는 높은 봉화대다.",
+        exits={"별바람 역참으로 내려간다": "star_village"},
+        dialogue=dialogues.star_beacon_event_dialogue(),
+        loot_item=data.ETHER,
     )
     fallen_star_field = Location(
         loc_id="fallen_star_field", name="유성 낙하지",
@@ -446,6 +460,7 @@ def build_world() -> GameMap:
         exits={
             "달빛 샘으로 돌아간다": "moonlit_spring",
             "기록실 수로로 향한다": "drowned_archive",
+            "달빛 약초밭으로 간다": "mist_herb_garden",
         },
         shops=[
             Shop(
@@ -453,9 +468,20 @@ def build_world() -> GameMap:
                 items=[data.ANTIDOTE, data.POTION, data.ETHER, data.MOONLIGHT_TONIC],
                 equipment=[data.SWIFT_CHARM],
                 description="습지에서 채집한 약초와 가벼운 여행 장비를 판매한다.",
+                discount_flag="mist_garden_aided", discount_rate=0.15,
+                discount_description="약초밭 정화 감사 전 상품 15% 할인",
             ),
         ],
         has_inn=True, is_village=True, quest_npc="약초사 나린",
+        services={"quest_board", "advancement", "blacksmith", "crafting"},
+    )
+
+    mist_herb_garden = Location(
+        loc_id="mist_herb_garden", name="달빛 약초밭",
+        description="안개나루의 물길 위에 조성된 약초밭. 달빛 영약의 재료가 자란다.",
+        exits={"안개나루로 돌아간다": "mist_village"},
+        dialogue=dialogues.mist_garden_event_dialogue(),
+        loot_item=data.ANTIDOTE,
     )
 
     drowned_archive = Location(
@@ -485,6 +511,7 @@ def build_world() -> GameMap:
         description="숲이 끝나고 나타나는 황량한 골짜기. 폐허로 가는 마지막 관문이다.",
         exits={
             "폐허로 향한다": "ruins",
+            "황혼 교역로로 향한다": "twilight_road",
             "깊은 숲으로 돌아간다": "deep_forest",
         },
         encounter_chance=0.55,
@@ -495,6 +522,56 @@ def build_world() -> GameMap:
             lambda: [data.create_shadow_stalker(), data.create_cursed_wraith()],
         ],
         dialogue=dialogues.shadow_valley_dialogue(),
+    )
+
+    twilight_road = Location(
+        loc_id="twilight_road", name="황혼 교역로",
+        description="붉은 노을 아래 수레바퀴 자국이 황혼장터까지 이어진다.",
+        exits={
+            "황혼장터로 향한다": "twilight_village",
+            "그림자 골짜기로 돌아간다": "shadow_valley",
+        },
+        encounter_chance=0.55,
+        encounter_pool=[
+            lambda: [data.create_road_bandit()],
+            lambda: [data.create_dusk_hawk(), data.create_dusk_hawk()],
+            lambda: [data.create_road_bandit(), data.create_dusk_hawk()],
+        ],
+    )
+
+    twilight_village = Location(
+        loc_id="twilight_village", name="황혼장터",
+        description="다섯 지역의 상단과 무림인이 모이는 교역 마을. 해가 진 뒤에도 등불과 흥정 소리가 이어진다.",
+        exits={
+            "황혼 교역로로 나간다": "twilight_road",
+            "황혼 상단 광장으로 간다": "twilight_caravan_square",
+        },
+        shops=[
+            Shop(
+                "아라의 오방 보급소",
+                items=[data.POTION, data.ETHER, data.ANTIDOTE, data.MOONLIGHT_TONIC],
+                description="각지의 회복 물자와 희귀 영약을 한데 모아 판매한다.",
+                discount_flag="twilight_trade_aided", discount_rate=0.15,
+                discount_description="상단 수레 수리 감사 전 상품 15% 할인",
+            ),
+            Shop(
+                "칠로 무기상",
+                equipment=[data.IRON_DAGGER, data.HUNTER_BOW, data.GUARD_SPEAR, data.SWIFT_CHARM],
+                description="먼 길에 적합한 빠른 무기와 기동 장비를 취급한다.",
+                discount_flag="twilight_trade_aided", discount_rate=0.15,
+                discount_description="상단 수레 수리 감사 전 상품 15% 할인",
+            ),
+        ],
+        has_inn=True, is_village=True, quest_npc="상단주 아라",
+        services={"quest_board", "advancement", "blacksmith", "crafting"},
+    )
+
+    twilight_caravan_square = Location(
+        loc_id="twilight_caravan_square", name="황혼 상단 광장",
+        description="오방에서 도착한 수레와 짐꾼이 모이는 황혼장터의 중심 광장이다.",
+        exits={"황혼장터로 돌아간다": "twilight_village"},
+        dialogue=dialogues.twilight_caravan_event_dialogue(),
+        loot_item=data.POTION,
     )
 
     ruins = Location(
@@ -696,6 +773,7 @@ def build_world() -> GameMap:
         exits={
             "폐광 입구로 향한다": "mine_entrance",
             "광부들의 지름길로 동굴에 간다": "cave",
+            "불꽃 대장간 마당으로 간다": "iron_forge_yard",
         },
         shops=[
             Shop(
@@ -703,10 +781,20 @@ def build_world() -> GameMap:
                 items=[data.POTION, data.ANTIDOTE],
                 equipment=[data.GUARD_SPEAR, data.BATTLE_AXE, data.IRON_GAUNTLET, data.LEATHER_ARMOR],
                 description="광산 작업과 근접 전투에 적합한 튼튼한 장비를 취급한다.",
+                discount_flag="iron_forge_aided", discount_rate=0.15,
+                discount_description="송풍 장치 수리 감사 전 상품 15% 할인",
             ),
         ],
         has_inn=True, is_village=True, quest_npc="광부 조합장 브론",
-        services={"blacksmith", "crafting"},
+        services={"quest_board", "advancement", "blacksmith", "crafting"},
+    )
+
+    iron_forge_yard = Location(
+        loc_id="iron_forge_yard", name="불꽃 대장간 마당",
+        description="광석을 제련하는 거대한 용광로와 공동 송풍 장치가 있는 작업장이다.",
+        exits={"철광촌으로 돌아간다": "iron_village"},
+        dialogue=dialogues.iron_forge_event_dialogue(),
+        loot_item=data.POTION,
     )
 
     mine_deep = Location(
@@ -737,16 +825,17 @@ def build_world() -> GameMap:
     )
 
     locations = [
-        village, elder_armory, star_observatory, star_village, fallen_star_field, star_rift,
+        village, elder_armory, star_observatory, star_village, star_beacon, fallen_star_field, star_rift,
         astral_passage, shattered_sanctum, void_throne,
         forest_entrance, deep_forest,
-        mist_marsh, sunken_boardwalk, forgotten_shrine, moonlit_spring, mist_village,
+        mist_marsh, sunken_boardwalk, forgotten_shrine, moonlit_spring, mist_village, mist_herb_garden,
         drowned_archive, echo_vault,
-        shadow_valley, ruins, seal_gate, final_chamber, abyss_dungeon,
+        shadow_valley, twilight_road, twilight_village, twilight_caravan_square,
+        ruins, seal_gate, final_chamber, abyss_dungeon,
         forgotten_sword_grave, grave_depths, nameless_sanctum,
         cave, cave_treasure, cave_vault, ending,
         tower_floor_1, tower_floor_2, tower_floor_3, tower_summit,
-        iron_village, mine_entrance, mine_deep, mine_depths,
+        iron_village, iron_forge_yard, mine_entrance, mine_deep, mine_depths,
     ]
     for location in locations:
         if (

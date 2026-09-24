@@ -85,6 +85,21 @@ COMMISSION_TEMPLATES: Dict[str, CommissionTemplate] = {
         "관측로까지 따라온 그림자 추적자를 제거한다.", "그림자 추적자 2마리 처치",
         "defeat", "그림자 추적자", 2, 76, (("포션", 2),),
     ),
+    "twilight_bandit_patrol": CommissionTemplate(
+        "twilight_bandit_patrol", "twilight_village", "황혼길 순찰",
+        "교역 수레를 노리는 산적을 몰아낸다.", "교역로 산적 2명 처치",
+        "defeat", "교역로 산적", 2, 62, (("포션", 2),),
+    ),
+    "twilight_hawk_watch": CommissionTemplate(
+        "twilight_hawk_watch", "twilight_village", "하늘길 호위",
+        "상단의 전서구를 습격하는 황혼 매를 쫓는다.", "황혼 매 2마리 처치",
+        "defeat", "황혼 매", 2, 58, (("에테르", 1),),
+    ),
+    "twilight_square_delivery": CommissionTemplate(
+        "twilight_square_delivery", "twilight_village", "광장 물자 확인",
+        "교역 광장의 수레와 보급품 상태를 확인한다.", "황혼 상단 광장 방문",
+        "visit", "twilight_caravan_square", 1, 55, (("해독제", 1),),
+    ),
 }
 
 

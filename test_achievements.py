@@ -21,7 +21,7 @@ class AchievementTests(unittest.TestCase):
             f"적{index}": {"name": f"적{index}", "defeats": 5, "encounters": 5}
             for index in range(5)
         }
-        state = achievement_state(self.game.flags, 10, 4)
+        state = achievement_state(self.game.flags, 10, 5)
         ready_ids = {entry["id"] for entry in state["entries"] if entry["status"] == "ready"}
         self.assertTrue({
             "first_victory", "field_researcher", "seasoned_hunter",

@@ -8,6 +8,70 @@ world.py 에서 해당 Location의 dialogue= 인자로 연결하세요.
 from story import DialogueNode, Dialogue
 
 
+def village_event_dialogue(
+    speaker: str, opening: list[str], help_label: str, decline_label: str,
+    flag: str, success_line: str, decline_line: str,
+) -> Dialogue:
+    """마을 전용 시설을 돕고 상점 혜택을 여는 일회성 선택 이벤트."""
+    def help_village(flags: dict):
+        flags[flag] = True
+
+    def pass_by(flags: dict):
+        flags[flag] = False
+
+    return Dialogue(nodes=[
+        DialogueNode("event", [*opening, f"{speaker}: \"어떻게 하시겠습니까?\""], choices=[
+            (help_label, "help"), (decline_label, "decline"),
+        ]),
+        DialogueNode("help", [success_line], effect=help_village),
+        DialogueNode("decline", [decline_line], effect=pass_by),
+    ], start_id="event")
+
+
+def iron_forge_event_dialogue() -> Dialogue:
+    return village_event_dialogue(
+        "대장장이 브론",
+        ["용광로의 송풍 장치가 멈춰 광산 장비 제작이 중단되어 있다."],
+        "파티가 힘을 모아 송풍 장치를 수리한다", "수리는 기술자에게 맡긴다",
+        "iron_forge_aided",
+        "송풍 장치가 다시 불꽃을 토한다. 브론은 광산 장비 값을 낮추겠다고 약속한다.",
+        "파티는 뜨거운 용광로를 뒤로하고 철광촌으로 돌아간다.",
+    )
+
+
+def mist_garden_event_dialogue() -> Dialogue:
+    return village_event_dialogue(
+        "약초사 나린",
+        ["달빛 약초밭에 독안개가 내려 약초꾼들이 가까이 가지 못하고 있다."],
+        "해독제를 나누어 약초밭을 정화한다", "안개가 걷힐 때까지 기다린다",
+        "mist_garden_aided",
+        "맑아진 물길 위로 약초 향이 번진다. 나린은 약방 물품을 할인해 주기로 한다.",
+        "약초꾼들은 안개가 걷힐 때 다시 오겠다며 마을로 물러난다.",
+    )
+
+
+def star_beacon_event_dialogue() -> Dialogue:
+    return village_event_dialogue(
+        "별길 안내인 세라",
+        ["별바람 봉화대의 렌즈가 어긋나 귀환 신호가 낙하지를 비추지 못한다."],
+        "관측 기록을 맞춰 봉화 렌즈를 조정한다", "기존 표식을 따라 이동한다",
+        "star_beacon_aided",
+        "푸른 봉화가 별길을 곧게 비춘다. 세라는 원정 보급품을 싸게 제공하겠다고 한다.",
+        "파티는 희미한 기존 표식을 확인하고 역참으로 돌아간다.",
+    )
+
+
+def twilight_caravan_event_dialogue() -> Dialogue:
+    return village_event_dialogue(
+        "상단주 아라",
+        ["황혼 상단의 짐수레가 부서져 교역 광장 한복판을 막고 있다."],
+        "수레를 고치고 흩어진 짐을 정리한다", "경비대가 올 때까지 길을 우회한다",
+        "twilight_trade_aided",
+        "해가 지기 전에 교역로가 다시 열린다. 아라는 장터의 단골 혜택을 약속한다.",
+        "파티는 혼잡한 광장을 피해 황혼장터로 돌아간다.",
+    )
+
+
 def village_intro_dialogue() -> Dialogue:
     """마을 노인이 부탁을 하는 오프닝 대화. 선택에 따라 flags["promised_elder"]가 갈린다."""
 
