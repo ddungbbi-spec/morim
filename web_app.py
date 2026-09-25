@@ -50,9 +50,10 @@ from quests import QuestLog, QUESTS
 from shop import SELL_RATIO
 from advancement import ADVANCEMENT_LEVEL, advance, options_for
 from world import (
-    MAP_REGIONS, build_world, complete_tower_challenge, create_scaled_tower_guardian,
-    region_for_location,
-    reset_tower_challenge, tower_challenge_tier, tower_clear_count,
+    MAP_REGIONS, TOWER_MAX_FLOOR, build_world, complete_tower_challenge,
+    create_scaled_tower_boss, grant_tower_boss_reward,
+    region_for_location, reset_tower_challenge, tower_challenge_tier,
+    tower_clear_count, tower_floor_number,
 )
 from dungeon import (
     DUNGEON_ENTRY_FEE, DUNGEON_LOCATION_ID, DUNGEON_MAX_DEPTH,
@@ -412,18 +413,10 @@ class WebGame:
         if not location.boss or not location.boss_defeated:
             return self._error("현재 장소에는 다시 도전할 보스가 없습니다.")
 
-        if location.id == "tower_summit" and tower_clear_count(self.flags) == 0:
-            # 반복 도전 기능 도입 전 저장도 최초 정복을 끝낸 상태로 보정한다.
-            self.flags["tower_clear_count"] = 1
-        enemies = (
-            [create_scaled_tower_guardian(self.flags)]
-            if location.id == "tower_summit" else location.boss()
-        )
-        title = (
-            f"{location.name} · {tower_challenge_tier(self.flags)}단계 재도전"
-            if location.id == "tower_summit" else f"{location.name}의 보스 재도전"
-        )
-        self._begin_battle(enemies, "boss_retry", title)
+        if tower_floor_number(location.id) is not None:
+            return self._error("도전의 탑 보스는 한 회차에 한 번만 처치할 수 있습니다. 100층 정복 후 새 도전을 시작하세요.")
+
+        self._begin_battle(location.boss(), "boss_retry", f"{location.name}의 보스 재도전")
         return {"ok": True, "state": self.state()}
 
     def _forge_quote(self, index, material):
@@ -819,11 +812,11 @@ class WebGame:
             self._log("봉인의 힘이 파티에 깃들었습니다. 최대 HP +6, 공격력 +2, 방어력 +1")
 
         if location.boss and not location.boss_defeated:
-            enemies = (
-                [create_scaled_tower_guardian(self.flags)]
-                if location.id == "tower_summit" else location.boss()
-            )
-            title = f"{location.name} · {tower_challenge_tier(self.flags)}단계" if location.id == "tower_summit" else f"{location.name}의 보스"
+            tower_floor = tower_floor_number(location.id)
+            enemies = ([create_scaled_tower_boss(tower_floor, self.flags)]
+                       if tower_floor else location.boss())
+            title = (f"{location.name} · {tower_challenge_tier(self.flags)}단계"
+                     if tower_floor else f"{location.name}의 보스")
             self._begin_battle(enemies, "boss", title)
             return
 
@@ -1189,12 +1182,21 @@ class WebGame:
         self.battle_context = ""
         if context in {"boss", "boss_retry"}:
             location = self.game_map.current
+            tower_floor = tower_floor_number(location.id)
+            if tower_floor:
+                reward_gold, reward_equipment = grant_tower_boss_reward(
+                    self.flags, tower_floor, self.party, self.equipment_inventory
+                )
+                reward_text = f"{reward_gold}G"
+                if reward_equipment:
+                    reward_text += f", {reward_equipment.display_name}"
+                self._log(f"도전의 탑 {tower_floor}층 보스 보상: {reward_text}")
             if location.id == "tower_summit":
                 clear_count, bonus_gold, equipment = complete_tower_challenge(
                     self.flags, self.party, self.equipment_inventory
                 )
                 if clear_count == 1:
-                    self._log("도전의 탑을 최초로 정복했습니다!")
+                    self._log("도전의 탑 100층을 최초로 정복했습니다!")
                 else:
                     self._log(
                         f"도전의 탑 {clear_count}회 클리어 보상: "
@@ -1939,12 +1941,20 @@ class WebGame:
                     self.phase == "explore"
                     and bool(location.boss)
                     and location.boss_defeated
+                    and tower_floor_number(location.id) is None
                 ),
                 "location_name": location.name,
             },
             "tower": {
                 "clear_count": tower_clear_count(self.flags),
                 "next_tier": tower_challenge_tier(self.flags),
+                "max_floor": TOWER_MAX_FLOOR,
+                "current_floor": tower_floor_number(location.id) or 0,
+                "highest_floor": int(self.flags.get("tower_highest_floor", 0)),
+                "next_boss_floor": min(
+                    TOWER_MAX_FLOOR,
+                    ((int(self.flags.get("tower_highest_floor", 0)) // 5) + 1) * 5,
+                ),
                 "can_retry": (
                     location.id == "village"
                     and self.game_map.locations["tower_summit"].boss_defeated

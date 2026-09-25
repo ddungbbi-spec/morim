@@ -279,7 +279,9 @@ function renderCommands() {
   } else if (exploreEnabled) {
     $("#commandTitle").textContent = gameState.location.id === "abyss_dungeon"
       ? `심연 ${gameState.dungeon.depth}/${gameState.dungeon.max_depth} · ${gameState.dungeon.modifier} · 임시 ${gameState.dungeon.reward_bank}G/${gameState.dungeon.shard_bank}조각`
-      : "이동";
+      : gameState.tower?.current_floor
+        ? `도전의 탑 ${gameState.tower.current_floor}/${gameState.tower.max_floor}층 · 다음 보스 ${gameState.tower.next_boss_floor}층`
+        : "이동";
     const moves = gameState.location.exits.map((exit) => {
       const encoded = encodeURIComponent(exit.label);
       const lock = exit.locked ? ` · 🔒 ${escapeHtml(exit.lock_reason || exit.required_item)}` : "";

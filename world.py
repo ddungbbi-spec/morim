@@ -11,7 +11,19 @@ import data
 import dialogues
 
 
+TOWER_MAX_FLOOR = 100
+TOWER_BOSS_INTERVAL = 5
 TOWER_SUMMIT_ID = "tower_summit"
+
+
+def tower_floor_id(floor: int) -> str:
+    """100층은 구버전 저장 호환을 위해 기존 정상 ID를 유지한다."""
+    if floor < 1 or floor > TOWER_MAX_FLOOR:
+        raise ValueError(f"도전의 탑 층수는 1~{TOWER_MAX_FLOOR}여야 한다.")
+    return TOWER_SUMMIT_ID if floor == TOWER_MAX_FLOOR else f"tower_floor_{floor}"
+
+
+TOWER_LOCATION_IDS = tuple(tower_floor_id(floor) for floor in range(1, TOWER_MAX_FLOOR + 1))
 
 
 def secret_dungeon_unlocked(flags: dict) -> bool:
@@ -54,8 +66,8 @@ MAP_REGIONS = [
         "locations": ("iron_village", "iron_forge_yard", "mine_entrance", "mine_deep", "mine_depths"),
     },
     {
-        "id": "tower", "name": "도전의 탑", "description": "단계가 높아지는 반복 도전 지역",
-        "locations": ("tower_floor_1", "tower_floor_2", "tower_floor_3", "tower_summit"),
+        "id": "tower", "name": "도전의 탑", "description": "100층과 20개의 보스 관문으로 이루어진 반복 도전 지역",
+        "locations": TOWER_LOCATION_IDS,
     },
     {
         "id": "fallen_star", "name": "검은 별 낙하지", "description": "마왕 처치 후 열리는 별의 균열",
@@ -125,24 +137,120 @@ def tower_challenge_tier(flags: dict) -> int:
     return tower_clear_count(flags) + 1
 
 
+def tower_floor_number(location_id: str) -> int | None:
+    """탑 장소 ID를 실제 층수로 변환한다."""
+    if location_id == TOWER_SUMMIT_ID:
+        return TOWER_MAX_FLOOR
+    prefix = "tower_floor_"
+    if not location_id.startswith(prefix):
+        return None
+    try:
+        floor = int(location_id[len(prefix):])
+    except ValueError:
+        return None
+    return floor if 1 <= floor < TOWER_MAX_FLOOR else None
+
+
+def is_tower_boss_floor(floor: int) -> bool:
+    return 1 <= floor <= TOWER_MAX_FLOOR and floor % TOWER_BOSS_INTERVAL == 0
+
+
+def create_scaled_tower_enemy(factory, floor: int):
+    """일반층 적을 층수에 맞게 강화한다."""
+    enemy = factory()
+    step = max(0, (floor - 1) // 5)
+    enemy.level += step
+    enemy.max_hp = round(enemy.max_hp * (1 + 0.10 * step))
+    enemy.hp = enemy.max_hp
+    enemy.max_mp += 2 * step
+    enemy.mp = enemy.max_mp
+    enemy.attack += step
+    enemy.defense += step // 2
+    enemy.speed += min(step // 3, 6)
+    enemy.exp_reward += 4 * step
+    enemy.gold_reward += 3 * step
+    return enemy
+
+
+def tower_encounter_pool(floor: int):
+    """20층 단위로 일반층 적 조합을 확장한다."""
+    if floor <= 20:
+        groups = ((data.create_goblin,), (data.create_wild_wolf,),
+                  (data.create_orc_warrior, data.create_poison_spider))
+    elif floor <= 40:
+        groups = ((data.create_orc_warrior, data.create_goblin),
+                  (data.create_forest_sprite, data.create_poison_spider),
+                  (data.create_road_bandit, data.create_wild_wolf))
+    elif floor <= 60:
+        groups = ((data.create_skeleton_miner, data.create_ghost_miner),
+                  (data.create_shadow_stalker, data.create_bat_swarm),
+                  (data.create_canyon_hexer, data.create_road_bandit))
+    elif floor <= 80:
+        groups = ((data.create_marsh_hunter, data.create_will_o_wisp),
+                  (data.create_cursed_wraith, data.create_shadow_stalker),
+                  (data.create_star_remnant, data.create_canyon_hexer))
+    else:
+        groups = ((data.create_star_remnant, data.create_void_sentinel),
+                  (data.create_cursed_wraith, data.create_void_sentinel),
+                  (data.create_nebula_devourer, data.create_star_remnant))
+    return [
+        lambda group=group: [create_scaled_tower_enemy(factory, floor) for factory in group]
+        for group in groups
+    ]
+
+
+def create_scaled_tower_boss(floor: int, flags: dict):
+    """5층마다 등장하는 보스를 층수와 반복 도전 단계에 맞춰 강화한다."""
+    if not is_tower_boss_floor(floor):
+        raise ValueError("보스는 5층 단위로만 생성할 수 있다.")
+    guardian = data.create_tower_guardian()
+    floor_step = floor // TOWER_BOSS_INTERVAL - 1
+    tier_step = tower_challenge_tier(flags) - 1
+    guardian.name = (
+        "탑의 수호자" if floor == TOWER_MAX_FLOOR
+        else f"{floor}층 관문 수호자"
+    )
+    if tier_step:
+        guardian.name += f" · {tier_step + 1}단계"
+    guardian.level = 4 + floor // TOWER_BOSS_INTERVAL + tier_step
+    guardian.max_hp = round(guardian.max_hp * (0.65 + 0.11 * floor_step) * (1 + 0.35 * tier_step))
+    guardian.hp = guardian.max_hp
+    guardian.max_mp += 3 * floor_step + 5 * tier_step
+    guardian.mp = guardian.max_mp
+    guardian.attack += floor_step + 3 * tier_step
+    guardian.defense += floor_step // 2 + 2 * tier_step
+    guardian.speed += min(floor_step // 3 + tier_step, 10)
+    guardian.exp_reward += 12 * floor_step + 20 * tier_step
+    guardian.gold_reward += 8 * floor_step + 12 * tier_step
+    return guardian
+
+
 def create_scaled_tower_guardian(flags: dict):
     """클리어 횟수에 따라 탑의 수호자를 점차 강화한다."""
-    guardian = data.create_tower_guardian()
+    return create_scaled_tower_boss(TOWER_MAX_FLOOR, flags)
+
+
+def grant_tower_boss_reward(flags: dict, floor: int, party, equipment_inventory: list):
+    """보스층 보상을 회차당 한 번만 지급한다."""
+    if not is_tower_boss_floor(floor):
+        raise ValueError("보스층 보상은 5층 단위에서만 지급할 수 있다.")
+    rewarded = flags.setdefault("tower_rewarded_floors", [])
+    if floor in rewarded:
+        return 0, None
+
     tier = tower_challenge_tier(flags)
-    step = tier - 1
-    if step:
-        guardian.name = f"탑의 수호자 · {tier}단계"
-        guardian.level += step
-        guardian.max_hp = round(guardian.max_hp * (1 + 0.35 * step))
-        guardian.hp = guardian.max_hp
-        guardian.max_mp += 5 * step
-        guardian.mp = guardian.max_mp
-        guardian.attack += 3 * step
-        guardian.defense += 2 * step
-        guardian.speed += min(step, 8)
-        guardian.exp_reward += 20 * step
-        guardian.gold_reward += 12 * step
-    return guardian
+    bonus_gold = 20 + floor * 2 + (tier - 1) * 15
+    party.gold += bonus_gold
+    equipment = None
+    if floor % 10 == 0:
+        party_level = max((member.level for member in party.members), default=1)
+        reward_level = max(party_level, 2 + floor // 10 + tier - 1)
+        equipment = data.generate_random_equipment(reward_level)
+        equipment_inventory.append(equipment)
+
+    rewarded.append(floor)
+    flags["tower_highest_floor"] = max(int(flags.get("tower_highest_floor", 0)), floor)
+    return bonus_gold, equipment
 
 
 def reset_tower_challenge(game_map: GameMap, flags: dict) -> bool:
@@ -153,7 +261,10 @@ def reset_tower_challenge(game_map: GameMap, flags: dict) -> bool:
     # tower_clear_count 도입 전 저장 파일도 최초 클리어로 인정한다.
     if tower_clear_count(flags) == 0:
         flags["tower_clear_count"] = 1
-    summit.boss_defeated = False
+    for floor in range(TOWER_BOSS_INTERVAL, TOWER_MAX_FLOOR + 1, TOWER_BOSS_INTERVAL):
+        game_map.locations[tower_floor_id(floor)].boss_defeated = False
+    flags["tower_rewarded_floors"] = []
+    flags["tower_highest_floor"] = 0
     flags["tower_challenge_active"] = True
     return True
 
@@ -751,66 +862,41 @@ def build_world() -> GameMap:
         dialogue=dialogues.ending_dialogue(),
     )
 
-    tower_floor_1 = Location(
-        loc_id="tower_floor_1",
-        name="도전의 탑 1층",
-        description="차가운 돌계단이 위로 이어져 있다. 여기서부터가 시작이다.",
-        exits={
-            "2층으로 올라간다": "tower_floor_2",
-            "마을로 돌아간다": "village",
-        },
-        encounter_chance=0.5,
-        encounter_pool=[
-            lambda: [data.create_goblin()],
-            lambda: [data.create_wild_wolf()],
-            lambda: [data.create_orc_warrior()],
-        ],
-    )
+    tower_locations = []
+    for floor in range(1, TOWER_MAX_FLOOR + 1):
+        loc_id = tower_floor_id(floor)
+        boss_floor = is_tower_boss_floor(floor)
+        exits = {}
+        if floor < TOWER_MAX_FLOOR:
+            exits[f"{floor + 1}층으로 올라간다"] = tower_floor_id(floor + 1)
+        if floor == 1:
+            exits["마을로 돌아간다"] = "village"
+        else:
+            exits[f"{floor - 1}층으로 내려간다"] = tower_floor_id(floor - 1)
+        if floor == TOWER_MAX_FLOOR:
+            exits = {
+                "탑의 마법진으로 마을에 귀환한다": "village",
+                f"{floor - 1}층으로 내려간다": tower_floor_id(floor - 1),
+            }
 
-    tower_floor_2 = Location(
-        loc_id="tower_floor_2",
-        name="도전의 탑 2층",
-        description="위로 올라갈수록 공기가 무거워진다. 이곳의 몬스터들은 한층 더 사납다.",
-        exits={
-            "3층으로 올라간다": "tower_floor_3",
-            "1층으로 내려간다": "tower_floor_1",
-        },
-        encounter_chance=0.6,
-        encounter_pool=[
-            lambda: [data.create_orc_warrior()],
-            lambda: [data.create_forest_sprite()],
-            lambda: [data.create_goblin(), data.create_poison_spider()],
-        ],
-    )
+        if floor == TOWER_MAX_FLOOR:
+            description = "백 층의 시련 끝에 닿은 정상. 역대 수호자들의 기운이 마지막 관문에 모여 있다."
+        elif boss_floor:
+            description = f"도전의 탑 {floor}층. 계단을 봉쇄한 관문 수호자가 도전자를 기다린다."
+        else:
+            description = f"도전의 탑 {floor}층. 위층으로 갈수록 적의 기운과 탑의 압력이 강해진다."
 
-    tower_floor_3 = Location(
-        loc_id="tower_floor_3",
-        name="도전의 탑 3층",
-        description="탑의 정상이 가까워졌다. 강력한 기운이 위층에서부터 느껴진다.",
-        exits={
-            "정상으로 올라간다": "tower_summit",
-            "2층으로 내려간다": "tower_floor_2",
-        },
-        encounter_chance=0.7,
-        encounter_pool=[
-            lambda: [data.create_orc_warrior(), data.create_goblin()],
-            lambda: [data.create_poison_spider(), data.create_bat_swarm()],
-            lambda: [data.create_orc_warrior(), data.create_orc_warrior()],
-        ],
-    )
-
-    tower_summit = Location(
-        loc_id="tower_summit",
-        name="도전의 탑 정상",
-        description="탑의 가장 높은 곳. 구름 위로 솟아 있어 사방이 훤히 내려다보인다.",
-        exits={
-            "탑의 마법진으로 마을에 귀환한다": "village",
-            "3층으로 내려간다": "tower_floor_3",
-        },
-        boss=lambda: [data.create_tower_guardian()],
-        dialogue=dialogues.tower_summit_dialogue(),
-        loot_equipment=data.LEGENDARY_ARMOR,
-    )
+        tower_locations.append(Location(
+            loc_id=loc_id,
+            name="도전의 탑 정상 · 100층" if floor == TOWER_MAX_FLOOR else f"도전의 탑 {floor}층",
+            description=description,
+            exits=exits,
+            encounter_chance=0.0 if boss_floor else min(0.45 + floor * 0.004, 0.82),
+            encounter_pool=[] if boss_floor else tower_encounter_pool(floor),
+            boss=(lambda floor=floor: [create_scaled_tower_boss(floor, {})]) if boss_floor else None,
+            dialogue=dialogues.tower_summit_dialogue() if floor == TOWER_MAX_FLOOR else None,
+            loot_equipment=data.LEGENDARY_ARMOR if floor == TOWER_MAX_FLOOR else None,
+        ))
 
     mine_entrance = Location(
         loc_id="mine_entrance",
@@ -896,7 +982,7 @@ def build_world() -> GameMap:
         ruins, seal_gate, final_chamber, abyss_dungeon,
         forgotten_sword_grave, grave_depths, nameless_sanctum,
         cave, cave_treasure, cave_vault, ending,
-        tower_floor_1, tower_floor_2, tower_floor_3, tower_summit,
+        *tower_locations,
         iron_village, iron_forge_yard, mine_entrance, mine_deep, mine_depths,
     ]
     for location in locations:

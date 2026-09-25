@@ -201,10 +201,12 @@ def explore(
         # 보스가 있는 장소면 진입 시 자동으로 전투 발생 (1회만)
         if loc.boss and not loc.boss_defeated:
             print("\n강력한 기운이 느껴진다...!")
-            if loc.id == "tower_summit":
-                from world import create_scaled_tower_guardian, tower_challenge_tier
-                enemies = [create_scaled_tower_guardian(flags)]
-                print(f"도전 단계: {tower_challenge_tier(flags)}")
+            from world import tower_floor_number
+            tower_floor = tower_floor_number(loc.id)
+            if tower_floor:
+                from world import create_scaled_tower_boss, tower_challenge_tier
+                enemies = [create_scaled_tower_boss(tower_floor, flags)]
+                print(f"도전 단계: {tower_challenge_tier(flags)} · {tower_floor}층 보스")
             else:
                 enemies = loc.boss()
             won = Battle(party, enemies, inventory, equipment_inventory).run()
@@ -212,13 +214,22 @@ def explore(
                 return False
             for title in record_defeats(flags, [enemy.name for enemy in enemies]):
                 print(f"\nNPC 의뢰 [{title}]의 목표를 달성했다!")
+            if tower_floor:
+                from world import grant_tower_boss_reward
+                reward_gold, reward_equipment = grant_tower_boss_reward(
+                    flags, tower_floor, party, equipment_inventory
+                )
+                reward_text = f"{reward_gold}G"
+                if reward_equipment:
+                    reward_text += f", {reward_equipment.display_name}"
+                print(f"\n도전의 탑 {tower_floor}층 보상: {reward_text}")
             if loc.id == "tower_summit":
                 from world import complete_tower_challenge
                 clear_count, bonus_gold, equipment = complete_tower_challenge(
                     flags, party, equipment_inventory
                 )
                 if clear_count == 1:
-                    print("\n도전의 탑을 최초로 정복했다!")
+                    print("\n도전의 탑 100층을 최초로 정복했다!")
                 else:
                     print(
                         f"\n도전의 탑 {clear_count}회 클리어! "
@@ -269,7 +280,8 @@ def explore(
         options.append(("장비 관리", "equip", None))
         options.append(("지도 보기", "map", None))
         options.append(("퀘스트 일지", "quests", None))
-        if loc.boss and loc.boss_defeated:
+        from world import tower_floor_number
+        if loc.boss and loc.boss_defeated and tower_floor_number(loc.id) is None:
             options.append(("보스에게 다시 도전", "boss_retry", None))
         if "quest_board" in loc.services:
             options.append(("의뢰 게시판", "quest_board", None))
