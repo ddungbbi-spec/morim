@@ -53,7 +53,7 @@ from world import (
     MAP_REGIONS, TOWER_MAX_FLOOR, build_world, complete_tower_challenge,
     create_scaled_tower_boss, grant_tower_boss_reward,
     region_for_location, reset_tower_challenge, tower_challenge_tier,
-    tower_clear_count, tower_floor_number,
+    tower_checkpoint_floor, tower_clear_count, tower_floor_id, tower_floor_number,
 )
 from dungeon import (
     DUNGEON_ENTRY_FEE, DUNGEON_LOCATION_ID, DUNGEON_MAX_DEPTH,
@@ -306,15 +306,25 @@ class WebGame:
 
     def tower_action(self, operation: str) -> dict:
         if self.phase != "explore" or self.game_map.current_id != "village":
-            return self._error("탑 재도전은 시작 마을에서 준비할 수 있습니다.")
-        if operation != "reset":
+            return self._error("탑 이동과 재도전 준비는 시작 마을에서만 가능합니다.")
+        if operation == "resume":
+            checkpoint = tower_checkpoint_floor(self.flags)
+            if checkpoint <= 0:
+                return self._error("아직 해금된 도전의 탑 체크포인트가 없습니다.")
+            if self.game_map.locations["tower_summit"].boss_defeated:
+                return self._error("100층 정복을 완료했습니다. 다음 도전 단계를 먼저 개방하세요.")
+            self.game_map.move_to(tower_floor_id(checkpoint))
+            self._log(f"도전의 탑 {checkpoint}층 체크포인트로 복귀했습니다.")
+            self._enter_current_location()
+        elif operation == "reset":
+            if not reset_tower_challenge(self.game_map, self.flags):
+                return self._error("현재 진행 중인 탑 도전을 먼저 완료하세요.")
+            self._log(
+                f"도전의 탑 {tower_challenge_tier(self.flags)}단계가 열렸습니다. "
+                "탑의 수호자가 더욱 강해졌습니다."
+            )
+        else:
             return self._error("지원하지 않는 탑 행동입니다.")
-        if not reset_tower_challenge(self.game_map, self.flags):
-            return self._error("현재 진행 중인 탑 도전을 먼저 완료하세요.")
-        self._log(
-            f"도전의 탑 {tower_challenge_tier(self.flags)}단계가 열렸습니다. "
-            "탑의 수호자가 더욱 강해졌습니다."
-        )
         return {"ok": True, "state": self.state()}
 
     def _start_dungeon_floor(self) -> None:
@@ -1951,6 +1961,7 @@ class WebGame:
                 "max_floor": TOWER_MAX_FLOOR,
                 "current_floor": tower_floor_number(location.id) or 0,
                 "highest_floor": int(self.flags.get("tower_highest_floor", 0)),
+                "checkpoint_floor": tower_checkpoint_floor(self.flags),
                 "next_boss_floor": min(
                     TOWER_MAX_FLOOR,
                     ((int(self.flags.get("tower_highest_floor", 0)) // 5) + 1) * 5,
@@ -1958,6 +1969,11 @@ class WebGame:
                 "can_retry": (
                     location.id == "village"
                     and self.game_map.locations["tower_summit"].boss_defeated
+                ),
+                "can_resume": (
+                    location.id == "village"
+                    and tower_checkpoint_floor(self.flags) > 0
+                    and not self.game_map.locations["tower_summit"].boss_defeated
                 ),
                 "active": bool(self.flags.get("tower_challenge_active")),
             },

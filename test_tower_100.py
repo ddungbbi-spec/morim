@@ -10,7 +10,7 @@ from world import (
     MAP_REGIONS, TOWER_BOSS_INTERVAL, TOWER_MAX_FLOOR,
     build_world, create_scaled_tower_boss, grant_tower_boss_reward,
     is_tower_boss_floor, reset_tower_challenge, tower_floor_id,
-    tower_floor_number,
+    tower_checkpoint_floor, tower_floor_number,
 )
 
 
@@ -48,6 +48,13 @@ class HundredFloorTowerTests(unittest.TestCase):
         self.assertGreater(repeated.attack, floor_fifty.attack)
         self.assertTrue(is_tower_boss_floor(100))
         self.assertFalse(is_tower_boss_floor(99))
+
+    def test_checkpoint_uses_highest_completed_ten_floor_boundary(self):
+        self.assertEqual(tower_checkpoint_floor({}), 0)
+        self.assertEqual(tower_checkpoint_floor({"tower_highest_floor": 9}), 0)
+        self.assertEqual(tower_checkpoint_floor({"tower_highest_floor": 10}), 10)
+        self.assertEqual(tower_checkpoint_floor({"tower_highest_floor": 27}), 20)
+        self.assertEqual(tower_checkpoint_floor({"tower_highest_floor": 100}), 90)
 
     def test_boss_rewards_are_once_per_run_and_equipment_arrives_every_ten_floors(self):
         flags = {}
@@ -107,6 +114,24 @@ class HundredFloorTowerTests(unittest.TestCase):
         self.assertEqual(state["tower"]["max_floor"], 100)
         self.assertEqual(state["tower"]["next_boss_floor"], 10)
         self.assertFalse(state["boss_retry"]["available"])
+
+    def test_web_can_resume_from_village_at_highest_checkpoint(self):
+        game = WebGame()
+        self.assertTrue(game.configure_party(DEFAULT_PARTY_SETUP)["ok"])
+        game.advance_dialogue(1)
+        game.advance_dialogue()
+        game.flags["tower_highest_floor"] = 37
+        game.game_map.locations[tower_floor_id(30)].boss_defeated = True
+
+        village_state = game.state()
+        self.assertTrue(village_state["tower"]["can_resume"])
+        self.assertEqual(village_state["tower"]["checkpoint_floor"], 30)
+        result = game.tower_action("resume")
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(game.game_map.current_id, tower_floor_id(30))
+        self.assertEqual(game.phase, "explore")
+        self.assertEqual(result["state"]["tower"]["current_floor"], 30)
 
 
 if __name__ == "__main__":

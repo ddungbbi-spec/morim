@@ -295,6 +295,7 @@ function renderCommands() {
       ${gameState.blacksmith ? `<button class="command-button utility" onclick="openUtility('blacksmith')">대장간 · 장비 강화</button>` : ""}
       ${gameState.crafting ? `<button class="command-button utility" onclick="openUtility('crafting')">분해 · 합성 · 재련</button>` : ""}
       ${gameState.boss_retry?.available ? `<button class="command-button danger" onclick="bossRetry()">보스에게 다시 도전</button>` : ""}
+      ${gameState.tower?.can_resume ? `<button class="command-button utility" onclick="towerResume()">도전의 탑 ${gameState.tower.checkpoint_floor}층 체크포인트 복귀</button>` : ""}
       ${gameState.tower?.can_retry ? `<button class="command-button utility" onclick="towerRetry()">도전의 탑 ${gameState.tower.next_tier}단계 개방</button>` : ""}
       ${gameState.location.id === "abyss_dungeon" && gameState.dungeon.active ? `<button class="command-button danger" onclick="dungeonRequest('advance')">다음 층 도전 · ${gameState.dungeon.depth + 1}/${gameState.dungeon.max_depth} · 누적 조각 ${gameState.dungeon.shard_bank}개 위험</button>` : ""}
       <button class="command-button utility" onclick="openUtility('equipment')">장비</button>
@@ -793,6 +794,9 @@ function towerRetry() {
   if (confirm(`도전의 탑 ${gameState.tower.next_tier}단계를 개방할까요?`)) {
     request("/api/tower", {operation: "reset"});
   }
+}
+function towerResume() {
+  request("/api/tower", {operation: "resume"});
 }
 function dungeonRequest(operation) {
   const messages = {

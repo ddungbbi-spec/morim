@@ -13,6 +13,7 @@ import dialogues
 
 TOWER_MAX_FLOOR = 100
 TOWER_BOSS_INTERVAL = 5
+TOWER_CHECKPOINT_INTERVAL = 10
 TOWER_SUMMIT_ID = "tower_summit"
 
 
@@ -135,6 +136,17 @@ def tower_clear_count(flags: dict) -> int:
 def tower_challenge_tier(flags: dict) -> int:
     """다음 탑 도전 단계. 최초 도전은 1단계다."""
     return tower_clear_count(flags) + 1
+
+
+def tower_checkpoint_floor(flags: dict) -> int:
+    """현재 회차에서 마을로부터 복귀할 수 있는 최고 10층 단위 지점."""
+    try:
+        highest = max(0, int(flags.get("tower_highest_floor", 0)))
+    except (TypeError, ValueError):
+        return 0
+    checkpoint = highest - highest % TOWER_CHECKPOINT_INTERVAL
+    # 100층은 완주 지점이므로 복귀 지점이 아니라 다음 회차 개방으로 처리한다.
+    return min(checkpoint, TOWER_MAX_FLOOR - TOWER_CHECKPOINT_INTERVAL)
 
 
 def tower_floor_number(location_id: str) -> int | None:

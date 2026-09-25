@@ -293,6 +293,14 @@ def explore(
             options.append(("장비 분해·무기 합성", "crafting", None))
         if loc.id == "village":
             tower_summit = game_map.locations.get("tower_summit")
+            from world import tower_checkpoint_floor
+            checkpoint = tower_checkpoint_floor(flags)
+            if checkpoint and tower_summit and not tower_summit.boss_defeated:
+                options.append((
+                    f"도전의 탑 {checkpoint}층 체크포인트로 복귀",
+                    "tower_resume",
+                    checkpoint,
+                ))
             if tower_summit and tower_summit.boss_defeated:
                 from world import tower_challenge_tier
                 next_tier = max(2, tower_challenge_tier(flags))
@@ -475,6 +483,12 @@ def explore(
                 print("\n탑의 수호자가 더 강한 모습으로 부활했다. 마을 입구에서 다시 도전할 수 있다!")
             else:
                 print("\n현재 진행 중인 탑 도전을 먼저 완료해야 한다.")
+            continue
+
+        if action == "tower_resume":
+            from world import tower_floor_id
+            game_map.move_to(tower_floor_id(payload))
+            print(f"\n마법진이 파티를 도전의 탑 {payload}층 체크포인트로 이동시켰다.")
             continue
 
         if action == "shop":
