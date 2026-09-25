@@ -227,6 +227,8 @@ def claim_commission(flags: dict, village_id: str, party, inventory: list):
     party.gold += template.gold_reward
     for item_name, count in template.item_rewards:
         inventory.extend([data.ITEMS_BY_NAME[item_name]] * count)
+    from reputation import add_reputation
+    add_reputation(flags, village_id, 1)
     _history(flags)[village_id] = template.commission_id
     del _records(flags)[village_id]
     return template
@@ -246,6 +248,7 @@ def commission_state(flags: dict, village_id: str) -> dict | None:
         "progress": record["progress"],
         "required": template.required,
         "gold_reward": template.gold_reward,
+        "reputation_reward": 1,
         "item_rewards": [
             {"name": item_name, "count": count}
             for item_name, count in template.item_rewards

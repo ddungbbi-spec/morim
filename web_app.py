@@ -47,6 +47,7 @@ from models import (
     Enemy, Item, Party, PlayerCharacter, Skill,
 )
 from quests import QuestLog, QUESTS
+from reputation import reputation_discount, reputation_state
 from shop import SELL_RATIO
 from advancement import ADVANCEMENT_LEVEL, advance, options_for
 from world import (
@@ -254,11 +255,12 @@ class WebGame:
         location = self.game_map.current
         try:
             shop = location.shops[self._index(shop_index, len(location.shops), "상점")]
+            reputation_rate = reputation_discount(self.flags, location.id)
             if not shop.is_available(self.flags):
                 raise ValueError(f"{shop.unlock_description} 후에 이용할 수 있습니다.")
             if operation == "buy_item":
                 item = shop.items[self._index(index, len(shop.items), "상품")]
-                price = shop.price_for(item, self.flags)
+                price = shop.price_for(item, self.flags, reputation_rate)
                 if self.party.gold < price:
                     raise ValueError("골드가 부족합니다.")
                 self.party.gold -= price
@@ -268,7 +270,7 @@ class WebGame:
                 equipment = shop.equipment[
                     self._index(index, len(shop.equipment), "상품")
                 ]
-                price = shop.price_for(equipment, self.flags)
+                price = shop.price_for(equipment, self.flags, reputation_rate)
                 if self.party.gold < price:
                     raise ValueError("골드가 부족합니다.")
                 self.party.gold -= price
@@ -670,6 +672,7 @@ class WebGame:
                 return self._error("지금 수락할 수 있는 NPC 의뢰가 없습니다.")
             self._log(f"NPC 의뢰 [{view['title']}]을(를) 수락했습니다.")
         elif operation == "claim":
+            before = reputation_state(self.flags, location.id)
             template = claim_commission(
                 self.flags, location.id, self.party, self.inventory,
             )
@@ -677,6 +680,11 @@ class WebGame:
                 return self._error("아직 NPC 의뢰 보상을 받을 수 없습니다.")
             self._log(
                 f"NPC 의뢰 [{template.title}] 완료! {template.gold_reward}G와 보상을 받았습니다."
+            )
+            after = reputation_state(self.flags, location.id)
+            self._log(
+                f"{after['village_name']} 평판 +{after['score'] - before['score']} · "
+                f"{after['score']}점 ({after['tier']})"
             )
         else:
             return self._error("지원하지 않는 NPC 의뢰 행동입니다.")
@@ -1637,6 +1645,7 @@ class WebGame:
             }
         shop_state = None
         if location.has_shop:
+            reputation_rate = reputation_discount(self.flags, location.id)
             sellable_items = [item for item in self.inventory if item.sellable]
             shop_state = {
                 "shops": [
@@ -1646,14 +1655,19 @@ class WebGame:
                         "description": shop.description,
                         "available": shop.is_available(self.flags),
                         "unlock_description": shop.unlock_description,
-                        "discount_rate": shop.active_discount(self.flags),
-                        "discount_description": (
-                            shop.discount_description if shop.active_discount(self.flags) else ""
-                        ),
+                        "discount_rate": shop.active_discount(self.flags, reputation_rate),
+                        "discount_description": " + ".join(filter(None, [
+                            shop.discount_description if shop.active_discount(self.flags) else "",
+                            (
+                                f"{reputation_state(self.flags, location.id)['tier']} 평판 "
+                                f"{reputation_rate:.0%} 할인"
+                                if reputation_rate else ""
+                            ),
+                        ])),
                         "items": [
                             {
                                 "index": index, "name": item.name,
-                                "price": shop.price_for(item, self.flags),
+                                "price": shop.price_for(item, self.flags, reputation_rate),
                                 "base_price": item.price,
                                 "description": item.description,
                             }
@@ -1662,7 +1676,7 @@ class WebGame:
                         "equipment": [
                             {
                                 "index": index, **self._equipment_state(item),
-                                "price": shop.price_for(item, self.flags),
+                                "price": shop.price_for(item, self.flags, reputation_rate),
                                 "base_price": item.price,
                             }
                             for index, item in enumerate(shop.equipment)
@@ -1907,6 +1921,8 @@ class WebGame:
                     "description": definition.description,
                     "gold_reward": definition.gold_reward,
                     "bonus_gold_reward": definition.bonus_gold_reward,
+                    "reputation_reward": definition.reputation_reward,
+                    "bonus_reputation_reward": definition.bonus_reputation_reward,
                 }
                 for quest_id, definition in QUESTS.items()
             ],
@@ -1923,6 +1939,10 @@ class WebGame:
                 "commission": (
                     commission_state(self.flags, location.id)
                     if location.quest_npc else None
+                ),
+                "reputation": (
+                    reputation_state(self.flags, location.id)
+                    if location.is_village else None
                 ),
             },
             "advancement": [

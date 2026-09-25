@@ -563,7 +563,13 @@ function renderUtilityPanel() {
       if (quest.status === "available") action = `questRequest('accept','${quest.id}')`;
       if (quest.status === "ready") action = `questRequest('claim','${quest.id}')`;
       const bonus = quest.bonus_gold_reward ? ` · 호위 시 +${quest.bonus_gold_reward}G` : "";
-      const detail = `${quest.objective} · 기본 ${quest.gold_reward}G${bonus}`;
+      const reputationBonus = quest.bonus_reputation_reward
+        ? ` (선택 보너스 +${quest.bonus_reputation_reward})`
+        : "";
+      const reputation = quest.reputation_reward
+        ? ` · 지역 평판 +${quest.reputation_reward}${reputationBonus}`
+        : "";
+      const detail = `${quest.objective} · 기본 ${quest.gold_reward}G${bonus}${reputation}`;
       return action
         ? utilityButton(`${quest.title} · ${statusNames[quest.status]}`, detail, action)
         : `<div class="utility-card disabled"><strong>${escapeHtml(quest.title)} · ${statusNames[quest.status]}</strong><span>${escapeHtml(detail)}</span></div>`;
@@ -578,13 +584,18 @@ function renderUtilityPanel() {
   } else if (utilityMode === "commission") {
     const npc = gameState.village.npc;
     const commission = gameState.village.commission;
+    const reputation = gameState.village.reputation;
+    const nextReputation = reputation.next_threshold === null
+      ? "최고 등급"
+      : `다음 등급 ${reputation.next_tier}까지 ${reputation.next_threshold - reputation.score}점`;
+    const reputationLine = `<p class="stat-line">${escapeHtml(reputation.village_name)} 평판 · ${escapeHtml(reputation.tier)} ${reputation.score}점 · 상점 ${Math.round(reputation.discount_rate * 100)}% 할인 · ${escapeHtml(nextReputation)}</p>`;
     if (!commission) {
-      panel.innerHTML = utilityShell(`${npc}의 의뢰`, utilitySection(
+      panel.innerHTML = utilityShell(`${npc}의 의뢰`, reputationLine + utilitySection(
         "지역 의뢰", utilityButton("새 의뢰를 요청한다", "지역에 맞는 의뢰가 무작위로 배정됩니다.", "commissionRequest('offer')")
       ));
     } else {
       const statusNames = {offered:"제안됨",active:"진행 중",ready:"보상 가능"};
-      const rewards = [`${commission.gold_reward}G`, ...commission.item_rewards.map((item) => `${item.name}×${item.count}`)].join(" · ");
+      const rewards = [`${commission.gold_reward}G`, ...commission.item_rewards.map((item) => `${item.name}×${item.count}`), `평판 +${commission.reputation_reward}`].join(" · ");
       let action = `<div class="utility-card disabled"><strong>${escapeHtml(commission.title)} · ${statusNames[commission.status]}</strong><span>${escapeHtml(commission.objective)} · ${commission.progress}/${commission.required} · 보상 ${escapeHtml(rewards)}</span></div>`;
       if (commission.status === "offered") action = utilityButton(
         `${commission.title} · 수락`, `${commission.objective} · 보상 ${rewards}`, "commissionRequest('accept')"
@@ -592,7 +603,7 @@ function renderUtilityPanel() {
       if (commission.status === "ready") action = utilityButton(
         `${commission.title} · 보상 받기`, `${commission.objective} · 보상 ${rewards}`, "commissionRequest('claim')"
       );
-      panel.innerHTML = utilityShell(`${npc}의 의뢰`, `<p class="stat-line">${escapeHtml(commission.description)}</p>${utilitySection("지역 의뢰", action)}`);
+      panel.innerHTML = utilityShell(`${npc}의 의뢰`, `${reputationLine}<p class="stat-line">${escapeHtml(commission.description)}</p>${utilitySection("지역 의뢰", action)}`);
     }
   } else if (utilityMode === "advancement") {
     const members = gameState.advancement.map((member) => {

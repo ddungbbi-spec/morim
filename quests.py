@@ -25,6 +25,9 @@ class QuestDefinition:
     bonus_gold_reward: int = 0
     completion_flag: str = ""
     unlock_flag: str = ""
+    reputation_village_id: str = ""
+    reputation_reward: int = 0
+    bonus_reputation_reward: int = 0
 
 
 QUESTS: Dict[str, QuestDefinition] = {
@@ -37,6 +40,7 @@ QUESTS: Dict[str, QuestDefinition] = {
         gold_reward=50,
         item_rewards=(("포션", 2),),
         main_quest=True,
+        reputation_village_id="village", reputation_reward=3,
     ),
     "miners_rest": QuestDefinition(
         quest_id="miners_rest",
@@ -46,6 +50,7 @@ QUESTS: Dict[str, QuestDefinition] = {
         objective="폐광 가장 깊은 곳의 탄광 드레이크 처치",
         gold_reward=45,
         item_rewards=(("에테르", 1), ("해독제", 1)),
+        reputation_village_id="iron_village", reputation_reward=2,
     ),
     "lost_herbalist": QuestDefinition(
         quest_id="lost_herbalist",
@@ -58,6 +63,8 @@ QUESTS: Dict[str, QuestDefinition] = {
         bonus_flag="escorted_herbalist",
         bonus_gold_reward=20,
         completion_flag="found_herbalist",
+        reputation_village_id="mist_village", reputation_reward=2,
+        bonus_reputation_reward=1,
     ),
     "seals_echo": QuestDefinition(
         quest_id="seals_echo",
@@ -69,6 +76,8 @@ QUESTS: Dict[str, QuestDefinition] = {
         item_rewards=(("달빛 영약", 1),),
         bonus_flag="archive_reported",
         bonus_gold_reward=25,
+        reputation_village_id="mist_village", reputation_reward=2,
+        bonus_reputation_reward=1,
     ),
     "fallen_star": QuestDefinition(
         quest_id="fallen_star", title="검은 별의 신호",
@@ -77,6 +86,8 @@ QUESTS: Dict[str, QuestDefinition] = {
         gold_reward=90, item_rewards=(("달빛 영약", 1),), main_quest=True,
         bonus_flag="star_signal_reported", bonus_gold_reward=20,
         unlock_flag="star_signal_found",
+        reputation_village_id="star_village", reputation_reward=3,
+        bonus_reputation_reward=1,
     ),
     "beyond_stars": QuestDefinition(
         quest_id="beyond_stars", title="별 너머의 문",
@@ -85,6 +96,8 @@ QUESTS: Dict[str, QuestDefinition] = {
         gold_reward=130, item_rewards=(("달빛 영약", 2),), main_quest=True,
         bonus_flag="astral_beacon_lit", bonus_gold_reward=30,
         unlock_flag="astral_route_found",
+        reputation_village_id="star_village", reputation_reward=3,
+        bonus_reputation_reward=1,
     ),
 }
 
@@ -158,6 +171,12 @@ class QuestLog:
         party.gold += definition.gold_reward + bonus_gold
         for item_name, count in definition.item_rewards:
             inventory.extend([data.ITEMS_BY_NAME[item_name]] * count)
+        if flags is not None and definition.reputation_village_id:
+            from reputation import add_reputation
+            reputation_reward = definition.reputation_reward
+            if definition.bonus_flag and flags.get(definition.bonus_flag):
+                reputation_reward += definition.bonus_reputation_reward
+            add_reputation(flags, definition.reputation_village_id, reputation_reward)
         self.states[quest_id] = "completed"
         return True
 
@@ -215,6 +234,11 @@ def run_quest_board(
         print(f"목표: {definition.objective}")
         rewards = [f"골드 {definition.gold_reward}G"]
         rewards.extend(f"{name}×{count}" for name, count in definition.item_rewards)
+        if definition.reputation_reward:
+            reputation_reward = definition.reputation_reward
+            if definition.bonus_flag and (flags or {}).get(definition.bonus_flag):
+                reputation_reward += definition.bonus_reputation_reward
+            rewards.append(f"지역 평판 +{reputation_reward}")
         print("보상: " + ", ".join(rewards))
 
         if status == "available":

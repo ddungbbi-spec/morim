@@ -413,6 +413,7 @@ def explore(
             continue
 
         if action == "commission":
+            from reputation import reputation_state
             current = commission_state(flags, loc.id)
             if current is None:
                 _, template = offer_commission(flags, loc.id)
@@ -424,6 +425,11 @@ def explore(
                 f"{item['name']}×{item['count']}" for item in current["item_rewards"]
             ]
             print("보상: " + ", ".join(rewards))
+            reputation = reputation_state(flags, loc.id)
+            print(
+                f"지역 평판: {reputation['tier']} · {reputation['score']}점 "
+                f"(완료 시 +{current['reputation_reward']})"
+            )
             if current["status"] == "offered":
                 if prompt_yes_no("이 의뢰를 수락할까요? (y/n)> "):
                     accept_commission(flags, loc.id)
@@ -431,7 +437,11 @@ def explore(
             elif current["status"] == "ready":
                 if prompt_yes_no("완료 보상을 받을까요? (y/n)> "):
                     claim_commission(flags, loc.id, party, inventory)
-                    print("의뢰 보상을 받았다. 다시 말을 걸면 새 의뢰를 받을 수 있다.")
+                    reputation = reputation_state(flags, loc.id)
+                    print(
+                        "의뢰 보상을 받았다. "
+                        f"지역 평판은 {reputation['score']}점 ({reputation['tier']})이다."
+                    )
             else:
                 print("아직 목표를 달성하지 못했다.")
             continue
@@ -493,15 +503,23 @@ def explore(
 
         if action == "shop":
             from shop import run_shop  # map.py <-> shop.py 순환 참조 방지용 지연 import
+            from reputation import reputation_discount, reputation_state
             if not payload.is_available(flags):
                 print(f"\n{payload.unlock_description} 후에 이용할 수 있다.")
                 continue
-            discount_rate = payload.active_discount(flags)
+            reputation_rate = reputation_discount(flags, loc.id)
+            discount_rate = payload.active_discount(flags, reputation_rate)
+            descriptions = []
+            if payload.active_discount(flags):
+                descriptions.append(payload.discount_description)
+            if reputation_rate:
+                reputation = reputation_state(flags, loc.id)
+                descriptions.append(f"{reputation['tier']} 평판 {reputation_rate:.0%} 할인")
             run_shop(
                 party, inventory, equipment_inventory,
                 payload.items, payload.equipment, shop_name=payload.name,
                 discount_rate=discount_rate,
-                discount_description=payload.discount_description,
+                discount_description=" + ".join(descriptions),
             )
             continue
 

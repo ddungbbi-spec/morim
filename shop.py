@@ -32,13 +32,20 @@ class Shop:
     def is_available(self, flags: Optional[dict] = None) -> bool:
         return self.required_flag is None or bool((flags or {}).get(self.required_flag))
 
-    def active_discount(self, flags: Optional[dict] = None) -> float:
-        if self.discount_flag and (flags or {}).get(self.discount_flag):
-            return max(0.0, min(0.9, self.discount_rate))
-        return 0.0
+    def active_discount(
+        self, flags: Optional[dict] = None, reputation_rate: float = 0.0,
+    ) -> float:
+        event_rate = (
+            self.discount_rate
+            if self.discount_flag and (flags or {}).get(self.discount_flag)
+            else 0.0
+        )
+        return max(0.0, min(0.9, event_rate + reputation_rate))
 
-    def price_for(self, product, flags: Optional[dict] = None) -> int:
-        return max(1, int(product.price * (1.0 - self.active_discount(flags))))
+    def price_for(
+        self, product, flags: Optional[dict] = None, reputation_rate: float = 0.0,
+    ) -> int:
+        return max(1, int(product.price * (1.0 - self.active_discount(flags, reputation_rate))))
 
 
 def run_shop(
