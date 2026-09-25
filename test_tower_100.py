@@ -49,6 +49,38 @@ class HundredFloorTowerTests(unittest.TestCase):
         self.assertTrue(is_tower_boss_floor(100))
         self.assertFalse(is_tower_boss_floor(99))
 
+    def test_boss_archetypes_have_distinct_tactics_and_repeat_every_twenty_five_floors(self):
+        first_cycle = [create_scaled_tower_boss(floor, {}) for floor in range(5, 30, 5)]
+        second_cycle = [create_scaled_tower_boss(floor, {}) for floor in range(30, 55, 5)]
+
+        self.assertEqual(
+            [boss.name for boss in first_cycle],
+            [
+                "5층 철벽의 문지기", "10층 저주의 감시자", "15층 뇌광의 추적자",
+                "20층 홍련의 집행자", "25층 천광의 심판자",
+            ],
+        )
+        self.assertEqual(
+            [boss.name.split("층 ", 1)[1] for boss in first_cycle],
+            [boss.name.split("층 ", 1)[1] for boss in second_cycle],
+        )
+        self.assertEqual(len({tuple(skill.name for skill in boss.skills) for boss in first_cycle}), 5)
+        self.assertEqual(len({tuple(skill.name if skill else None for skill in boss.action_pattern)
+                              for boss in first_cycle}), 5)
+        self.assertTrue(all(len(boss.boss_phases) == 1 for boss in first_cycle))
+
+    def test_hundredth_floor_guardian_has_unique_two_phase_finale(self):
+        guardian = create_scaled_tower_boss(100, {})
+
+        self.assertEqual(guardian.name, "백층의 탑 수호자")
+        self.assertEqual([phase.threshold for phase in guardian.boss_phases], [0.6, 0.3])
+        self.assertEqual(
+            [phase.skill.name for phase in guardian.boss_phases],
+            ["안개 장막", "종말의 일격"],
+        )
+        self.assertIn("심판의 빛", [skill.name for skill in guardian.skills])
+        self.assertIn("종말의 일격", [skill.name for skill in guardian.skills])
+
     def test_checkpoint_uses_highest_completed_ten_floor_boundary(self):
         self.assertEqual(tower_checkpoint_floor({}), 0)
         self.assertEqual(tower_checkpoint_floor({"tower_highest_floor": 9}), 0)
@@ -103,7 +135,7 @@ class HundredFloorTowerTests(unittest.TestCase):
         game._enter_current_location()
 
         self.assertEqual(game.phase, "battle")
-        self.assertIn("5층 관문 수호자", game.enemies[0].name)
+        self.assertEqual(game.enemies[0].name, "5층 철벽의 문지기")
         with patch("web_app.random.random", return_value=0.99):
             game._victory()
 

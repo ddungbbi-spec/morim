@@ -6,6 +6,7 @@ build_world()의 리스트에 넣어주면 됩니다.
 """
 
 from map import FlagRequirement, Location, GameMap
+from models import BossPhase
 from shop import Shop
 import data
 import dialogues
@@ -15,6 +16,55 @@ TOWER_MAX_FLOOR = 100
 TOWER_BOSS_INTERVAL = 5
 TOWER_CHECKPOINT_INTERVAL = 10
 TOWER_SUMMIT_ID = "tower_summit"
+
+
+TOWER_BOSS_ARCHETYPES = (
+    {
+        "name": "철벽의 문지기",
+        "skills": (data.HEAVY_SMASH, data.WAR_CRY),
+        "pattern": (data.WAR_CRY, None, data.HEAVY_SMASH),
+        "weakness": "thunder",
+        "resistance": "fire",
+        "phase_skill": data.ROCK_COUNTER,
+        "phase_message": "수호자의 갑주가 갈라지며 암석 파편이 사방으로 솟구친다!",
+    },
+    {
+        "name": "저주의 감시자",
+        "skills": (data.WEAKEN, data.CURSE_WHISPER, data.DARK_BOLT),
+        "pattern": (data.WEAKEN, data.DARK_BOLT, data.CURSE_WHISPER, None),
+        "weakness": "fire",
+        "resistance": "ice",
+        "phase_skill": data.DARK_RAMPAGE,
+        "phase_message": "감시자가 쌓아 둔 저주를 삼키고 암흑의 힘을 폭주시킨다!",
+    },
+    {
+        "name": "뇌광의 추적자",
+        "skills": (data.PARALYZE_STRIKE, data.THUNDER, data.INTIMIDATING_ROAR),
+        "pattern": (data.PARALYZE_STRIKE, data.INTIMIDATING_ROAR, data.THUNDER, None),
+        "weakness": "ice",
+        "resistance": "thunder",
+        "phase_skill": data.MIST_BARRIER,
+        "phase_message": "추적자가 번개 안개를 두르고 방어 태세를 갖춘다!",
+    },
+    {
+        "name": "홍련의 집행자",
+        "skills": (data.FLAME_BREATH, data.HEAVY_SMASH, data.WAR_CRY),
+        "pattern": (data.FLAME_BREATH, None, data.HEAVY_SMASH, data.WAR_CRY),
+        "weakness": "ice",
+        "resistance": "fire",
+        "phase_skill": data.ROCK_COUNTER,
+        "phase_message": "집행자의 화염 갑주가 폭발하며 뜨거운 파편을 흩뿌린다!",
+    },
+    {
+        "name": "천광의 심판자",
+        "skills": (data.JUDGMENT_LIGHT, data.WEAKEN, data.SELF_MEND),
+        "pattern": (data.WEAKEN, data.JUDGMENT_LIGHT, data.SELF_MEND, None),
+        "weakness": "fire",
+        "resistance": "thunder",
+        "phase_skill": data.DARK_RAMPAGE,
+        "phase_message": "심판자가 빛과 어둠을 함께 받아들여 공격성을 끌어올린다!",
+    },
+)
 
 
 def tower_floor_id(floor: int) -> str:
@@ -167,6 +217,14 @@ def is_tower_boss_floor(floor: int) -> bool:
     return 1 <= floor <= TOWER_MAX_FLOOR and floor % TOWER_BOSS_INTERVAL == 0
 
 
+def tower_boss_archetype(floor: int):
+    """보스층에 대응하는 전술 유형을 25층 주기로 돌려준다."""
+    if not is_tower_boss_floor(floor):
+        raise ValueError("보스 전술 유형은 5층 단위에서만 조회할 수 있다.")
+    boss_index = floor // TOWER_BOSS_INTERVAL - 1
+    return TOWER_BOSS_ARCHETYPES[boss_index % len(TOWER_BOSS_ARCHETYPES)]
+
+
 def create_scaled_tower_enemy(factory, floor: int):
     """일반층 적을 층수에 맞게 강화한다."""
     enemy = factory()
@@ -212,16 +270,38 @@ def tower_encounter_pool(floor: int):
 
 
 def create_scaled_tower_boss(floor: int, flags: dict):
-    """5층마다 등장하는 보스를 층수와 반복 도전 단계에 맞춰 강화한다."""
+    """5층마다 전술이 달라지는 보스를 층수와 반복 단계에 맞춰 강화한다."""
     if not is_tower_boss_floor(floor):
         raise ValueError("보스는 5층 단위로만 생성할 수 있다.")
     guardian = data.create_tower_guardian()
+    archetype = tower_boss_archetype(floor)
     floor_step = floor // TOWER_BOSS_INTERVAL - 1
     tier_step = tower_challenge_tier(flags) - 1
-    guardian.name = (
-        "탑의 수호자" if floor == TOWER_MAX_FLOOR
-        else f"{floor}층 관문 수호자"
-    )
+    guardian.name = f"{floor}층 {archetype['name']}"
+    guardian.skills = list(archetype["skills"])
+    guardian.action_pattern = list(archetype["pattern"])
+    guardian.weakness = archetype["weakness"]
+    guardian.resistance = archetype["resistance"]
+    guardian.boss_phases = [
+        BossPhase(0.5, archetype["phase_skill"], archetype["phase_message"]),
+    ]
+    guardian.triggered_phase_indices = set()
+    guardian.phase_triggered = False
+    if floor == TOWER_MAX_FLOOR:
+        guardian.name = "백층의 탑 수호자"
+        guardian.skills = [
+            data.WAR_CRY, data.HEAVY_SMASH,
+            data.JUDGMENT_LIGHT, data.APOCALYPSE_STRIKE,
+        ]
+        guardian.action_pattern = [
+            data.WAR_CRY, data.JUDGMENT_LIGHT, data.HEAVY_SMASH, None,
+        ]
+        guardian.weakness = "ice"
+        guardian.resistance = "fire"
+        guardian.boss_phases = [
+            BossPhase(0.6, data.MIST_BARRIER, "탑 수호자가 정상의 마력을 끌어모아 결계를 펼친다!"),
+            BossPhase(0.3, data.APOCALYPSE_STRIKE, "탑 전체가 진동하며 최후의 심판이 시작된다!"),
+        ]
     if tier_step:
         guardian.name += f" · {tier_step + 1}단계"
     guardian.level = 4 + floor // TOWER_BOSS_INTERVAL + tier_step
