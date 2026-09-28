@@ -9,7 +9,8 @@ from web_app import DEFAULT_PARTY_SETUP, WebGame
 from world import (
     MAP_REGIONS, TOWER_BOSS_INTERVAL, TOWER_MAX_FLOOR,
     build_world, create_scaled_tower_boss, grant_tower_boss_reward,
-    is_tower_boss_floor, reset_tower_challenge, tower_floor_id,
+    is_tower_boss_floor, is_tower_floor_cleared, mark_tower_floor_cleared,
+    reset_tower_challenge, tower_cleared_floors, tower_floor_id,
     tower_checkpoint_floor, tower_floor_number,
 )
 
@@ -37,6 +38,71 @@ class HundredFloorTowerTests(unittest.TestCase):
             list(range(TOWER_BOSS_INTERVAL, TOWER_MAX_FLOOR + 1, TOWER_BOSS_INTERVAL)),
         )
         self.assertEqual(len(boss_floors), 20)
+
+    def test_every_tower_floor_has_a_guaranteed_enemy_battle(self):
+        world = build_world()
+
+        for floor in range(1, TOWER_MAX_FLOOR + 1):
+            location = world.locations[tower_floor_id(floor)]
+            with self.subTest(floor=floor):
+                if is_tower_boss_floor(floor):
+                    self.assertIsNotNone(location.boss)
+                    self.assertEqual(location.encounter_chance, 0.0)
+                    self.assertEqual(location.encounter_pool, [])
+                else:
+                    self.assertIsNone(location.boss)
+                    self.assertEqual(location.encounter_chance, 1.0)
+                    self.assertTrue(location.encounter_pool)
+
+    def test_web_entering_normal_tower_floor_always_starts_battle(self):
+        game = WebGame()
+        self.assertTrue(game.configure_party(DEFAULT_PARTY_SETUP)["ok"])
+        game.advance_dialogue(1)
+        game.advance_dialogue()
+        game.game_map.current_id = "village"
+
+        with patch("web_app.random.random", return_value=0.999999):
+            result = game.move("도전의 탑으로 향한다")
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(game.game_map.current_id, tower_floor_id(1))
+        self.assertEqual(game.phase, "battle")
+        self.assertTrue(game.enemies)
+        self.assertEqual(game.battle_context, "tower_floor")
+
+    def test_normal_floor_victory_is_saved_and_skips_duplicate_battle(self):
+        game = WebGame()
+        self.assertTrue(game.configure_party(DEFAULT_PARTY_SETUP)["ok"])
+        game.advance_dialogue(1)
+        game.advance_dialogue()
+        game.game_map.current_id = "village"
+        game.move("도전의 탑으로 향한다")
+
+        with patch("web_app.random.random", return_value=0.99):
+            game._victory()
+
+        self.assertEqual(tower_cleared_floors(game.flags), [1])
+        self.assertEqual(game.flags["tower_highest_floor"], 1)
+        self.assertEqual(game.state()["tower"]["cleared_floor_count"], 1)
+        self.assertTrue(game.state()["tower"]["current_floor_cleared"])
+
+        game.move("마을로 돌아간다")
+        with patch("web_app.random.random", return_value=0.0):
+            result = game.move("도전의 탑으로 향한다")
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(game.phase, "explore")
+        self.assertEqual(game.battle_context, "")
+
+    def test_floor_clear_records_are_normalized_and_idempotent(self):
+        flags = {"tower_cleared_floors": [3, "1", 3, "bad", 101]}
+
+        self.assertEqual(tower_cleared_floors(flags), [1, 3])
+        self.assertTrue(is_tower_floor_cleared(flags, 3))
+        self.assertTrue(mark_tower_floor_cleared(flags, 2))
+        self.assertFalse(mark_tower_floor_cleared(flags, 2))
+        self.assertEqual(flags["tower_cleared_floors"], [1, 2, 3])
+        self.assertEqual(flags["tower_highest_floor"], 3)
 
     def test_boss_strength_rises_with_floor_and_repeat_tier(self):
         floor_five = create_scaled_tower_boss(5, {})
@@ -122,6 +188,7 @@ class HundredFloorTowerTests(unittest.TestCase):
         self.assertTrue(reset_tower_challenge(world, flags))
         self.assertTrue(flags["tower_challenge_active"])
         self.assertEqual(flags["tower_rewarded_floors"], [])
+        self.assertEqual(flags["tower_cleared_floors"], [])
         self.assertEqual(flags["tower_highest_floor"], 0)
         for floor in range(5, 101, 5):
             self.assertFalse(world.locations[tower_floor_id(floor)].boss_defeated)

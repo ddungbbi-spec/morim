@@ -575,7 +575,19 @@ def explore(
                 print(f"\nNPC 의뢰 [{title}]의 목표를 달성했다!")
 
             # 새 장소로 이동했을 때 랜덤 인카운터 판정 (보스/엔딩 장소는 위에서 별도 처리)
-            if new_loc.encounter_pool and random.random() < new_loc.encounter_chance:
+            from world import (
+                is_tower_floor_cleared, mark_tower_floor_cleared,
+                tower_floor_number,
+            )
+            tower_floor = tower_floor_number(new_loc.id)
+            tower_floor_cleared = bool(
+                tower_floor and is_tower_floor_cleared(flags, tower_floor)
+            )
+            if (
+                new_loc.encounter_pool
+                and not tower_floor_cleared
+                and random.random() < new_loc.encounter_chance
+            ):
                 print("\n몬스터가 나타났다!")
                 enemies = random.choice(new_loc.encounter_pool)()
                 won = Battle(party, enemies, inventory, equipment_inventory).run()
@@ -583,3 +595,5 @@ def explore(
                     return False
                 for title in record_defeats(flags, [enemy.name for enemy in enemies]):
                     print(f"\nNPC 의뢰 [{title}]의 목표를 달성했다!")
+                if tower_floor and mark_tower_floor_cleared(flags, tower_floor):
+                    print(f"\n도전의 탑 {tower_floor}층을 돌파했다!")

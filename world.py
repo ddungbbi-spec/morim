@@ -188,6 +188,44 @@ def tower_challenge_tier(flags: dict) -> int:
     return tower_clear_count(flags) + 1
 
 
+def tower_cleared_floors(flags: dict) -> list[int]:
+    """현재 회차에서 돌파한 탑 층을 정렬된 목록으로 반환한다."""
+    raw_floors = flags.get("tower_cleared_floors", [])
+    if not isinstance(raw_floors, (list, tuple, set)):
+        return []
+    cleared = set()
+    for value in raw_floors:
+        try:
+            floor = int(value)
+        except (TypeError, ValueError):
+            continue
+        if 1 <= floor <= TOWER_MAX_FLOOR:
+            cleared.add(floor)
+    return sorted(cleared)
+
+
+def is_tower_floor_cleared(flags: dict, floor: int) -> bool:
+    return floor in tower_cleared_floors(flags)
+
+
+def mark_tower_floor_cleared(flags: dict, floor: int) -> bool:
+    """층 돌파를 기록한다. 최초 기록이면 True를 반환한다."""
+    if not 1 <= floor <= TOWER_MAX_FLOOR:
+        raise ValueError(f"도전의 탑 층수는 1~{TOWER_MAX_FLOOR}여야 한다.")
+    cleared = tower_cleared_floors(flags)
+    first_clear = floor not in cleared
+    if first_clear:
+        cleared.append(floor)
+        cleared.sort()
+    flags["tower_cleared_floors"] = cleared
+    try:
+        previous_highest = int(flags.get("tower_highest_floor", 0))
+    except (TypeError, ValueError):
+        previous_highest = 0
+    flags["tower_highest_floor"] = max(previous_highest, cleared[-1])
+    return first_clear
+
+
 def tower_checkpoint_floor(flags: dict) -> int:
     """현재 회차에서 마을로부터 복귀할 수 있는 최고 10층 단위 지점."""
     try:
@@ -326,6 +364,7 @@ def grant_tower_boss_reward(flags: dict, floor: int, party, equipment_inventory:
     """보스층 보상을 회차당 한 번만 지급한다."""
     if not is_tower_boss_floor(floor):
         raise ValueError("보스층 보상은 5층 단위에서만 지급할 수 있다.")
+    mark_tower_floor_cleared(flags, floor)
     rewarded = flags.setdefault("tower_rewarded_floors", [])
     if floor in rewarded:
         return 0, None
@@ -341,7 +380,6 @@ def grant_tower_boss_reward(flags: dict, floor: int, party, equipment_inventory:
         equipment_inventory.append(equipment)
 
     rewarded.append(floor)
-    flags["tower_highest_floor"] = max(int(flags.get("tower_highest_floor", 0)), floor)
     return bonus_gold, equipment
 
 
@@ -356,6 +394,7 @@ def reset_tower_challenge(game_map: GameMap, flags: dict) -> bool:
     for floor in range(TOWER_BOSS_INTERVAL, TOWER_MAX_FLOOR + 1, TOWER_BOSS_INTERVAL):
         game_map.locations[tower_floor_id(floor)].boss_defeated = False
     flags["tower_rewarded_floors"] = []
+    flags["tower_cleared_floors"] = []
     flags["tower_highest_floor"] = 0
     flags["tower_challenge_active"] = True
     return True
@@ -983,7 +1022,9 @@ def build_world() -> GameMap:
             name="도전의 탑 정상 · 100층" if floor == TOWER_MAX_FLOOR else f"도전의 탑 {floor}층",
             description=description,
             exits=exits,
-            encounter_chance=0.0 if boss_floor else min(0.45 + floor * 0.004, 0.82),
+            # 일반층도 빈 층 없이 반드시 전투를 치르게 한다. 보스층은
+            # Location.boss가 진입 전투를 담당하므로 일반 조우를 비활성화한다.
+            encounter_chance=0.0 if boss_floor else 1.0,
             encounter_pool=[] if boss_floor else tower_encounter_pool(floor),
             boss=(lambda floor=floor: [create_scaled_tower_boss(floor, {})]) if boss_floor else None,
             dialogue=dialogues.tower_summit_dialogue() if floor == TOWER_MAX_FLOOR else None,

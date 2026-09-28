@@ -53,8 +53,9 @@ from advancement import ADVANCEMENT_LEVEL, advance, options_for
 from world import (
     MAP_REGIONS, TOWER_MAX_FLOOR, build_world, complete_tower_challenge,
     create_scaled_tower_boss, grant_tower_boss_reward,
-    region_for_location, reset_tower_challenge, tower_challenge_tier,
-    tower_checkpoint_floor, tower_clear_count, tower_floor_id, tower_floor_number,
+    is_tower_floor_cleared, mark_tower_floor_cleared, region_for_location,
+    reset_tower_challenge, tower_challenge_tier, tower_checkpoint_floor,
+    tower_clear_count, tower_cleared_floors, tower_floor_id, tower_floor_number,
 )
 from dungeon import (
     DUNGEON_ENTRY_FEE, DUNGEON_LOCATION_ID, DUNGEON_MAX_DEPTH,
@@ -226,9 +227,19 @@ class WebGame:
         self._log(f"{arrived.name}에 도착했습니다.")
         for title in record_visit(self.flags, arrived.id):
             self._log(f"NPC 의뢰 [{title}]의 목표를 달성했습니다.")
-        if arrived.encounter_pool and random.random() < arrived.encounter_chance:
+        tower_floor = tower_floor_number(arrived.id)
+        tower_floor_cleared = bool(
+            tower_floor and is_tower_floor_cleared(self.flags, tower_floor)
+        )
+        if (
+            arrived.encounter_pool
+            and not tower_floor_cleared
+            and random.random() < arrived.encounter_chance
+        ):
             enemies = random.choice(arrived.encounter_pool)()
-            self._begin_battle(enemies, "random", f"{arrived.name}의 습격")
+            context = "tower_floor" if tower_floor else "random"
+            title = f"{arrived.name}의 시련" if tower_floor else f"{arrived.name}의 습격"
+            self._begin_battle(enemies, context, title)
         else:
             self._enter_current_location()
         return {"ok": True, "state": self.state()}
@@ -1265,6 +1276,12 @@ class WebGame:
                 self._enter_current_location()
                 if self.phase == "explore":
                     self.result_message = "최종 보스를 처치하고 시작 마을로 귀환했습니다."
+        elif context == "tower_floor":
+            location = self.game_map.current
+            floor = tower_floor_number(location.id)
+            if floor and mark_tower_floor_cleared(self.flags, floor):
+                self._log(f"도전의 탑 {floor}층을 돌파했습니다.")
+            self._enter_current_location()
         elif context == "random":
             self._enter_current_location()
         elif context == "dungeon":
@@ -1977,9 +1994,16 @@ class WebGame:
             },
             "tower": {
                 "clear_count": tower_clear_count(self.flags),
+                "cleared_floor_count": len(tower_cleared_floors(self.flags)),
                 "next_tier": tower_challenge_tier(self.flags),
                 "max_floor": TOWER_MAX_FLOOR,
                 "current_floor": tower_floor_number(location.id) or 0,
+                "current_floor_cleared": bool(
+                    tower_floor_number(location.id)
+                    and is_tower_floor_cleared(
+                        self.flags, tower_floor_number(location.id)
+                    )
+                ),
                 "highest_floor": int(self.flags.get("tower_highest_floor", 0)),
                 "checkpoint_floor": tower_checkpoint_floor(self.flags),
                 "next_boss_floor": min(
