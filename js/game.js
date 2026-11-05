@@ -371,7 +371,21 @@ function drawWoodenDummy(x,y,face,hit,state){
  ctx.drawImage(woodenDummyAtlas,sx,sy,192,205,-targetW/2,-targetH,targetW,targetH);
  ctx.restore();return true;
 }
+const CUSTOM_ENEMY_SOURCES={'산적 궁수':0,'산적 투사':1,'산적 대장':2,'낭인 무사':3,'회색늑대':4,'호랑이':5,'흑풍채 두목':6};
+const customEnemyImages={};
+for(const [name,index] of Object.entries(CUSTOM_ENEMY_SOURCES)){const img=new Image();img.src='/assets/enemy-custom-'+index+'.svg?v=20261105';customEnemyImages[name]=img}
+function drawCustomEnemy(x,y,face,kind,hit,state){
+ const img=customEnemyImages[kind];if(!img||!img.complete||!img.naturalWidth)return false;
+ const moving=Math.abs(state?.vx||0)>8,attacking=(state?.windup||0)>0;
+ const bob=moving?Math.sin(time*15)*3:Math.sin(time*3)*1.1;
+ const lean=attacking?Math.sin(time*12)*.09:0;
+ ctx.save();ctx.translate(Math.round(x),Math.round(y+bob));ctx.scale(-face,1);ctx.rotate(lean);
+ if(hit>0&&Math.floor(time*20)%2===0)ctx.globalAlpha=.65;
+ const scale=kind==='흑풍채 두목'||kind==='호랑이'?1.5:1.25;
+ ctx.imageSmoothingEnabled=false;ctx.drawImage(img,-48*scale,-96*scale,96*scale,96*scale);ctx.restore();return true;
+}
 function drawEnemyPortrait(x,y,face,boss,kind,hit,state=null){
+ if(!boss&&drawCustomEnemy(x,y,face,kind,hit,state))return true;
  if(!boss&&kind==='목인'&&drawWoodenDummy(x,y,face,hit,state))return true;
  const key=boss?'boss':['자객'].includes(kind)?'assassin':['산적','산적 궁수','산적 투사','산적 대장','낭인 무사','청죽림 검객','마교 추격자','흑풍채 두목','호랑이','회색늑대'].includes(kind)?'bandit':null;
  const img=key?enemyFrameImages[key]:null;
