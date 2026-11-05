@@ -402,7 +402,8 @@ function drawCustomEnemy(x,y,face,kind,hit,state){
  ctx.restore();return true;
 }
 function drawEnemyPortrait(x,y,face,boss,kind,hit,state=null){
- if(drawCustomEnemy(x,y,face,kind,hit,state))return true;
+ // Original pixel-art atlases take priority over temporary SVG stand-ins.
+ // Do not render custom SVG frames until the real PNG atlas is committed.
  if(!boss&&kind==='목인'&&drawWoodenDummy(x,y,face,hit,state))return true;
  const key=boss?'boss':['자객'].includes(kind)?'assassin':['산적','산적 궁수','산적 투사','산적 대장','낭인 무사','청죽림 검객','마교 추격자','흑풍채 두목','호랑이','회색늑대'].includes(kind)?'bandit':null;
  const img=key?enemyFrameImages[key]:null;
