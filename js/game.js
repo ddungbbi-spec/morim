@@ -336,7 +336,7 @@ woodenDummyAtlas.src='/assets/wooden-dummy.png?v=original-20261105';
 function drawWoodenDummy(x,y,face,hit,state){
  if(!woodenDummyAtlas.complete||!woodenDummyAtlas.naturalWidth)return false;
  const moving=Math.abs(state?.vx||0)>8,attacking=(state?.windup||0)>0,dying=!!state?.dead;
- const phase=Math.floor(time*(moving?10:4));
+ const phase=Math.floor(time*(moving?8:3));
  let frame=dying?16+Math.min(3,Math.floor((state?.deathTimer||0)*6)):attacking?8+(Math.floor(time*12)%4):hit>0?12+(Math.floor(time*12)%4):moving?4+(phase%4):phase%4;
  const sx=(frame%5)*192,sy=Math.floor(frame/5)*205;
  const targetW=134,targetH=144;
@@ -364,8 +364,8 @@ function drawEnemyPortrait(x,y,face,boss,kind,hit,state=null){
   const duration=boss?(state?.phase===2?.32:.48):.36;
   frame=Math.max(0,Math.min(3,Math.floor((1-Math.max(0,state.windup)/duration)*4)));
  }else if(skilling){frame=Math.floor(time*6+(state?.x||0)*.005)%4}
- else if(hurt){frame=Math.floor(time*14)%4}
- else {frame=Math.floor(time*(moving?9:4)+(state?.x||0)*.005)%4}
+ else if(hurt){frame=Math.floor(time*10)%4}
+ else {frame=Math.floor(time*(moving?8:3)+(state?.x||0)*.005)%4}
  ctx.save();ctx.translate(Math.round(x),Math.round(y));
  // Original contact-sheet sprites face left; negative face makes movement face right.
  ctx.scale(-face,1);
@@ -381,6 +381,8 @@ const heroPortrait=new Image();
 heroPortrait.src='/assets/hero-portrait.webp?v=original-20261105';
 function drawNewHero(x,y,face,mode,hit){
  if(!heroPortrait.complete||!heroPortrait.naturalWidth)return false;
+ // The original hero image is a 2x2 pose sheet, not a multi-frame animation atlas.
+ // Keep its four source cells fixed to prevent a different-looking character.
  const pose=mode==='run'||mode==='jump'?1:mode==='attack'||mode==='runAttack'||mode==='airAttack'||mode==='combo'?2:mode==='skill'?3:0;
  const tile=627, sx=(pose%2)*tile,sy=Math.floor(pose/2)*tile;
  const destW=125,destH=125;
