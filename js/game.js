@@ -373,7 +373,11 @@ function drawEnemyPortrait(x,y,face,boss,kind,hit,state=null){
  ctx.fillStyle='#071b2388';ctx.beginPath();ctx.ellipse(0,2,boss?39:28,6,0,0,Math.PI*2);ctx.fill();
  ctx.imageSmoothingEnabled=true;
  const target=boss?180:152;
- ctx.drawImage(img,frame*ENEMY_FRAME_W,row*ENEMY_FRAME_H,ENEMY_FRAME_W,ENEMY_FRAME_H,-target/2,-target+10,target,target);
+ // Clamp source frames to the actual atlas dimensions to avoid blank frames.
+ const cols=Math.floor(img.naturalWidth/ENEMY_FRAME_W),rows=Math.floor(img.naturalHeight/ENEMY_FRAME_H);
+ if(cols<1||rows<1){ctx.restore();return false}
+ const safeFrame=Math.min(Math.max(frame,0),cols-1),safeRow=Math.min(Math.max(row,0),rows-1);
+ ctx.drawImage(img,safeFrame*ENEMY_FRAME_W,safeRow*ENEMY_FRAME_H,ENEMY_FRAME_W,ENEMY_FRAME_H,-target/2,-target+10,target,target);
  ctx.restore();return true;
 }
 
@@ -386,7 +390,11 @@ function drawNewHero(x,y,face,mode,hit){
  const pose=mode==='idle'||mode==='hurt'||mode==='run'||mode==='jump'?1:mode==='attack'||mode==='runAttack'||mode==='airAttack'||mode==='combo'?2:mode==='skill'?3:1;
  const tile=627, sx=(pose%2)*tile,sy=Math.floor(pose/2)*tile;
  const destW=125,destH=125;
- ctx.save();ctx.translate(Math.round(x),Math.round(y));ctx.scale(face,1);
+ // Keep the feet anchored to the ground across poses; only the artwork moves.
+ const idle=mode==='idle',hurt=mode==='hurt';
+ const bob=idle?Math.sin(time*3)*1.2:0;
+ const recoil=hurt?Math.sin(time*38)*2.5:0;
+ ctx.save();ctx.translate(Math.round(x+recoil),Math.round(y+bob));ctx.scale(face,1);
  if(hit>0&&Math.floor(time*20)%2===0)ctx.globalAlpha=.55;
  ctx.fillStyle='#071b2388';ctx.beginPath();ctx.ellipse(0,2,28,6,0,0,Math.PI*2);ctx.fill();
  ctx.imageSmoothingEnabled=true;
