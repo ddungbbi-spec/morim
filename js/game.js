@@ -401,7 +401,31 @@ function drawCustomEnemy(x,y,face,kind,hit,state){
  ctx.drawImage(img,-48*scale,-96*scale,96*scale,96*scale);
  ctx.restore();return true;
 }
+// User-supplied original pixel-art atlas: 18 frames of 192x192 pixels.
+// The asset is optional until assets/enemy-original/archer-atlas.png is uploaded.
+const originalArcherAtlas=new Image();
+originalArcherAtlas.src='/assets/enemy-original/archer-atlas.png?v=20261106';
+function drawOriginalArcher(x,y,face,hit,state){
+ if(!originalArcherAtlas.complete||originalArcherAtlas.naturalWidth!==3456||originalArcherAtlas.naturalHeight!==192)return false;
+ const moving=Math.abs(state?.vx||0)>8;
+ const attacking=(state?.windup||0)>0||(state?.patternWindup||0)>0;
+ const dead=!!state?.dead;
+ const action=dead?'death':hit>0?'hurt':attacking?'attack':moving?'walk':'idle';
+ const start={idle:0,walk:4,attack:8,hurt:12,death:14}[action];
+ const count=action==='hurt'?2:4;
+ const fps=action==='walk'?9:action==='attack'?12:action==='hurt'?10:action==='death'?6:4;
+ const frame=action==='death'?Math.min(count-1,Math.floor((state?.deathTimer||0)*fps)):
+ action==='attack'?Math.min(count-1,Math.max(0,count-1-Math.floor((state?.windup||state?.patternWindup||0)*8))):
+ Math.floor(time*fps+(state?.x||0)*.002)%count;
+ ctx.save();ctx.translate(Math.round(x),Math.round(y));ctx.scale(-face,1);
+ if(hit>0&&Math.floor(time*20)%2===0)ctx.globalAlpha=.65;
+ ctx.imageSmoothingEnabled=false;
+ // Preserve the original transparent cell and anchor the feet at the ground.
+ ctx.drawImage(originalArcherAtlas,(start+frame)*192,0,192,192,-96,-192,192,192);
+ ctx.restore();return true;
+}
 function drawEnemyPortrait(x,y,face,boss,kind,hit,state=null){
+ if(!boss&&kind==='산적 궁수'&&drawOriginalArcher(x,y,face,hit,state))return true;
  // Original pixel-art atlases take priority over temporary SVG stand-ins.
  // Do not render custom SVG frames until the real PNG atlas is committed.
  if(!boss&&kind==='목인'&&drawWoodenDummy(x,y,face,hit,state))return true;
