@@ -383,7 +383,7 @@ function drawNewHero(x,y,face,mode,hit){
  if(!heroPortrait.complete||!heroPortrait.naturalWidth)return false;
  // The original hero image is a 2x2 pose sheet, not a multi-frame animation atlas.
  // Keep its four source cells fixed to prevent a different-looking character.
- const pose=mode==='run'||mode==='jump'?1:mode==='attack'||mode==='runAttack'||mode==='airAttack'||mode==='combo'?2:mode==='skill'?3:0;
+ const pose=mode==='idle'||mode==='hurt'||mode==='run'||mode==='jump'?1:mode==='attack'||mode==='runAttack'||mode==='airAttack'||mode==='combo'?2:mode==='skill'?3:1;
  const tile=627, sx=(pose%2)*tile,sy=Math.floor(pose/2)*tile;
  const destW=125,destH=125;
  ctx.save();ctx.translate(Math.round(x),Math.round(y));ctx.scale(face,1);
