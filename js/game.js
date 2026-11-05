@@ -377,7 +377,7 @@ const customEnemyImages={},customEnemyFrameImages={};
 for(const [name,[slug,index]] of Object.entries(CUSTOM_ENEMY_SOURCES)){
  if(index!==null){const fallback=new Image();fallback.src='/assets/enemy-custom-'+index+'.svg?v=20261105';customEnemyImages[name]=fallback}
  customEnemyFrameImages[name]=Array.from({length:4},(_,i)=>{
-  const img=new Image();img.src='/assets/enemy-frames/'+slug+'_'+i+'.png?v=20261105b';return img;
+  const img=new Image();img.src='/assets/enemy-frames/'+slug+'_'+i+'.svg?v=20261105c';return img;
  });
 }
 function drawCustomEnemy(x,y,face,kind,hit,state){
