@@ -2,7 +2,7 @@
 (()=>{'use strict';
 // Attached 8-frame taiji animation; embedded to keep this a standalone HTML file.
 const taijiSprite = new Image();
-taijiSprite.src = 'assets/taiji-sprite.png';
+taijiSprite.src = '/assets/taiji-sprite.png?v=original-20261105';
 let martialSpriteTime = 0, martialSpriteArt = 'taegeuk', martialSpriteSkill = true;
 const TAIJI_FRAME_DURATIONS = [0.14,0.10,0.10,0.08,0.12,0.12,0.10,0.18];
 const TAIJI_DURATION = TAIJI_FRAME_DURATIONS.reduce((a,b)=>a+b,0);
@@ -321,9 +321,9 @@ function makeSpriteSheet(enemy,boss,art,robeRank=0){
  return sheet;
 }
 
-const ENEMY_ATLAS_SOURCES={"boss": "assets/enemy-atlas-boss.webp", "bandit": "assets/enemy-atlas-bandit.webp", "assassin": "assets/enemy-atlas-assassin.webp"};
+const ENEMY_ATLAS_SOURCES={"boss": "/assets/enemy-atlas-boss.webp?v=original-20261105", "bandit": "/assets/enemy-atlas-bandit.webp?v=original-20261105", "assassin": "/assets/enemy-atlas-assassin.webp?v=original-20261105"};
 
-const REAL_ENEMY_SOURCES={"boss": "assets/enemy-real-boss.webp", "bandit": "assets/enemy-real-bandit.webp", "assassin": "assets/enemy-real-assassin.webp"};
+const REAL_ENEMY_SOURCES={"boss": "/assets/enemy-real-boss.webp?v=original-20261105", "bandit": "/assets/enemy-real-bandit.webp?v=original-20261105", "assassin": "/assets/enemy-real-assassin.webp?v=original-20261105"};
 
 const ENEMY_FRAME_W=192,ENEMY_FRAME_H=192;
 const enemyFrameImages={};
@@ -332,7 +332,7 @@ for(const [kind,source] of Object.entries(REAL_ENEMY_SOURCES)){
 }
 // Wooden dummy 20-frame animation atlas embedded for offline/mobile play.
 const woodenDummyAtlas=new Image();
-woodenDummyAtlas.src='assets/wooden-dummy.png';
+woodenDummyAtlas.src='/assets/wooden-dummy.png?v=original-20261105';
 function drawWoodenDummy(x,y,face,hit,state){
  if(!woodenDummyAtlas.complete||!woodenDummyAtlas.naturalWidth)return false;
  const moving=Math.abs(state?.vx||0)>8,attacking=(state?.windup||0)>0,dying=!!state?.dead;
@@ -378,7 +378,7 @@ function drawEnemyPortrait(x,y,face,boss,kind,hit,state=null){
 }
 
 const heroPortrait=new Image();
-heroPortrait.src='assets/hero-portrait.webp';
+heroPortrait.src='/assets/hero-portrait.webp?v=original-20261105';
 function drawNewHero(x,y,face,mode,hit){
  if(!heroPortrait.complete||!heroPortrait.naturalWidth)return false;
  const pose=mode==='run'||mode==='jump'?1:mode==='attack'||mode==='runAttack'||mode==='airAttack'||mode==='combo'?2:mode==='skill'?3:0;
