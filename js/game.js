@@ -371,34 +371,30 @@ function drawWoodenDummy(x,y,face,hit,state){
  ctx.drawImage(woodenDummyAtlas,sx,sy,192,205,-targetW/2,-targetH,targetW,targetH);
  ctx.restore();return true;
 }
-const CUSTOM_ENEMY_SOURCES={'산적 궁수':0,'산적 투사':1,'산적 대장':2,'낭인 무사':3,'회색늑대':4,'호랑이':5,'흑풍채 두목':6};
-const customEnemyImages={};
-for(const [name,index] of Object.entries(CUSTOM_ENEMY_SOURCES)){const img=new Image();img.src='/assets/enemy-custom-'+index+'.svg?v=20261105';customEnemyImages[name]=img}
-// Four deterministic animation frames per action. Each enemy retains its own SVG artwork.
-const CUSTOM_ENEMY_FRAMES={
- idle:[{y:0,r:0,s:1},{y:-1,r:-.012,s:1.012},{y:-2,r:0,s:1.02},{y:-1,r:.012,s:1.012}],
- walk:[{y:0,r:-.045,s:1},{y:-4,r:0,s:1.02},{y:0,r:.045,s:1},{y:-3,r:0,s:1.02}],
- attack:[{y:0,r:-.12,s:.98},{y:-2,r:-.24,s:1.04},{y:-1,r:.24,s:1.09},{y:0,r:.08,s:1}],
- hurt:[{y:0,r:-.12,s:1},{y:-2,r:.1,s:.95},{y:0,r:-.08,s:1},{y:0,r:0,s:1}],
- death:[{y:0,r:0,s:1},{y:4,r:.35,s:.94},{y:12,r:.85,s:.85},{y:20,r:1.35,s:.72}]
-};
+// Per-enemy PNG animation frames; keep the previously deployed SVG as a safe fallback.
+const CUSTOM_ENEMY_SOURCES={'산적 궁수':['archer',0],'산적 투사':['fighter',1],'산적 대장':['captain',2],'낭인 무사':['ronin',3],'회색늑대':['wolf',4],'호랑이':['tiger',5],'흑풍채 두목':['blackwind_boss',6],'자객':['assassin',null],'산적':['bandit',null],'목인':['dummy',null]};
+const customEnemyImages={},customEnemyFrameImages={};
+for(const [name,[slug,index]] of Object.entries(CUSTOM_ENEMY_SOURCES)){
+ if(index!==null){const fallback=new Image();fallback.src='/assets/enemy-custom-'+index+'.svg?v=20261105';customEnemyImages[name]=fallback}
+ customEnemyFrameImages[name]=Array.from({length:4},(_,i)=>{
+  const img=new Image();img.src='/assets/enemy-frames/'+slug+'_'+i+'.png?v=20261105b';return img;
+ });
+}
 function drawCustomEnemy(x,y,face,kind,hit,state){
- const img=customEnemyImages[kind];if(!img||!img.complete||!img.naturalWidth)return false;
- const moving=Math.abs(state?.vx||0)>8;
- const attacking=(state?.windup||0)>0||(state?.patternWindup||0)>0;
- const dead=!!state?.dead;
- const action=dead?'death':hit>0?'hurt':attacking?'attack':moving?'walk':'idle';
- const frames=CUSTOM_ENEMY_FRAMES[action];
+ const frames=customEnemyFrameImages[kind];
+ const moving=Math.abs(state?.vx||0)>8,attacking=(state?.windup||0)>0||(state?.patternWindup||0)>0;
+ const dead=!!state?.dead,action=dead?'death':hit>0?'hurt':attacking?'attack':moving?'walk':'idle';
  const fps=action==='walk'?9:action==='attack'?12:action==='hurt'?10:action==='death'?6:4;
- const duration=action==='attack'?(state?.windup||state?.patternWindup||0):0;
- const frame=action==='attack'?Math.max(0,Math.min(3,3-Math.floor(duration*8))):
-   action==='death'?Math.max(0,Math.min(3,Math.floor((state?.deathTimer||0)*fps))):
-   Math.floor(time*fps+(state?.x||0)*.002)%4;
- const pose=frames[frame];
- const baseScale=kind==='흑풍채 두목'||kind==='호랑이'?1.5:1.25;
- const scale=baseScale*pose.s;
- ctx.save();ctx.translate(Math.round(x),Math.round(y+pose.y));
- ctx.scale(-face,1);ctx.rotate(pose.r);
+ const phase=action==='death'?Math.min(3,Math.floor((state?.deathTimer||0)*fps)):
+ action==='attack'?Math.max(0,Math.min(3,3-Math.floor((state?.windup||state?.patternWindup||0)*8))):
+ Math.floor(time*fps+(state?.x||0)*.002)%4;
+ const frame=frames?.[phase];
+ const pngReady=!!(frame&&frame.complete&&frame.naturalWidth);
+ const img=pngReady?frame:customEnemyImages[kind];
+ if(!img||!img.complete||!img.naturalWidth)return false;
+ const scale=kind==='흑풍채 두목'||kind==='호랑이'?1.5:1.25;
+ const bob=action==='walk'?Math.sin(time*14)*2:0;
+ ctx.save();ctx.translate(Math.round(x),Math.round(y+bob));ctx.scale(-face,1);
  if(hit>0&&Math.floor(time*20)%2===0)ctx.globalAlpha=.65;
  if(dead)ctx.globalAlpha=Math.max(.25,1-(state?.deathTimer||0)*.4);
  ctx.imageSmoothingEnabled=false;
