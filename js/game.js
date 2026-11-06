@@ -426,7 +426,7 @@ function drawOriginalArcher(x,y,face,hit,state){
 }
 // User-provided original 18-frame pixel art (4 idle, 4 walk, 4 attack, 2 hurt, 4 death).
 const originalBanditAtlases={};
-for(const [kind,slug] of [['산적 대장','captain'],['산적 투사','fighter'],['낭인 무사','ronin'],['회색늑대','wolf']]){
+for(const [kind,slug] of [['산적 대장','captain'],['산적 투사','fighter'],['낭인 무사','ronin'],['회색늑대','wolf'],['흑풍채 두목','blackwind_boss']]){
  const img=new Image();img.src='/assets/enemy-original/'+slug+'-atlas.png?v=20261106';
  originalBanditAtlases[kind]=img;
 }
