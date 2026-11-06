@@ -417,7 +417,7 @@ function drawOriginalArcher(x,y,face,hit,state){
  const frame=action==='death'?Math.min(count-1,Math.floor((state?.deathTimer||0)*fps)):
  action==='attack'?Math.min(count-1,Math.max(0,count-1-Math.floor((state?.windup||state?.patternWindup||0)*8))):
  Math.floor(time*fps+(state?.x||0)*.002)%count;
- ctx.save();ctx.translate(Math.round(x),Math.round(y));ctx.scale(-face,1);
+ ctx.save();ctx.translate(Math.round(x),Math.round(y));ctx.scale(face,1);
  if(hit>0&&Math.floor(time*20)%2===0)ctx.globalAlpha=.65;
  ctx.imageSmoothingEnabled=false;
  // Preserve the original transparent cell and anchor the feet at the ground.
@@ -441,7 +441,7 @@ function drawOriginalBandit(x,y,face,kind,hit,state){
  const frame=action==='death'?Math.min(count-1,Math.floor((state?.deathTimer||0)*fps)):
  action==='attack'?Math.min(count-1,Math.max(0,count-1-Math.floor((state?.windup||state?.patternWindup||0)*8))):
  Math.floor(time*fps+(state?.x||0)*.002)%count;
- ctx.save();ctx.translate(Math.round(x),Math.round(y));ctx.scale(-face,1);
+ ctx.save();ctx.translate(Math.round(x),Math.round(y));ctx.scale(face,1);
  if(hit>0&&Math.floor(time*20)%2===0)ctx.globalAlpha=.65;
  ctx.imageSmoothingEnabled=false;
  ctx.drawImage(img,(start+frame)*192,0,192,192,-96,-176,192,192);
