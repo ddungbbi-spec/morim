@@ -421,7 +421,7 @@ function drawOriginalArcher(x,y,face,hit,state){
  if(hit>0&&Math.floor(time*20)%2===0)ctx.globalAlpha=.65;
  ctx.imageSmoothingEnabled=false;
  // Preserve the original transparent cell and anchor the feet at the ground.
- ctx.drawImage(originalArcherAtlas,(start+frame)*192,0,192,192,-96,-192,192,192);
+ ctx.drawImage(originalArcherAtlas,(start+frame)*192,0,192,192,-96,-176,192,192);
  ctx.restore();return true;
 }
 function drawEnemyPortrait(x,y,face,boss,kind,hit,state=null){
