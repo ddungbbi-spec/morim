@@ -424,7 +424,31 @@ function drawOriginalArcher(x,y,face,hit,state){
  ctx.drawImage(originalArcherAtlas,(start+frame)*192,0,192,192,-96,-176,192,192);
  ctx.restore();return true;
 }
+// User-provided original 18-frame pixel art (4 idle, 4 walk, 4 attack, 2 hurt, 4 death).
+const originalBanditAtlases={};
+for(const [kind,slug] of [['산적 대장','captain'],['산적 투사','fighter']]){
+ const img=new Image();img.src='/assets/enemy-original/'+slug+'-atlas.png?v=20261106';
+ originalBanditAtlases[kind]=img;
+}
+function drawOriginalBandit(x,y,face,kind,hit,state){
+ const img=originalBanditAtlases[kind];
+ if(!img||!img.complete||img.naturalWidth!==3456||img.naturalHeight!==192)return false;
+ const dead=!!state?.dead,moving=Math.abs(state?.vx||0)>8;
+ const attacking=(state?.windup||0)>0||(state?.patternWindup||0)>0;
+ const action=dead?'death':hit>0?'hurt':attacking?'attack':moving?'walk':'idle';
+ const start={idle:0,walk:4,attack:8,hurt:12,death:14}[action],count=action==='hurt'?2:4;
+ const fps=action==='walk'?9:action==='attack'?9:action==='hurt'?9:action==='death'?7:7;
+ const frame=action==='death'?Math.min(count-1,Math.floor((state?.deathTimer||0)*fps)):
+ action==='attack'?Math.min(count-1,Math.max(0,count-1-Math.floor((state?.windup||state?.patternWindup||0)*8))):
+ Math.floor(time*fps+(state?.x||0)*.002)%count;
+ ctx.save();ctx.translate(Math.round(x),Math.round(y));ctx.scale(-face,1);
+ if(hit>0&&Math.floor(time*20)%2===0)ctx.globalAlpha=.65;
+ ctx.imageSmoothingEnabled=false;
+ ctx.drawImage(img,(start+frame)*192,0,192,192,-96,-176,192,192);
+ ctx.restore();return true;
+}
 function drawEnemyPortrait(x,y,face,boss,kind,hit,state=null){
+ if(drawOriginalBandit(x,y,face,kind,hit,state))return true;
  if(!boss&&kind==='산적 궁수'&&drawOriginalArcher(x,y,face,hit,state))return true;
  // Original pixel-art atlases take priority over temporary SVG stand-ins.
  // Do not render custom SVG frames until the real PNG atlas is committed.
