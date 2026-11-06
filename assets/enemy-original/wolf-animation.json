@@ -1,0 +1,415 @@
+{
+  "frame_size": [
+    192,
+    192
+  ],
+  "pivot": [
+    0.5,
+    0.9166667
+  ],
+  "anchor": [
+    96,
+    176
+  ],
+  "scale": 1,
+  "frames": [
+    {
+      "action": "idle",
+      "index": 1,
+      "file": "프레임/대기/회색늑대_대기_01.png",
+      "rect": [
+        0,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 150,
+      "source_box": [
+        214,
+        637,
+        276,
+        694
+      ],
+      "source_anchor": [
+        237,
+        686
+      ]
+    },
+    {
+      "action": "idle",
+      "index": 2,
+      "file": "프레임/대기/회색늑대_대기_02.png",
+      "rect": [
+        192,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 150,
+      "source_box": [
+        280,
+        637,
+        342,
+        694
+      ],
+      "source_anchor": [
+        303,
+        686
+      ]
+    },
+    {
+      "action": "idle",
+      "index": 3,
+      "file": "프레임/대기/회색늑대_대기_03.png",
+      "rect": [
+        384,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 150,
+      "source_box": [
+        346,
+        637,
+        409,
+        694
+      ],
+      "source_anchor": [
+        364,
+        685
+      ]
+    },
+    {
+      "action": "idle",
+      "index": 4,
+      "file": "프레임/대기/회색늑대_대기_04.png",
+      "rect": [
+        576,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 150,
+      "source_box": [
+        413,
+        637,
+        475,
+        694
+      ],
+      "source_anchor": [
+        434,
+        686
+      ]
+    },
+    {
+      "action": "walk",
+      "index": 1,
+      "file": "프레임/이동/회색늑대_이동_01.png",
+      "rect": [
+        768,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 110,
+      "source_box": [
+        479,
+        637,
+        542,
+        694
+      ],
+      "source_anchor": [
+        513,
+        676
+      ]
+    },
+    {
+      "action": "walk",
+      "index": 2,
+      "file": "프레임/이동/회색늑대_이동_02.png",
+      "rect": [
+        960,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 110,
+      "source_box": [
+        546,
+        637,
+        610,
+        694
+      ],
+      "source_anchor": [
+        567,
+        687
+      ]
+    },
+    {
+      "action": "walk",
+      "index": 3,
+      "file": "프레임/이동/회색늑대_이동_03.png",
+      "rect": [
+        1152,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 110,
+      "source_box": [
+        614,
+        637,
+        678,
+        694
+      ],
+      "source_anchor": [
+        642,
+        686
+      ]
+    },
+    {
+      "action": "walk",
+      "index": 4,
+      "file": "프레임/이동/회색늑대_이동_04.png",
+      "rect": [
+        1344,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 110,
+      "source_box": [
+        682,
+        637,
+        745,
+        694
+      ],
+      "source_anchor": [
+        695,
+        686
+      ]
+    },
+    {
+      "action": "attack",
+      "index": 1,
+      "file": "프레임/공격/회색늑대_공격_01.png",
+      "rect": [
+        1536,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 110,
+      "source_box": [
+        749,
+        637,
+        826,
+        694
+      ],
+      "source_anchor": [
+        776,
+        683
+      ]
+    },
+    {
+      "action": "attack",
+      "index": 2,
+      "file": "프레임/공격/회색늑대_공격_02.png",
+      "rect": [
+        1728,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 110,
+      "source_box": [
+        830,
+        637,
+        906,
+        694
+      ],
+      "source_anchor": [
+        845,
+        687
+      ]
+    },
+    {
+      "action": "attack",
+      "index": 3,
+      "file": "프레임/공격/회색늑대_공격_03.png",
+      "rect": [
+        1920,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 110,
+      "source_box": [
+        910,
+        637,
+        987,
+        694
+      ],
+      "source_anchor": [
+        929,
+        683
+      ]
+    },
+    {
+      "action": "attack",
+      "index": 4,
+      "file": "프레임/공격/회색늑대_공격_04.png",
+      "rect": [
+        2112,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 110,
+      "source_box": [
+        991,
+        637,
+        1068,
+        694
+      ],
+      "source_anchor": [
+        1009,
+        678
+      ]
+    },
+    {
+      "action": "hurt",
+      "index": 1,
+      "file": "프레임/피격/회색늑대_피격_01.png",
+      "rect": [
+        2304,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 110,
+      "source_box": [
+        1072,
+        637,
+        1144,
+        694
+      ],
+      "source_anchor": [
+        1126,
+        686
+      ]
+    },
+    {
+      "action": "hurt",
+      "index": 2,
+      "file": "프레임/피격/회색늑대_피격_02.png",
+      "rect": [
+        2496,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 110,
+      "source_box": [
+        1148,
+        637,
+        1219,
+        694
+      ],
+      "source_anchor": [
+        1186,
+        685
+      ]
+    },
+    {
+      "action": "death",
+      "index": 1,
+      "file": "프레임/사망/회색늑대_사망_01.png",
+      "rect": [
+        2688,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 150,
+      "source_box": [
+        1223,
+        637,
+        1297,
+        694
+      ],
+      "source_anchor": [
+        1266,
+        685
+      ]
+    },
+    {
+      "action": "death",
+      "index": 2,
+      "file": "프레임/사망/회색늑대_사망_02.png",
+      "rect": [
+        2880,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 150,
+      "source_box": [
+        1301,
+        637,
+        1374,
+        694
+      ],
+      "source_anchor": [
+        1342,
+        685
+      ]
+    },
+    {
+      "action": "death",
+      "index": 3,
+      "file": "프레임/사망/회색늑대_사망_03.png",
+      "rect": [
+        3072,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 150,
+      "source_box": [
+        1378,
+        637,
+        1452,
+        694
+      ],
+      "source_anchor": [
+        1415,
+        686
+      ]
+    },
+    {
+      "action": "death",
+      "index": 4,
+      "file": "프레임/사망/회색늑대_사망_04.png",
+      "rect": [
+        3264,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 150,
+      "source_box": [
+        1456,
+        637,
+        1530,
+        694
+      ],
+      "source_anchor": [
+        1490,
+        685
+      ]
+    }
+  ],
+  "character": "회색늑대",
+  "atlas": "회색늑대_전체시트.png"
+}

@@ -1,0 +1,415 @@
+{
+  "frame_size": [
+    192,
+    192
+  ],
+  "pivot": [
+    0.5,
+    0.9166667
+  ],
+  "anchor": [
+    96,
+    176
+  ],
+  "scale": 1,
+  "frames": [
+    {
+      "action": "idle",
+      "index": 1,
+      "file": "프레임/대기/낭인_무사_대기_01.png",
+      "rect": [
+        0,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 150,
+      "source_box": [
+        214,
+        547,
+        276,
+        609
+      ],
+      "source_anchor": [
+        253,
+        603
+      ]
+    },
+    {
+      "action": "idle",
+      "index": 2,
+      "file": "프레임/대기/낭인_무사_대기_02.png",
+      "rect": [
+        192,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 150,
+      "source_box": [
+        280,
+        547,
+        342,
+        609
+      ],
+      "source_anchor": [
+        320,
+        603
+      ]
+    },
+    {
+      "action": "idle",
+      "index": 3,
+      "file": "프레임/대기/낭인_무사_대기_03.png",
+      "rect": [
+        384,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 150,
+      "source_box": [
+        346,
+        547,
+        409,
+        609
+      ],
+      "source_anchor": [
+        383,
+        603
+      ]
+    },
+    {
+      "action": "idle",
+      "index": 4,
+      "file": "프레임/대기/낭인_무사_대기_04.png",
+      "rect": [
+        576,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 150,
+      "source_box": [
+        413,
+        547,
+        475,
+        609
+      ],
+      "source_anchor": [
+        440,
+        604
+      ]
+    },
+    {
+      "action": "walk",
+      "index": 1,
+      "file": "프레임/이동/낭인_무사_이동_01.png",
+      "rect": [
+        768,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 110,
+      "source_box": [
+        479,
+        547,
+        542,
+        609
+      ],
+      "source_anchor": [
+        513,
+        602
+      ]
+    },
+    {
+      "action": "walk",
+      "index": 2,
+      "file": "프레임/이동/낭인_무사_이동_02.png",
+      "rect": [
+        960,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 110,
+      "source_box": [
+        546,
+        547,
+        610,
+        609
+      ],
+      "source_anchor": [
+        580,
+        603
+      ]
+    },
+    {
+      "action": "walk",
+      "index": 3,
+      "file": "프레임/이동/낭인_무사_이동_03.png",
+      "rect": [
+        1152,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 110,
+      "source_box": [
+        614,
+        547,
+        678,
+        609
+      ],
+      "source_anchor": [
+        639,
+        603
+      ]
+    },
+    {
+      "action": "walk",
+      "index": 4,
+      "file": "프레임/이동/낭인_무사_이동_04.png",
+      "rect": [
+        1344,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 110,
+      "source_box": [
+        682,
+        547,
+        745,
+        609
+      ],
+      "source_anchor": [
+        709,
+        603
+      ]
+    },
+    {
+      "action": "attack",
+      "index": 1,
+      "file": "프레임/공격/낭인_무사_공격_01.png",
+      "rect": [
+        1536,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 110,
+      "source_box": [
+        749,
+        547,
+        826,
+        609
+      ],
+      "source_anchor": [
+        787,
+        601
+      ]
+    },
+    {
+      "action": "attack",
+      "index": 2,
+      "file": "프레임/공격/낭인_무사_공격_02.png",
+      "rect": [
+        1728,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 110,
+      "source_box": [
+        830,
+        547,
+        906,
+        609
+      ],
+      "source_anchor": [
+        871,
+        602
+      ]
+    },
+    {
+      "action": "attack",
+      "index": 3,
+      "file": "프레임/공격/낭인_무사_공격_03.png",
+      "rect": [
+        1920,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 110,
+      "source_box": [
+        910,
+        547,
+        987,
+        609
+      ],
+      "source_anchor": [
+        937,
+        601
+      ]
+    },
+    {
+      "action": "attack",
+      "index": 4,
+      "file": "프레임/공격/낭인_무사_공격_04.png",
+      "rect": [
+        2112,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 110,
+      "source_box": [
+        991,
+        547,
+        1068,
+        609
+      ],
+      "source_anchor": [
+        1033,
+        602
+      ]
+    },
+    {
+      "action": "hurt",
+      "index": 1,
+      "file": "프레임/피격/낭인_무사_피격_01.png",
+      "rect": [
+        2304,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 110,
+      "source_box": [
+        1072,
+        547,
+        1144,
+        609
+      ],
+      "source_anchor": [
+        1126,
+        603
+      ]
+    },
+    {
+      "action": "hurt",
+      "index": 2,
+      "file": "프레임/피격/낭인_무사_피격_02.png",
+      "rect": [
+        2496,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 110,
+      "source_box": [
+        1148,
+        547,
+        1219,
+        609
+      ],
+      "source_anchor": [
+        1187,
+        603
+      ]
+    },
+    {
+      "action": "death",
+      "index": 1,
+      "file": "프레임/사망/낭인_무사_사망_01.png",
+      "rect": [
+        2688,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 150,
+      "source_box": [
+        1223,
+        547,
+        1297,
+        609
+      ],
+      "source_anchor": [
+        1283,
+        601
+      ]
+    },
+    {
+      "action": "death",
+      "index": 2,
+      "file": "프레임/사망/낭인_무사_사망_02.png",
+      "rect": [
+        2880,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 150,
+      "source_box": [
+        1301,
+        547,
+        1374,
+        609
+      ],
+      "source_anchor": [
+        1353,
+        601
+      ]
+    },
+    {
+      "action": "death",
+      "index": 3,
+      "file": "프레임/사망/낭인_무사_사망_03.png",
+      "rect": [
+        3072,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 150,
+      "source_box": [
+        1378,
+        547,
+        1452,
+        609
+      ],
+      "source_anchor": [
+        1427,
+        601
+      ]
+    },
+    {
+      "action": "death",
+      "index": 4,
+      "file": "프레임/사망/낭인_무사_사망_04.png",
+      "rect": [
+        3264,
+        0,
+        192,
+        192
+      ],
+      "duration_ms": 150,
+      "source_box": [
+        1456,
+        547,
+        1530,
+        609
+      ],
+      "source_anchor": [
+        1494,
+        601
+      ]
+    }
+  ],
+  "character": "낭인_무사",
+  "atlas": "낭인_무사_전체시트.png"
+}
