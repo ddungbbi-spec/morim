@@ -415,7 +415,7 @@ function drawOriginalArcher(x,y,face,hit,state){
  const count=action==='hurt'?2:4;
  const fps=action==='walk'?9:action==='attack'?12:action==='hurt'?10:action==='death'?6:4;
  const frame=action==='death'?Math.min(count-1,Math.floor((state?.deathTimer||0)*fps)):
- action==='attack'?Math.min(count-1,Math.floor((1-Math.min(1,Math.max(0,(state?.windup||0)>0?(state.windup/((state?.boss)?(state?.phase===2?.32:.48):.36):(state?.patternWindup||0)/((state?.storyBoss?.78:1.05)*(state?.phase===2?.8:1))))))*count)):
+ action==='attack'?Math.min(count-1,Math.max(0,count-1-Math.floor((state?.windup||state?.patternWindup||0)*8))):
  Math.floor(time*fps+(state?.x||0)*.002)%count;
  ctx.save();ctx.translate(Math.round(x),Math.round(y));ctx.scale(face,1);
  if(hit>0&&Math.floor(time*20)%2===0)ctx.globalAlpha=.65;
@@ -439,7 +439,7 @@ function drawOriginalBandit(x,y,face,kind,hit,state){
  const start={idle:0,walk:4,attack:8,hurt:12,death:14}[action],count=action==='hurt'?2:4;
  const fps=action==='walk'?9:action==='attack'?9:action==='hurt'?9:action==='death'?7:7;
  const frame=action==='death'?Math.min(count-1,Math.floor((state?.deathTimer||0)*fps)):
- action==='attack'?Math.min(count-1,Math.floor((1-Math.min(1,Math.max(0,(state?.windup||0)>0?(state.windup/((state?.boss)?(state?.phase===2?.32:.48):.36):(state?.patternWindup||0)/((state?.storyBoss?.78:1.05)*(state?.phase===2?.8:1))))))*count)):
+ action==='attack'?Math.min(count-1,Math.max(0,count-1-Math.floor((state?.windup||state?.patternWindup||0)*8))):
  Math.floor(time*fps+(state?.x||0)*.002)%count;
  ctx.save();ctx.translate(Math.round(x),Math.round(y));ctx.scale(face,1);
  if(hit>0&&Math.floor(time*20)%2===0)ctx.globalAlpha=.65;
