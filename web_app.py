@@ -227,19 +227,13 @@ class WebGame:
         self._log(f"{arrived.name}에 도착했습니다.")
         for title in record_visit(self.flags, arrived.id):
             self._log(f"NPC 의뢰 [{title}]의 목표를 달성했습니다.")
-        tower_floor = tower_floor_number(arrived.id)
-        tower_floor_cleared = bool(
-            tower_floor and is_tower_floor_cleared(self.flags, tower_floor)
-        )
         if (
             arrived.encounter_pool
-            and not tower_floor_cleared
+            and tower_floor_number(arrived.id) is None
             and random.random() < arrived.encounter_chance
         ):
             enemies = random.choice(arrived.encounter_pool)()
-            context = "tower_floor" if tower_floor else "random"
-            title = f"{arrived.name}의 시련" if tower_floor else f"{arrived.name}의 습격"
-            self._begin_battle(enemies, context, title)
+            self._begin_battle(enemies, "random", f"{arrived.name}의 습격")
         else:
             self._enter_current_location()
         return {"ok": True, "state": self.state()}
@@ -827,6 +821,14 @@ class WebGame:
 
     def _after_location_dialogue(self) -> None:
         location = self.game_map.current
+        tower_floor = tower_floor_number(location.id)
+        if (tower_floor and location.encounter_pool
+                and not is_tower_floor_cleared(self.flags, tower_floor)):
+            self._begin_battle(
+                random.choice(location.encounter_pool)(),
+                "tower_floor", f"{location.name}의 시련",
+            )
+            return
         if (
             location.id == "final_chamber"
             and self.flags.get("embraced_power")
@@ -1411,10 +1413,15 @@ class WebGame:
         chance = max(0.25, min(0.90, 0.60 + (party_speed - enemy_speed) * 0.05))
         if random.random() < chance:
             world_encounter = self.battle_context == "random"
+            tower_encounter = self.battle_context == "tower_floor"
             self.current_actor = None
             self.battle_context = ""
             self._log(f"도주 성공 ({chance:.0%})")
-            if world_encounter:
+            if tower_encounter:
+                self.game_map.move_to("village")
+                self._log("탑의 시련에서 물러나 시작 마을로 귀환했습니다. 층 돌파와 전투 보상은 없습니다.")
+                self._enter_current_location()
+            elif world_encounter:
                 self._enter_current_location()
             else:
                 self.phase = "fled"

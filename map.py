@@ -184,6 +184,27 @@ def explore(
             loc.dialogue_played = True
             quest_log.sync_story_flags(flags)
 
+        # 이동뿐 아니라 저장 불러오기 후에도 미돌파 일반층의 시련을 시작한다.
+        from world import (
+            is_tower_floor_cleared, mark_tower_floor_cleared, tower_floor_number,
+        )
+        tower_floor = tower_floor_number(loc.id)
+        if (tower_floor and loc.encounter_pool
+                and not is_tower_floor_cleared(flags, tower_floor)):
+            print("\n탑의 시련이 시작된다!")
+            enemies = random.choice(loc.encounter_pool)()
+            battle = Battle(party, enemies, inventory, equipment_inventory)
+            if not battle.run():
+                return False
+            if battle.fled:
+                game_map.move_to("village")
+                print("\n탑의 시련에서 물러나 시작 마을로 귀환했다. 층 돌파와 전투 보상은 없다.")
+                continue
+            for title in record_defeats(flags, [enemy.name for enemy in enemies]):
+                print(f"\nNPC 의뢰 [{title}]의 목표를 달성했다!")
+            mark_tower_floor_cleared(flags, tower_floor)
+            print(f"\n도전의 탑 {tower_floor}층을 돌파했다!")
+
         # 봉인의 힘을 받아들인 선택을 최종 전투의 실제 능력치에 반영 (1회만)
         if (
             loc.id == "final_chamber"
@@ -575,25 +596,17 @@ def explore(
                 print(f"\nNPC 의뢰 [{title}]의 목표를 달성했다!")
 
             # 새 장소로 이동했을 때 랜덤 인카운터 판정 (보스/엔딩 장소는 위에서 별도 처리)
-            from world import (
-                is_tower_floor_cleared, mark_tower_floor_cleared,
-                tower_floor_number,
-            )
-            tower_floor = tower_floor_number(new_loc.id)
-            tower_floor_cleared = bool(
-                tower_floor and is_tower_floor_cleared(flags, tower_floor)
-            )
             if (
                 new_loc.encounter_pool
-                and not tower_floor_cleared
+                and tower_floor_number(new_loc.id) is None
                 and random.random() < new_loc.encounter_chance
             ):
                 print("\n몬스터가 나타났다!")
                 enemies = random.choice(new_loc.encounter_pool)()
-                won = Battle(party, enemies, inventory, equipment_inventory).run()
-                if not won:
+                battle = Battle(party, enemies, inventory, equipment_inventory)
+                if not battle.run():
                     return False
+                if battle.fled:
+                    continue
                 for title in record_defeats(flags, [enemy.name for enemy in enemies]):
                     print(f"\nNPC 의뢰 [{title}]의 목표를 달성했다!")
-                if tower_floor and mark_tower_floor_cleared(flags, tower_floor):
-                    print(f"\n도전의 탑 {tower_floor}층을 돌파했다!")
