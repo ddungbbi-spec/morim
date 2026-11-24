@@ -176,7 +176,13 @@ function render() {
   const tracked = gameState.tracked_commissions || [];
   const tracker = $("#commissionTracker");
   tracker.classList.toggle("hidden", !tracked.length || gameState.phase === "setup");
-  tracker.innerHTML = tracked.map((entry) => `<div class="quest-line"><strong>${escapeHtml(entry.title)}</strong><span>${entry.progress}/${entry.required} · ${entry.status === "ready" ? "마을 게시판에서 보상 수령" : escapeHtml(entry.objective)}</span></div>`).join("");
+  const trackerOpen = tracker.querySelector("details")?.open || false;
+  const readyCount = tracked.filter((entry) => entry.status === "ready").length;
+  tracker.innerHTML = `<details${trackerOpen ? " open" : ""}><summary>진행 의뢰 ${tracked.length}개 · 보상 가능 ${readyCount}개</summary>${tracked.map((entry) => {
+    const rewards = [`${entry.gold_reward}G`, ...entry.item_rewards.map((item) => `${item.name}×${item.count}`), `평판 +${entry.reputation_reward}`].join(" · ");
+    const report = `${entry.village_name} · ${entry.report_to}`;
+    return `<div class="commission-entry${entry.status === "ready" ? " ready" : ""}"><div class="quest-line"><strong>${escapeHtml(entry.title)} · ${entry.source === "random" ? "NPC 반복" : "지역 게시판"}</strong><span>${entry.progress}/${entry.required} · ${entry.status === "ready" ? "보상 가능" : "진행 중"}</span></div><p>${escapeHtml(entry.objective)}</p><p>보고: ${escapeHtml(report)}</p><p>보상: ${escapeHtml(rewards)}</p></div>`;
+  }).join("")}</details>`;
 
   const timeline = $("#turnTimeline");
   if (gameState.phase === "battle") {

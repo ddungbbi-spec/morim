@@ -21,7 +21,7 @@ from typing import Callable, Dict, List, Optional
 import data
 from commissions import (
     accept_commission, claim_commission, commission_state, offer_commission,
-    record_defeats, record_visit, regional_board_state,
+    record_defeats, record_visit, regional_board_state, tracked_commission_state,
     accept_regional_commission, claim_regional_commission,
 )
 from combo import ComboChain, can_chain
@@ -1979,8 +1979,11 @@ class WebGame:
             "quest_board": "quest_board" in location.services,
             "regional_commissions": regional_board_state(self.flags, location.id),
             "tracked_commissions": [
-                entry for entry in regional_board_state(self.flags)
-                if entry["status"] in {"active", "ready"}
+                dict(entry,
+                     village_name=self.game_map.locations[entry["village_id"]].name,
+                     report_to=(self.game_map.locations[entry["village_id"]].quest_npc
+                                if entry["source"] == "random" else "지역 의뢰 게시판"))
+                for entry in tracked_commission_state(self.flags)
             ],
             "advancement_service": "advancement" in location.services,
             "village": {

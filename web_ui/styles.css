@@ -162,6 +162,10 @@ h2 { font-size: 1.3rem; }
 .quest-line { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: .68rem; }
 .quest-line strong { color: #d9dfeb; }
 #commissionTracker .quest-line { flex-wrap: wrap; overflow-wrap: anywhere; }
+#commissionTracker summary { cursor: pointer; padding: 10px 0; color: var(--cyan); font-size: .78rem; min-height: 44px; }
+.commission-entry { margin-top: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; overflow-wrap: anywhere; }
+.commission-entry.ready { border-color: var(--gold); }
+.commission-entry p { margin: 5px 0 0; color: var(--muted); font-size: .7rem; line-height: 1.5; }
 
 .dialogue-panel { padding: 20px; border-left: 3px solid var(--gold); border-radius: 4px 14px 14px 4px; background: linear-gradient(110deg, rgba(241, 198, 109, .09), rgba(8, 13, 24, .55)); }
 .dialogue-line { font-family: Georgia, "Nanum Myeongjo", serif; line-height: 1.75; margin: 0 0 8px; color: #f8f2e2; }

@@ -138,7 +138,8 @@ REGIONAL_BOARD_IDS = {
 def _regional_record(flags: dict, commission_id: str) -> dict:
     records = flags.get("regional_commissions", {})
     record = records.get(commission_id) if isinstance(records, dict) else None
-    if not isinstance(record, dict) or record.get("status") not in {"active", "ready", "completed"}:
+    if (not isinstance(record, dict) or not isinstance(record.get("status"), str)
+            or record["status"] not in {"active", "ready", "completed"}):
         return {"status": "available", "progress": 0}
     template = COMMISSION_TEMPLATES[commission_id]
     try:
@@ -208,15 +209,20 @@ def commission_record(flags: dict, village_id: str):
     record = records.get(village_id)
     if not isinstance(record, dict):
         return None
-    template = COMMISSION_TEMPLATES.get(record.get("template_id"))
+    template_id = record.get("template_id")
+    template = COMMISSION_TEMPLATES.get(template_id) if isinstance(template_id, str) else None
     if template is None or template.village_id != village_id:
         return None
-    if record.get("status") not in COMMISSION_STATUSES:
+    if not isinstance(record.get("status"), str) or record["status"] not in COMMISSION_STATUSES:
         return None
     try:
         progress = max(0, min(int(record.get("progress", 0)), template.required))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         progress = 0
+    if record["status"] == "offered":
+        progress = 0
+    else:
+        record["status"] = "ready" if progress == template.required else "active"
     record["progress"] = progress
     return record, template
 
@@ -308,6 +314,17 @@ def commission_state(flags: dict, village_id: str) -> dict | None:
         return None
     record, template = current
     return _commission_view(template, record)
+
+
+def tracked_commission_state(flags: dict) -> list[dict]:
+    """두 종류의 의뢰를 구분해 추적하고 보고 가능한 의뢰를 먼저 보여 준다."""
+    entries = [dict(entry, source="regional") for entry in regional_board_state(flags)
+               if entry["status"] in {"active", "ready"}]
+    for village_id in REGIONAL_BOARD_IDS:
+        entry = commission_state(flags, village_id)
+        if entry is not None and entry["status"] in {"active", "ready"}:
+            entries.append(dict(entry, village_id=village_id, source="random"))
+    return sorted(entries, key=lambda entry: entry["status"] != "ready")
 
 
 def _commission_view(template: CommissionTemplate, record: dict) -> dict:
