@@ -306,6 +306,7 @@ def explore(
             options.append(("보스에게 다시 도전", "boss_retry", None))
         if "quest_board" in loc.services:
             options.append(("의뢰 게시판", "quest_board", None))
+            options.append(("지역 의뢰 게시판 · 3종", "regional_board", None))
         if "advancement" in loc.services:
             options.append(("전직 교관 · 2차 직업", "advancement", None))
         if "blacksmith" in loc.services:
@@ -414,6 +415,11 @@ def explore(
         if action == "quest_board":
             from quests import run_quest_board
             run_quest_board(quest_log, party, inventory, game_map, flags)
+            continue
+
+        if action == "regional_board":
+            from commissions import run_regional_board
+            run_regional_board(flags, loc.id, party, inventory)
             continue
 
         if action == "village_travel":

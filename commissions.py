@@ -1,4 +1,4 @@
-"""마을 NPC가 반복해서 제공하는 무작위 지역 의뢰를 관리한다."""
+"""마을별 지역 의뢰 게시판과 NPC 무작위 반복 의뢰를 관리한다."""
 
 from __future__ import annotations
 
@@ -125,6 +125,66 @@ def templates_for(village_id: str) -> list[CommissionTemplate]:
     ]
 
 
+# 게시판 목록을 고정해 반복 의뢰 추가 시에도 저장된 게시판 구성을 유지한다.
+REGIONAL_BOARD_IDS = {
+    "village": ("forest_slime_cleanup", "forest_wolf_watch", "cave_patrol"),
+    "iron_village": ("miner_remains", "ghost_shift", "mine_depth_survey"),
+    "mist_village": ("marsh_slime_sample", "wisp_lantern", "archive_delivery"),
+    "star_village": ("fallen_wraiths", "rift_observation", "shadow_stalker_hunt"),
+    "twilight_village": ("twilight_bandit_patrol", "twilight_hawk_watch", "twilight_square_delivery"),
+}
+
+
+def _regional_record(flags: dict, commission_id: str) -> dict:
+    records = flags.get("regional_commissions", {})
+    record = records.get(commission_id) if isinstance(records, dict) else None
+    if not isinstance(record, dict) or record.get("status") not in {"active", "ready", "completed"}:
+        return {"status": "available", "progress": 0}
+    template = COMMISSION_TEMPLATES[commission_id]
+    try:
+        progress = max(0, min(int(record.get("progress", 0)), template.required))
+    except (TypeError, ValueError, OverflowError):
+        progress = 0
+    status = record["status"]
+    if status == "completed":
+        progress = template.required
+    else:
+        status = "ready" if progress == template.required else "active"
+    record.update(status=status, progress=progress)
+    return record
+
+
+def regional_board_state(flags: dict, village_id: str | None = None) -> list[dict]:
+    ids = (REGIONAL_BOARD_IDS.get(village_id, ()) if village_id is not None else
+           tuple(cid for group in REGIONAL_BOARD_IDS.values() for cid in group))
+    return [dict(_commission_view(COMMISSION_TEMPLATES[cid], _regional_record(flags, cid)),
+                 village_id=COMMISSION_TEMPLATES[cid].village_id) for cid in ids]
+
+
+def accept_regional_commission(flags: dict, village_id: str, commission_id: str) -> bool:
+    if commission_id not in REGIONAL_BOARD_IDS.get(village_id, ()):
+        return False
+    if _regional_record(flags, commission_id)["status"] != "available":
+        return False
+    if not isinstance(flags.get("regional_commissions"), dict):
+        flags["regional_commissions"] = {}
+    flags["regional_commissions"][commission_id] = {"status": "active", "progress": 0}
+    return True
+
+
+def claim_regional_commission(flags: dict, village_id: str, commission_id: str,
+                              party, inventory: list):
+    if commission_id not in REGIONAL_BOARD_IDS.get(village_id, ()):
+        return None
+    record = _regional_record(flags, commission_id)
+    if record["status"] != "ready":
+        return None
+    template = COMMISSION_TEMPLATES[commission_id]
+    _grant_rewards(flags, template, party, inventory)
+    record["status"] = "completed"
+    return template
+
+
 def _records(flags: dict) -> dict:
     records = flags.get("random_commissions")
     if not isinstance(records, dict):
@@ -187,14 +247,17 @@ def accept_commission(flags: dict, village_id: str) -> bool:
 
 def _advance(flags: dict, target_type: str, target_id: str, amount: int = 1) -> list[str]:
     records = flags.get("random_commissions")
-    if not isinstance(records, dict):
-        return []
     completed = []
-    for village_id in list(records):
+    pending = []
+    for village_id in list(records) if isinstance(records, dict) else []:
         current = commission_record(flags, village_id)
-        if current is None:
-            continue
-        record, template = current
+        if current is not None:
+            pending.append(current)
+    for ids in REGIONAL_BOARD_IDS.values():
+        for commission_id in ids:
+            pending.append((_regional_record(flags, commission_id),
+                            COMMISSION_TEMPLATES[commission_id]))
+    for record, template in pending:
         if record["status"] != "active":
             continue
         if template.target_type != target_type or template.target_id != target_id:
@@ -222,16 +285,21 @@ def claim_commission(flags: dict, village_id: str, party, inventory: list):
     if current is None or current[0]["status"] != "ready":
         return None
     _, template = current
-    import data
-
-    party.gold += template.gold_reward
-    for item_name, count in template.item_rewards:
-        inventory.extend([data.ITEMS_BY_NAME[item_name]] * count)
-    from reputation import add_reputation
-    add_reputation(flags, village_id, 1)
+    _grant_rewards(flags, template, party, inventory)
     _history(flags)[village_id] = template.commission_id
     del _records(flags)[village_id]
     return template
+
+
+def _grant_rewards(flags: dict, template: CommissionTemplate, party, inventory: list):
+    import data
+
+    items = [data.ITEMS_BY_NAME[name] for name, count in template.item_rewards
+             for _ in range(count)]
+    party.gold += template.gold_reward
+    inventory.extend(items)
+    from reputation import add_reputation
+    add_reputation(flags, template.village_id, 1)
 
 
 def commission_state(flags: dict, village_id: str) -> dict | None:
@@ -239,6 +307,10 @@ def commission_state(flags: dict, village_id: str) -> dict | None:
     if current is None:
         return None
     record, template = current
+    return _commission_view(template, record)
+
+
+def _commission_view(template: CommissionTemplate, record: dict) -> dict:
     return {
         "id": template.commission_id,
         "title": template.title,
@@ -254,3 +326,30 @@ def commission_state(flags: dict, village_id: str) -> dict | None:
             for item_name, count in template.item_rewards
         ],
     }
+
+
+def run_regional_board(flags: dict, village_id: str, party, inventory: list) -> None:
+    from input_utils import prompt_index, prompt_yes_no
+
+    labels = {"available": "수락 가능", "active": "진행 중",
+              "ready": "보상 가능", "completed": "보상 수령 완료"}
+    while True:
+        entries = regional_board_state(flags, village_id)
+        print("\n[지역 의뢰 게시판 · 진행 후 저장하세요]")
+        for index, entry in enumerate(entries, 1):
+            print(f"  {index}) {entry['title']} · {labels[entry['status']]} · "
+                  f"{entry['progress']}/{entry['required']}")
+        print(f"  {len(entries) + 1}) 돌아가기")
+        choice = prompt_index("> ", len(entries) + 1)
+        if choice == len(entries):
+            return
+        entry = entries[choice]
+        print(f"{entry['description']} · 목표: {entry['objective']}")
+        rewards = [f"{entry['gold_reward']}G", "지역 평판 +1"]
+        rewards.extend(f"{item['name']}×{item['count']}" for item in entry["item_rewards"])
+        print("보상: " + " · ".join(rewards))
+        if entry["status"] == "available" and prompt_yes_no("수락할까요? (y/n)> "):
+            accept_regional_commission(flags, village_id, entry["id"])
+        elif entry["status"] == "ready" and prompt_yes_no("보상을 받을까요? (y/n)> "):
+            claim_regional_commission(flags, village_id, entry["id"], party, inventory)
+            print("의뢰 보상을 받았습니다.")

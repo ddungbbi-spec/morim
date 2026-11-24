@@ -21,7 +21,8 @@ from typing import Callable, Dict, List, Optional
 import data
 from commissions import (
     accept_commission, claim_commission, commission_state, offer_commission,
-    record_defeats, record_visit,
+    record_defeats, record_visit, regional_board_state,
+    accept_regional_commission, claim_regional_commission,
 )
 from combo import ComboChain, can_chain
 from bestiary import bestiary_state, discover_enemies, record_enemy_defeats
@@ -662,6 +663,31 @@ class WebGame:
             self._log(f"퀘스트 [{QUESTS[quest_id].title}] 보상을 받았습니다.")
         else:
             return self._error("지원하지 않는 퀘스트 행동입니다.")
+        return {"ok": True, "state": self.state()}
+
+    def regional_commission_action(self, operation: str, commission_id: str) -> dict:
+        location = self.game_map.current
+        if self.phase != "explore" or not location.is_village or "quest_board" not in location.services:
+            return self._error("마을 의뢰 게시판에서만 수락하거나 보상을 받을 수 있습니다.")
+        if not isinstance(commission_id, str):
+            return self._error("올바른 지역 의뢰를 선택하세요.")
+        if operation == "accept":
+            if not accept_regional_commission(self.flags, location.id, commission_id):
+                return self._error("지금 수락할 수 있는 지역 의뢰가 아닙니다.")
+            view = next(entry for entry in regional_board_state(self.flags, location.id)
+                        if entry["id"] == commission_id)
+            self._log(f"지역 의뢰 [{view['title']}]을(를) 수락했습니다.")
+        elif operation == "claim":
+            template = claim_regional_commission(
+                self.flags, location.id, commission_id, self.party, self.inventory,
+            )
+            if template is None:
+                return self._error("아직 보상을 받을 수 없거나 이미 수령한 지역 의뢰입니다.")
+            self._log(f"지역 의뢰 [{template.title}] 완료! {template.gold_reward}G · "
+                      + " · ".join(f"{name}×{count}" for name, count in template.item_rewards)
+                      + " · 지역 평판 +1")
+        else:
+            return self._error("지원하지 않는 지역 의뢰 행동입니다.")
         return {"ok": True, "state": self.state()}
 
     def commission_action(self, operation: str) -> dict:
@@ -1951,6 +1977,11 @@ class WebGame:
                 for quest_id, definition in QUESTS.items()
             ],
             "quest_board": "quest_board" in location.services,
+            "regional_commissions": regional_board_state(self.flags, location.id),
+            "tracked_commissions": [
+                entry for entry in regional_board_state(self.flags)
+                if entry["status"] in {"active", "ready"}
+            ],
             "advancement_service": "advancement" in location.services,
             "village": {
                 "is_village": location.is_village,
@@ -2220,6 +2251,10 @@ class GameHandler(BaseHTTPRequestHandler):
                 result = game.quest_action(payload.get("operation", ""), payload.get("quest", ""))
             elif self.path == "/api/commission":
                 result = game.commission_action(payload.get("operation", ""))
+            elif self.path == "/api/regional-commission":
+                result = game.regional_commission_action(
+                    payload.get("operation", ""), payload.get("commission", ""),
+                )
             elif self.path == "/api/achievement":
                 result = game.achievement_action(payload.get("achievement", ""))
             elif self.path == "/api/advancement":

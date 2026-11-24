@@ -173,6 +173,11 @@ function render() {
     : gameState.phase === "battle" ? `${gameState.current_actor || "적"}의 차례`
     : gameState.location.name;
 
+  const tracked = gameState.tracked_commissions || [];
+  const tracker = $("#commissionTracker");
+  tracker.classList.toggle("hidden", !tracked.length || gameState.phase === "setup");
+  tracker.innerHTML = tracked.map((entry) => `<div class="quest-line"><strong>${escapeHtml(entry.title)}</strong><span>${entry.progress}/${entry.required} · ${entry.status === "ready" ? "마을 게시판에서 보상 수령" : escapeHtml(entry.objective)}</span></div>`).join("");
+
   const timeline = $("#turnTimeline");
   if (gameState.phase === "battle") {
     const timelineRow = (label, entries) => `<div><strong>${label}</strong><div>${entries.map((entry, index) =>
@@ -299,7 +304,7 @@ function renderCommands() {
       ${gameState.tower?.can_retry ? `<button class="command-button utility" onclick="towerRetry()">도전의 탑 ${gameState.tower.next_tier}단계 개방</button>` : ""}
       ${gameState.location.id === "abyss_dungeon" && gameState.dungeon.active ? `<button class="command-button danger" onclick="dungeonRequest('advance')">다음 층 도전 · ${gameState.dungeon.depth + 1}/${gameState.dungeon.max_depth} · 누적 조각 ${gameState.dungeon.shard_bank}개 위험</button>` : ""}
       <button class="command-button utility" onclick="openUtility('equipment')">장비</button>
-      ${gameState.quest_board ? `<button class="command-button utility" onclick="openUtility('quest')">이야기 의뢰 게시판</button>` : ""}
+      ${gameState.quest_board ? `<button class="command-button utility" onclick="openUtility('quest')">의뢰 게시판 · 지역 / 이야기</button>` : ""}
       ${gameState.advancement_service ? `<button class="command-button utility" onclick="openUtility('advancement')">전직 교관 · 2차 직업</button>` : ""}
       ${gameState.village?.travel?.length ? `<button class="command-button utility" onclick="openUtility('travel')">방문한 마을로 이동</button>` : ""}
       ${gameState.village?.npc ? `<button class="command-button utility" onclick="openUtility('commission')">${escapeHtml(gameState.village.npc)}의 무작위 의뢰</button>` : ""}
@@ -574,7 +579,20 @@ function renderUtilityPanel() {
         ? utilityButton(`${quest.title} · ${statusNames[quest.status]}`, detail, action)
         : `<div class="utility-card disabled"><strong>${escapeHtml(quest.title)} · ${statusNames[quest.status]}</strong><span>${escapeHtml(detail)}</span></div>`;
     }).join("");
-    panel.innerHTML = utilityShell(`${gameState.location.name} 의뢰 게시판`, utilitySection("퀘스트", quests));
+    const regional = (gameState.regional_commissions || []).map((entry) => {
+      const rewards = [`${entry.gold_reward}G`, ...entry.item_rewards.map((item) => `${item.name}×${item.count}`), `평판 +${entry.reputation_reward}`].join(" · ");
+      const detail = `${entry.description} · ${entry.objective} · ${entry.progress}/${entry.required} · 보상 ${rewards}`;
+      if (entry.status === "available" || entry.status === "ready") {
+        const operation = entry.status === "available" ? "accept" : "claim";
+        const label = entry.status === "available" ? "수락" : "보상 받기";
+        return utilityButton(`${entry.title} · ${label}`, detail,
+          `regionalCommissionRequest('${operation}','${entry.id}')`);
+      }
+      return `<div class="utility-card disabled"><strong>${escapeHtml(entry.title)} · ${entry.status === "completed" ? "보상 수령 완료" : "진행 중"}</strong><span>${escapeHtml(detail)}</span></div>`;
+    }).join("");
+    panel.innerHTML = utilityShell(`${gameState.location.name} 의뢰 게시판`,
+      `<p class="stat-line">지역 의뢰 3개를 함께 수락할 수 있습니다. 수락 이후의 처치·방문만 반영되며, 보상은 해당 마을에서 한 번 받습니다. 진행 후 저장 슬롯에 저장하세요.</p>`
+      + utilitySection("지역 의뢰", regional) + utilitySection("이야기 의뢰", quests));
   } else if (utilityMode === "travel") {
     const destinations = gameState.village.travel.map((village) => utilityButton(
       village.name, "한 번 방문한 마을은 이동로로 즉시 오갈 수 있습니다.",
@@ -824,6 +842,7 @@ function bossRetry() {
 }
 function equipmentRequest(operation, member, equipment, slot) { request("/api/equipment", {operation, member, equipment, slot}); }
 function questRequest(operation, quest) { request("/api/quest", {operation, quest}); }
+function regionalCommissionRequest(operation, commission) { request("/api/regional-commission", {operation, commission}); }
 function travelRequest(target) { request("/api/travel", {target}); }
 function commissionRequest(operation) { request("/api/commission", {operation}); }
 function achievementRequest(achievement) { request("/api/achievement", {achievement}); }
@@ -961,7 +980,7 @@ function playResponseTone(path, before, after) {
   if (after === "battle" && before !== "battle") return playTone("battle");
   if (after === "victory" || after === "ending") return playTone("victory");
   if (after === "dialogue" && before !== "dialogue") return playTone("dialogue");
-  if (["/api/action", "/api/shop", "/api/inn", "/api/blacksmith", "/api/crafting", "/api/tower", "/api/dungeon", "/api/boss", "/api/equipment", "/api/quest", "/api/travel", "/api/commission", "/api/achievement", "/api/advancement", "/api/save"].includes(path)) return playTone("confirm");
+  if (["/api/action", "/api/shop", "/api/inn", "/api/blacksmith", "/api/crafting", "/api/tower", "/api/dungeon", "/api/boss", "/api/equipment", "/api/quest", "/api/regional-commission", "/api/travel", "/api/commission", "/api/achievement", "/api/advancement", "/api/save"].includes(path)) return playTone("confirm");
   if (path === "/api/move") return playTone("move");
 }
 
